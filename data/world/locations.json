@@ -1,0 +1,20 @@
+{
+  "locations": [
+    {
+      "id": "village_square",
+      "display_name": "回音村廣場",
+      "bounds": [42, 92, 1196, 506],
+      "neighbors": ["forest_edge"],
+      "unlock_requirements": [],
+      "landmark_ids": ["fountain", "tavern", "shop", "farm", "healer"]
+    },
+    {
+      "id": "forest_edge",
+      "display_name": "低語森林邊緣",
+      "bounds": [42, 92, 1196, 506],
+      "neighbors": ["village_square"],
+      "unlock_requirements": [],
+      "landmark_ids": ["grove", "herb_patch", "camp"]
+    }
+  ]
+}

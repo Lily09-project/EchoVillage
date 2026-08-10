@@ -1,0 +1,31 @@
+{
+  "name": "Echo Village Storybook",
+  "direction": "warm hand-painted village journal",
+  "primitives": {
+    "ink": "#2f2830",
+    "paper": "#fff4dc",
+    "paper_shadow": "#e4cda5",
+    "forest": "#2e6b58",
+    "meadow": "#78ad73",
+    "moss": "#3f8467",
+    "sun": "#f5bd55",
+    "terracotta": "#c86e57",
+    "water": "#55a7b8",
+    "night": "#1c2b50",
+    "lavender": "#7b6aa7"
+  },
+  "semantic": {
+    "world_sky": "sunlit parchment blue to deep indigo",
+    "world_ground": "layered meadow greens",
+    "ui_surface": "warm paper with ink outlines",
+    "interactive": "moss green",
+    "warning": "terracotta",
+    "selected": "sun gold"
+  },
+  "motion": {
+    "idle_seconds": 1.8,
+    "ambient_seconds": 4.0,
+    "panel_enter_seconds": 0.24,
+    "reduced_motion": "freeze decorative movement while retaining state cues"
+  }
+}

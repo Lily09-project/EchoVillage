@@ -1,0 +1,47 @@
+{
+  "rain": {
+    "id": "rain",
+    "display_name": "降雨",
+    "start_time": "runtime",
+    "duration": 240,
+    "description": "田地濕潤，村民更傾向待在室內社交。",
+    "effects": {"work_utility": -28, "socialize_utility": 18},
+    "notifications": ["雨勢變大，田間工作暫緩。", "酒館裡逐漸熱鬧起來。"]
+  },
+  "food_shortage": {
+    "id": "food_shortage",
+    "display_name": "糧食短缺",
+    "start_time": "runtime",
+    "duration": 360,
+    "description": "麵包價格與飢餓的優先度上升。",
+    "effects": {"bread_price_multiplier": 1.5, "eat_utility": 22},
+    "notifications": ["糧倉供應吃緊，麵包價格上漲。"]
+  },
+  "festival": {
+    "id": "festival",
+    "display_name": "豐收祭典",
+    "start_time": "runtime",
+    "duration": 300,
+    "description": "酒館成為村民社交中心。",
+    "effects": {"socialize_utility": 28},
+    "notifications": ["廣場掛起祭典旗幟，居民開始聚集。"]
+  },
+  "minor_danger": {
+    "id": "minor_danger",
+    "display_name": "突發危險",
+    "start_time": "runtime",
+    "duration": 180,
+    "description": "勇敢的村民會協助，謹慎的村民會逃離。",
+    "effects": {"safety_growth": 0.18, "enable_help_and_flee": true},
+    "notifications": ["村外傳來危險警報。", "居民依勇氣選擇協助或撤離。"]
+  },
+  "npc_injury": {
+    "id": "npc_injury",
+    "display_name": "林場意外",
+    "start_time": "runtime",
+    "duration": 210,
+    "description": "艾瑞克在林場受傷，體力下降並留下重要記憶。",
+    "effects": {"target_npc_id": "eric", "energy_delta": -32, "modifier": "injured"},
+    "notifications": ["林場傳來意外消息，艾瑞克需要休養。"]
+  }
+}

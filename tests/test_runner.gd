@@ -1,0 +1,729 @@
+extends Node
+
+var passed := 0
+var failed := 0
+var results: Array[Dictionary] = []
+
+func _ready() -> void:
+	call_deferred("run")
+
+func run() -> void:
+	await get_tree().process_frame
+	GameManager.new_game()
+	check("載入五位 NPC 設定檔", GameManager.npcs.size() == 5)
+	check("所有 NPC 具有必要運行狀態", runtime_state_is_valid())
+	check("背包增減資料一致", inventory_test())
+	check("關係值正確限制在範圍內", relationship_test())
+	check("正向互動會建立記憶", memory_test())
+	check("存檔與讀檔能還原玩家狀態", save_load_test())
+	check("糧食短缺會提高麵包價格", event_price_test())
+	check("七日加速模擬保持健康", simulation_test())
+	check("展示情境會重現記憶擴散與勇氣決策", showcase_test())
+	check("玩家行動會推進村落編年與聲望", community_progress_test())
+	check("村落編年會隨遊戲狀態序列化還原", community_progress_save_test())
+	check("日夜階段會正確映射遊戲時間", day_phase_test())
+	check("NPC 展示快照會安全提供情緒、需求與關係", npc_showcase_snapshot_test())
+	check("日夜視覺設定會提供可用亮度與標籤", visual_profile_test())
+	check("主介面具備完整展示控制列與編年面板", await ui_structure_test())
+	check("居民互動介面提供情境操作列、靠近提示與結果回饋", await contextual_interaction_ui_test())
+	check("關鍵操作具備離散按鍵輸入映射", input_map_test())
+	check("繪本美術系統提供角色與日夜視覺資料", village_art_system_test())
+	check("擴充內容資料契約可載入", expansion_data_contract_test())
+	check("舊版存檔可安全遷移至世界狀態 v2", save_v1_migration_test())
+	check("林間回音任務可依序推進並原子交付", forest_echo_progression_test())
+	check("完成任務後不可重複取得獎勵", quest_reward_idempotency_test())
+	check("森林配方製作成功且失敗時不消耗素材", crafting_atomicity_test())
+	check("任務追蹤、世界地圖與任務日誌具備完整輸入路徑", await expansion_ui_structure_test())
+	check("玩家可由詢問艾莉絲到贈禮黛安娜完成林間回音", quest_player_flow_test())
+	check("森林邊境具備獨立的繪本場景繪製契約", forest_visual_contract_test())
+	check("主場景提供可重複的視覺 QA 擷取入口", await visual_capture_interface_test())
+	check("任務與森林視覺 QA 證據已產生", expansion_visual_capture_test())
+	check("消費者主選單與設定介面具備完整入口", await consumer_shell_structure_test())
+	check("存檔服務支援繼續遊戲、自動存檔與偏好設定", save_service_capabilities_test())
+	check("遊戲時間可以在模態介面期間可靠暫停", game_time_pause_test())
+	check("買入與出售交易會原子更新雙方金錢與庫存", trade_atomicity_test())
+	check("交易面板提供選品、買入、出售與明確關閉路徑", await trade_ui_structure_test())
+	check("背包摘要涵蓋完整物品目錄與森林製作入口", await complete_inventory_ui_test())
+	check("NPC runtime 具備完整代理狀態與 NPC 對 NPC 關係", extended_runtime_contract_test())
+	check("低重要度記憶會衰減且高重要度記憶受到保護", memory_decay_management_test())
+	check("世界事件跨越午夜仍會依持續時間結束", world_event_lifecycle_test())
+	check("NPC 受傷事件會產生可追溯後果", npc_injury_event_test())
+	check("主場景使用 Godot 2D Navigation 並提供卡住保護", await navigation_runtime_test())
+	check("Debug 工具可調整需求、增加物品與傳送玩家", debug_mutation_tools_test())
+	check("F3 面板提供可操作的模擬診斷按鈕", await debug_ui_controls_test())
+	check("森林互動不會選取未出現在當地的村民", await location_aware_interaction_test())
+	check("五位 NPC Profile 具備年齡、對話人格與獨立住宅", npc_profile_consumer_contract_test())
+	check("村落美術提供五間可辨識的居民住宅", village_homes_visual_contract_test())
+	check("設定切換鈕在選取狀態仍維持高對比文字", await settings_selected_contrast_test())
+	check("交易面板開啟時位於所有 HUD 卡片上方", await trade_modal_layering_test())
+	check("Utility AI 由可擴充的十種 NPC Action Registry 驅動", npc_action_registry_test())
+	check("NPC State Machine 管理移動、工作、睡眠與逾時復原", npc_state_machine_test())
+	check("十種 NPC 行動皆由獨立具名 Action 類別實作", concrete_npc_actions_test())
+	check("Utility AI 支援最低門檻、行動冷卻與 Mood 修正", utility_stability_rules_test())
+	check("雨天會降低工作傾向並提高室內社交傾向", rain_event_behavior_test())
+	check("危險事件的協助行為會留下記憶並改變 NPC 關係", danger_help_consequence_test())
+	check("NPC State Machine 明確支援規格要求的六種核心狀態", state_machine_required_states_test())
+	check("玩家 Talk 會進入交談狀態並建立短期記憶", player_talk_flow_test())
+	check("NPC 可打招呼、爭執與分享資訊並產生社會後果", npc_social_interaction_modes_test())
+	check("森林公共資源可採集且會更新玩家背包與地點狀態", public_resource_gathering_test())
+	check("互動列與背包提供正式 Talk 與採集操作", await talk_and_gather_ui_test())
+	check("主場景具備平滑 Camera2D、世界邊界與玩家跟隨契約", await player_camera_contract_test())
+	check("基礎音效服務可關閉、播放並由設定頁持久控制", await sound_service_and_settings_test())
+	check("Optional AIService 僅輸出結構化文本並可安全 fallback", optional_ai_service_contract_test())
+	check("Inventory 支援 has_item 並拒絕負數量與非法物品變更", inventory_safety_contract_test())
+	check("Needs 成長率會受到 NPC personality 影響且維持一致語意", personality_need_rates_test())
+	check("WorldEventManager 管理事件生命週期與完整資料契約", world_event_manager_contract_test())
+	check("F3 診斷資訊完整呈現目標、位置、情緒、記憶與路徑", await debug_diagnostics_contract_test())
+	check("NPC 每次重要決策都會記錄 Action 與 Utility Score", decision_event_log_contract_test())
+	check("Inventory、Needs 與 Relationship 由獨立服務模組負責純邏輯", core_service_boundaries_test())
+	write_report()
+	print("Echo Village 測試：%d 通過，%d 失敗" % [passed,failed])
+	get_tree().quit(0 if failed == 0 else 1)
+
+func check(name: String, condition: bool) -> void:
+	results.append({"name":name,"passed":condition})
+	if condition:
+		passed += 1
+		print("PASS  " + name)
+	else:
+		failed += 1
+		push_error("FAIL  " + name)
+
+func runtime_state_is_valid() -> bool:
+	for npc in GameManager.npcs.values():
+		for key in ["position","target","needs","inventory","relationships","memories","mood","action","state"]:
+			if not npc.has(key): return false
+	return true
+
+func inventory_test() -> bool:
+	var inventory := {"bread":1}
+	GameManager.add_item(inventory,"bread",2)
+	return GameManager.count_item(inventory,"bread") == 3 and GameManager.remove_item(inventory,"bread",3) and GameManager.count_item(inventory,"bread") == 0 and not GameManager.remove_item(inventory,"bread",1)
+
+func relationship_test() -> bool:
+	var alice: Dictionary = GameManager.npcs["alice"]
+	GameManager.change_relationship(alice,"player",{"trust":999.0,"affinity":-999.0})
+	var relation: Dictionary = alice["relationships"]["player"]
+	return relation["trust"] == 100.0 and relation["affinity"] == -100.0
+
+func memory_test() -> bool:
+	var before: int = int(GameManager.npcs["alice"]["memories"].size())
+	GameManager.interact("alice","give_bread")
+	return GameManager.npcs["alice"]["memories"].size() == before + 1
+
+func save_load_test() -> bool:
+	var original := int(GameManager.player["coin"])
+	if not SaveManager.save_game(): return false
+	GameManager.player["coin"] = 1
+	if not SaveManager.load_game(): return false
+	return int(GameManager.player["coin"]) == original
+
+func event_price_test() -> bool:
+	GameManager.new_game()
+	var normal := GameManager.trade_price("alice","bread")
+	GameManager.trigger_world_event("food_shortage")
+	var shortage := GameManager.trade_price("alice","bread")
+	return shortage > normal
+
+func simulation_test() -> bool:
+	GameManager.new_game()
+	GameManager.trigger_world_event("minor_danger")
+	for _minute in 10080:
+		GameTime.advance_minute()
+	for npc in GameManager.npcs.values():
+		for value in npc["needs"].values():
+			if float(value) < 0.0 or float(value) > 100.0: return false
+		if npc["state"] == "" or npc["action"] == "": return false
+	return true
+
+func showcase_test() -> bool:
+	GameManager.load_showcase("rumor")
+	var charlie: Dictionary = GameManager.npcs["charlie"]
+	var rumor_ok: bool = charlie["memories"].size() > 0 and float(charlie["relationships"]["player"]["trust"]) < 0.0
+	GameManager.load_showcase("danger")
+	var bravery_ok: bool = GameManager.npcs["alice"]["action"] == "Flee" and GameManager.npcs["bob"]["action"] == "Help"
+	return rumor_ok and bravery_ok
+
+func community_progress_test() -> bool:
+	GameManager.new_game()
+	GameManager.interact("alice","give_bread")
+	var after_kindness: Dictionary = GameManager.community_progress()
+	GameManager.interact("bob","steal_food")
+	GameManager.trigger_world_event("minor_danger")
+	var result: Dictionary = GameManager.community_progress()
+	return bool(after_kindness["kindness"]) and int(after_kindness["renown"]) >= 3 and bool(result["rumor"]) and bool(result["crisis"]) and int(result["unlocked"]) == 3
+
+func community_progress_save_test() -> bool:
+	GameManager.new_game()
+	GameManager.interact("alice","give_bread")
+	var snapshot: Dictionary = GameManager.serialize()
+	GameManager.new_game()
+	GameManager.deserialize(snapshot)
+	var result: Dictionary = GameManager.community_progress()
+	return bool(result["kindness"]) and int(result["renown"]) >= 3 and int(result["unlocked"]) == 1
+
+func day_phase_test() -> bool:
+	return GameTime.phase_for_minute(360) == "黎明" and GameTime.phase_for_minute(780) == "正午" and GameTime.phase_for_minute(1140) == "黃昏" and GameTime.phase_for_minute(60) == "深夜"
+
+func npc_showcase_snapshot_test() -> bool:
+	GameManager.new_game()
+	var snapshot: Dictionary = GameManager.npc_showcase_snapshot("alice")
+	if snapshot.is_empty() or not snapshot.has_all(["display_name","mood","action","needs","relationship","memory_count","goal"]): return false
+	var original_hunger: float = float(GameManager.npcs["alice"]["needs"]["hunger"])
+	snapshot["needs"]["hunger"] = 99.0
+	return float(GameManager.npcs["alice"]["needs"]["hunger"]) == original_hunger
+
+func visual_profile_test() -> bool:
+	var night: Dictionary = GameTime.visual_profile(60)
+	var noon: Dictionary = GameTime.visual_profile(780)
+	return night["phase"] == "深夜" and float(night["light"]) < 0.5 and noon["phase"] == "正午" and float(noon["light"]) > 0.9
+
+func ui_structure_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	if scene == null: return false
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	var required := ["CanvasLayer/TimeControls","CanvasLayer/ChroniclePanel","CanvasLayer/InventoryPanel","CanvasLayer/PausePanel"]
+	var result := true
+	for path in required:
+		if instance.get_node_or_null(path) == null:
+			print("UI 缺少節點：" + path)
+			result = false
+	instance.queue_free()
+	return result
+
+func input_map_test() -> bool:
+	for action in ["interact","inventory","journal","cancel","speed_normal","speed_2x","speed_5x","speed_10x","save_game","load_game","event_rain","event_festival","event_shortage","event_danger"]:
+		if not InputMap.has_action(action): return false
+	return true
+
+func contextual_interaction_ui_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	if scene == null: return false
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	var dock := instance.get_node_or_null("CanvasLayer/ActionDock") as Control
+	var prompt := instance.get_node_or_null("CanvasLayer/InteractionPrompt") as Control
+	var feedback := instance.get_node_or_null("CanvasLayer/ImpactFeedback") as Control
+	var action_count := 0
+	if dock != null:
+		for child in dock.get_children():
+			if child is Button: action_count += 1
+	var result := dock != null and prompt != null and feedback != null and action_count == 5 and instance.has_method("show_interaction_feedback")
+	instance.queue_free()
+	return result
+
+func village_art_system_test() -> bool:
+	var art = load("res://scripts/ui/village_art.gd")
+	if art == null or not FileAccess.file_exists("res://assets/art/visual_palette.json"): return false
+	var alice: Dictionary = art.character_style("alice")
+	var night: Dictionary = art.time_palette(0.2,true)
+	return alice.has_all(["body","hair","outfit","accent","role_prop"]) and night.has_all(["sky","ground","water","window_light","overlay_alpha"])
+
+func expansion_data_contract_test() -> bool:
+	return GameManager.has_method("has_expansion_data") and GameManager.has_expansion_data()
+
+func save_v1_migration_test() -> bool:
+	GameManager.new_game()
+	GameManager.interact("alice", "give_bread")
+	var legacy := {"save_version":1, "time":GameTime.serialize(), "world":GameManager.legacy_serialize()}
+	var migration = load("res://scripts/save/save_migration.gd")
+	if migration == null or not migration.has_method("migrate"): return false
+	var result: Dictionary = migration.migrate(legacy)
+	if not bool(result.get("ok",false)): return false
+	var migrated: Dictionary = result.get("data",{})
+	var state: Dictionary = migrated.get("world_state",{})
+	return int(migrated.get("save_version",0)) == 2 and state.has_all(["player","npcs","current_location","discovered_locations","active_quests","completed_quests","world_flags"]) and int(state["player"]["inventory"].get("bread",0)) == 2
+
+func forest_echo_progression_test() -> bool:
+	GameManager.new_game()
+	if not GameManager.has_method("accept_quest"): return false
+	if not bool(GameManager.accept_quest("forest_echo").get("ok",false)): return false
+	GameManager.interact("alice","ask")
+	if not bool(GameManager.travel_to("forest_edge").get("ok",false)): return false
+	var bread_before := GameManager.count_item(GameManager.player["inventory"],"bread")
+	GameManager.remove_item(GameManager.player["inventory"],"bread",bread_before)
+	var blocked: Dictionary = GameManager.complete_delivery("forest_echo","bread",1)
+	if bool(blocked.get("ok",false)) or GameManager.is_quest_completed("forest_echo"): return false
+	GameManager.add_item(GameManager.player["inventory"],"bread",1)
+	var complete: Dictionary = GameManager.complete_delivery("forest_echo","bread",1)
+	return bool(complete.get("ok",false)) and GameManager.is_quest_completed("forest_echo") and GameManager.current_location == "forest_edge" and "forest_edge" in GameManager.discovered_locations and GameManager.count_item(GameManager.player["inventory"],"herb") == 2
+
+func quest_reward_idempotency_test() -> bool:
+	GameManager.new_game()
+	if not GameManager.has_method("accept_quest"): return false
+	GameManager.accept_quest("forest_echo")
+	GameManager.interact("alice","ask")
+	GameManager.travel_to("forest_edge")
+	GameManager.complete_delivery("forest_echo","bread",1)
+	var coin_after := int(GameManager.player["coin"])
+	var herb_after := GameManager.count_item(GameManager.player["inventory"],"herb")
+	var duplicate: Dictionary = GameManager.complete_delivery("forest_echo","bread",1)
+	return not bool(duplicate.get("ok",false)) and int(GameManager.player["coin"]) == coin_after and GameManager.count_item(GameManager.player["inventory"],"herb") == herb_after
+
+func crafting_atomicity_test() -> bool:
+	GameManager.new_game()
+	if not GameManager.has_method("craft_recipe"): return false
+	GameManager.current_location = "forest_edge"
+	GameManager.add_item(GameManager.player["inventory"],"herb",2)
+	var medicine_before := GameManager.count_item(GameManager.player["inventory"],"medicine")
+	var crafted: Dictionary = GameManager.craft_recipe("forest_remedy")
+	var failed: Dictionary = GameManager.craft_recipe("forest_remedy")
+	return bool(crafted.get("ok",false)) and not bool(failed.get("ok",false)) and GameManager.count_item(GameManager.player["inventory"],"medicine") == medicine_before + 1 and GameManager.count_item(GameManager.player["inventory"],"herb") == 0
+
+func expansion_ui_structure_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	if scene == null: return false
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	var result := instance.get_node_or_null("CanvasLayer/QuestTracker") != null and instance.get_node_or_null("CanvasLayer/WorldMapPanel") != null and instance.get_node_or_null("CanvasLayer/QuestLogPanel") != null and InputMap.has_action("world_map") and InputMap.has_action("quest_log")
+	instance.queue_free()
+	return result
+
+func quest_player_flow_test() -> bool:
+	GameManager.new_game()
+	GameManager.interact("alice","ask")
+	if not GameManager.active_quests.has("forest_echo"): return false
+	if int(GameManager.active_quests["forest_echo"].get("objective_index",0)) != 1: return false
+	if not bool(GameManager.travel_to("forest_edge").get("ok",false)): return false
+	var response := GameManager.interact("diana","give_bread")
+	return GameManager.is_quest_completed("forest_echo") and response.contains("林間回音") and bool(GameManager.world_flags.get("forest_echo_complete",false))
+
+func forest_visual_contract_test() -> bool:
+	var art = load("res://scripts/ui/village_art.gd")
+	return art != null and art.has_method("draw_forest_edge")
+
+func visual_capture_interface_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	if scene == null: return false
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	var result := instance.has_method("capture_visual_qa") and instance.has_method("visual_qa_capture_names")
+	if result:
+		var names: Array = instance.visual_qa_capture_names()
+		for expected in ["quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png"]: result = result and expected in names
+	instance.queue_free()
+	return result
+
+func expansion_visual_capture_test() -> bool:
+	for expected in ["quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png"]:
+		if not FileAccess.file_exists("res://tests/visual_qa/" + expected): return false
+	return true
+
+func consumer_shell_structure_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	if scene == null: return false
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	var required := [
+		"CanvasLayer/MainMenu",
+		"CanvasLayer/MainMenu/NewGameButton",
+		"CanvasLayer/MainMenu/ContinueButton",
+		"CanvasLayer/MainMenu/SettingsButton",
+		"CanvasLayer/SettingsPanel",
+		"CanvasLayer/SettingsPanel/AutosaveToggle",
+		"CanvasLayer/SettingsPanel/MotionToggle",
+		"CanvasLayer/SettingsPanel/FullscreenToggle"
+	]
+	var result := instance.has_method("start_new_game") and instance.has_method("continue_game") and instance.has_method("open_settings")
+	for path in required: result = result and instance.get_node_or_null(path) != null
+	instance.queue_free()
+	return result
+
+func save_service_capabilities_test() -> bool:
+	return SaveManager.has_method("has_save") and SaveManager.has_method("autosave_game") and SaveManager.has_method("load_preferences") and SaveManager.has_method("set_preference")
+
+func game_time_pause_test() -> bool:
+	if not GameTime.has_method("set_simulation_paused"): return false
+	GameTime.set_simulation_paused(true)
+	var paused_ok: bool = bool(GameTime.simulation_paused)
+	GameTime.set_simulation_paused(false)
+	return paused_ok and not bool(GameTime.simulation_paused)
+
+func trade_atomicity_test() -> bool:
+	GameManager.new_game()
+	if not GameManager.has_method("buy_item") or not GameManager.has_method("sell_item"): return false
+	var player_coin_before := int(GameManager.player["coin"])
+	var player_bread_before := GameManager.count_item(GameManager.player["inventory"],"bread")
+	var alice_bread_before := GameManager.count_item(GameManager.npcs["alice"]["inventory"],"bread")
+	var bought: Dictionary = GameManager.buy_item("alice","bread",1)
+	if not bool(bought.get("ok",false)): return false
+	if int(GameManager.player["coin"]) >= player_coin_before or GameManager.count_item(GameManager.player["inventory"],"bread") != player_bread_before + 1 or GameManager.count_item(GameManager.npcs["alice"]["inventory"],"bread") != alice_bread_before - 1: return false
+	var snapshot := GameManager.serialize()
+	var invalid: Dictionary = GameManager.buy_item("alice","missing_item",1)
+	if bool(invalid.get("ok",false)) or GameManager.serialize() != snapshot: return false
+	var medicine_before := GameManager.count_item(GameManager.player["inventory"],"medicine")
+	var sold: Dictionary = GameManager.sell_item("alice","medicine",1)
+	return bool(sold.get("ok",false)) and GameManager.count_item(GameManager.player["inventory"],"medicine") == medicine_before - 1 and int(GameManager.player["coin"]) > int(snapshot["player"]["coin"])
+
+func trade_ui_structure_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	if scene == null: return false
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	var required := ["CanvasLayer/TradePanel","CanvasLayer/TradePanel/ItemSelector","CanvasLayer/TradePanel/BuyButton","CanvasLayer/TradePanel/SellButton","CanvasLayer/TradePanel/CloseButton"]
+	var result := instance.has_method("open_trade_panel")
+	for path in required: result = result and instance.get_node_or_null(path) != null
+	instance.queue_free()
+	return result
+
+func complete_inventory_ui_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	if scene == null: return false
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	var summary := str(instance.inventory_summary()) if instance.has_method("inventory_summary") else ""
+	var result := instance.get_node_or_null("CanvasLayer/InventoryPanel/CraftButton") != null
+	for item_name in ["麵包","蔬菜","木材","藥品","月光藥草"]: result = result and summary.contains(item_name)
+	instance.queue_free()
+	return result
+
+func extended_runtime_contract_test() -> bool:
+	GameManager.new_game()
+	var required := ["current_location","current_action","current_target","temporary_modifiers","current_goal"]
+	for npc_id in GameManager.npcs:
+		var npc: Dictionary = GameManager.npcs[npc_id]
+		if not npc.has_all(required): return false
+		for target_id in GameManager.npcs:
+			if target_id != npc_id and not npc["relationships"].has(target_id): return false
+	return true
+
+func memory_decay_management_test() -> bool:
+	GameManager.new_game()
+	if not GameManager.has_method("decay_memories"): return false
+	GameManager.create_memory("alice","small_talk","一段普通閒聊。",1,4)
+	GameManager.create_memory("alice","life_event","一段重要的人生事件。",20,80)
+	GameManager.decay_memories(GameManager.npcs["alice"],2)
+	var has_low := false
+	var has_high := false
+	for memory in GameManager.npcs["alice"]["memories"]:
+		has_low = has_low or str(memory["event_type"]) == "small_talk"
+		has_high = has_high or str(memory["event_type"]) == "life_event"
+	return not has_low and has_high and GameManager.npcs["alice"]["memories"].size() <= GameManager.MAX_MEMORIES_PER_NPC
+
+func world_event_lifecycle_test() -> bool:
+	GameManager.new_game()
+	GameTime.minute = 1438
+	GameTime.day = 1
+	GameManager.trigger_world_event("rain")
+	var duration := int(GameManager.active_event.get("duration",0))
+	for _index in duration + 1: GameTime.advance_minute()
+	return GameManager.active_event.is_empty() and GameTime.day >= 2
+
+func npc_injury_event_test() -> bool:
+	GameManager.new_game()
+	if not GameManager.event_defs.has("npc_injury"): return false
+	var energy_before := float(GameManager.npcs["eric"]["needs"]["energy"])
+	var memories_before: int = int(GameManager.npcs["eric"]["memories"].size())
+	GameManager.trigger_world_event("npc_injury")
+	return str(GameManager.active_event.get("target_npc_id","")) == "eric" and float(GameManager.npcs["eric"]["needs"]["energy"]) < energy_before and GameManager.npcs["eric"]["memories"].size() == memories_before + 1
+
+func navigation_runtime_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	if scene == null: return false
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	var coordinator := instance.get_node_or_null("NavigationCoordinator")
+	var agent_count := coordinator.find_children("*","NavigationAgent2D",true,false).size() if coordinator != null else 0
+	var result := coordinator != null and agent_count == 5 and coordinator.has_method("debug_paths") and coordinator.has_method("recover_stalled_agent")
+	instance.queue_free()
+	return result
+
+func debug_mutation_tools_test() -> bool:
+	GameManager.new_game()
+	if not GameManager.has_method("debug_adjust_need") or not GameManager.has_method("debug_add_player_item") or not GameManager.has_method("debug_teleport_player_to_npc"): return false
+	var bread_before := GameManager.count_item(GameManager.player["inventory"],"bread")
+	GameManager.debug_add_player_item("bread",2)
+	GameManager.debug_adjust_need("alice","hunger",99.0)
+	var teleported: Dictionary = GameManager.debug_teleport_player_to_npc("alice")
+	return GameManager.count_item(GameManager.player["inventory"],"bread") == bread_before + 2 and float(GameManager.npcs["alice"]["needs"]["hunger"]) == 100.0 and bool(teleported.get("ok",false)) and GameManager.player["position"].distance_to(GameManager.npcs["alice"]["position"]) < 50.0
+
+func debug_ui_controls_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	if scene == null: return false
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	var required := ["CanvasLayer/DebugOverlay/AddBreadButton","CanvasLayer/DebugOverlay/StressNeedButton","CanvasLayer/DebugOverlay/TeleportButton","CanvasLayer/DebugOverlay/InjuryEventButton"]
+	var result := true
+	for path in required: result = result and instance.get_node_or_null(path) != null
+	instance.queue_free()
+	return result
+
+func location_aware_interaction_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	if scene == null: return false
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	GameManager.current_location = "forest_edge"
+	GameManager.player["position"] = GameManager.npcs["alice"]["position"]
+	var nearest := str(instance.nearest_npc_id(40.0))
+	var result: bool = nearest == "" and instance.npc_is_present("diana") and instance.npc_is_present("eric") and not instance.npc_is_present("alice")
+	instance.queue_free()
+	return result
+
+func npc_profile_consumer_contract_test() -> bool:
+	var homes := {}
+	for profile in GameManager.npc_profiles.get("npcs",[]):
+		if not profile.has_all(["age","dialogue_profile","home_location"]): return false
+		if int(profile["age"]) < 18 or not (profile["dialogue_profile"] is Dictionary) or profile["dialogue_profile"].is_empty(): return false
+		homes[str(profile["home_location"])] = true
+	return homes.size() == 5
+
+func village_homes_visual_contract_test() -> bool:
+	var art = load("res://scripts/ui/village_art.gd")
+	return art != null and art.has_method("draw_cottage") and GameManager.npcs["alice"]["home_location"] == "alice_home" and GameManager.target_for(GameManager.npcs["alice"],"GoHome") != GameManager.target_for(GameManager.npcs["alice"],"Work")
+
+func settings_selected_contrast_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	var toggle := instance.get_node_or_null("CanvasLayer/SettingsPanel/AutosaveToggle") as CheckButton
+	var theme = load("res://scripts/ui/ui_theme.gd")
+	var result: bool = toggle != null and toggle.get_theme_color("font_pressed_color") == theme.INK
+	instance.queue_free()
+	return result
+
+func trade_modal_layering_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	instance.main_menu_panel.visible = false
+	instance.selected_id = "alice"
+	GameManager.player["position"] = GameManager.npcs["alice"]["position"]
+	instance.open_trade_panel()
+	var panel := instance.get_node_or_null("CanvasLayer/TradePanel")
+	var result: bool = panel != null and panel.get_index() == panel.get_parent().get_child_count() - 1
+	instance.queue_free()
+	return result
+
+func npc_action_registry_test() -> bool:
+	var registry_script = load("res://scripts/ai/action_registry.gd")
+	if registry_script == null: return false
+	var registry = registry_script.new()
+	var expected := ["Eat","Sleep","Work","Socialize","Wander","Shop","GoHome","Flee","Help","Rest"]
+	if registry.action_ids() != expected: return false
+	for action_id in expected:
+		var action = registry.get_action(action_id)
+		if action == null or not action.has_method("can_execute") or not action.has_method("calculate_score") or not action.has_method("start") or not action.has_method("update") or not action.has_method("finish") or not action.has_method("cancel"): return false
+	GameManager.new_game()
+	var npc: Dictionary = GameManager.npcs["alice"]
+	var context: Dictionary = GameManager.action_context(npc)
+	var baseline: Dictionary = registry.calculate_scores(npc,context)
+	npc["needs"]["hunger"] = 96.0
+	var hungry: Dictionary = registry.calculate_scores(npc,GameManager.action_context(npc))
+	return baseline.size() == expected.size() and float(hungry["Eat"]) > float(baseline["Eat"])
+
+func npc_state_machine_test() -> bool:
+	var machine_script = load("res://scripts/npc/npc_state_machine.gd")
+	if machine_script == null: return false
+	var machine = machine_script.new()
+	GameManager.new_game()
+	var npc: Dictionary = GameManager.npcs["bob"]
+	machine.transition_for_action(npc,"Work",Vector2(1000,500),0)
+	var moving_ok: bool = npc["state"] == "Moving" and npc["current_action"] == "Work"
+	npc["position"] = npc["current_target"]
+	machine.update(npc,1)
+	var working_ok: bool = npc["state"] == "Working"
+	machine.transition_for_action(npc,"Sleep",npc["position"],2)
+	var sleeping_ok: bool = npc["state"] == "Sleeping"
+	npc["state_entered_minute"] = -100
+	machine.update(npc,100)
+	return moving_ok and working_ok and sleeping_ok and npc["state"] == "Idle"
+
+func concrete_npc_actions_test() -> bool:
+	var expected := {
+		"Eat":"eat_action.gd", "Sleep":"sleep_action.gd", "Work":"work_action.gd",
+		"Socialize":"socialize_action.gd", "Wander":"wander_action.gd", "Shop":"shop_action.gd",
+		"GoHome":"go_home_action.gd", "Flee":"flee_action.gd", "Help":"help_action.gd", "Rest":"rest_action.gd"
+	}
+	for action_id in expected:
+		var action = GameManager.action_registry.get_action(action_id)
+		if action == null or not str(action.get_script().resource_path).ends_with(str(expected[action_id])): return false
+	return true
+
+func utility_stability_rules_test() -> bool:
+	GameManager.new_game()
+	if GameManager.get("minimum_action_score") == null: return false
+	var npc: Dictionary = GameManager.npcs["bob"]
+	var context: Dictionary = GameManager.action_context(npc)
+	context["action_cooldowns"] = {"Work":GameTime.minute + 30}
+	var scores: Dictionary = GameManager.action_registry.calculate_scores(npc,context)
+	var cooldown_ok: bool = float(scores["Work"]) <= -999.0
+	npc["mood"] = "Afraid"
+	var afraid_scores: Dictionary = GameManager.action_registry.calculate_scores(npc,GameManager.action_context(npc))
+	npc["mood"] = "Neutral"
+	var neutral_scores: Dictionary = GameManager.action_registry.calculate_scores(npc,GameManager.action_context(npc))
+	return cooldown_ok and float(afraid_scores["Flee"]) > float(neutral_scores["Flee"])
+
+func rain_event_behavior_test() -> bool:
+	GameManager.new_game()
+	var bob: Dictionary = GameManager.npcs["bob"]
+	var normal: Dictionary = GameManager.utility_scores(bob)
+	GameManager.trigger_world_event("rain")
+	var rainy: Dictionary = GameManager.utility_scores(bob)
+	return float(rainy["Work"]) < float(normal["Work"]) and float(rainy["Socialize"]) > float(normal["Socialize"])
+
+func danger_help_consequence_test() -> bool:
+	GameManager.load_showcase("danger")
+	var found_memory := false
+	var found_relationship := false
+	for npc_id in GameManager.npcs:
+		var npc: Dictionary = GameManager.npcs[npc_id]
+		for memory in npc["memories"]:
+			found_memory = found_memory or str(memory.get("event_type","")) == "npc_helped_npc"
+		for target_id in npc["relationships"]:
+			if target_id != "player": found_relationship = found_relationship or float(npc["relationships"][target_id].get("respect",0.0)) > 0.0
+	return found_memory and found_relationship
+
+func state_machine_required_states_test() -> bool:
+	var required := ["Idle","Moving","PerformingAction","Talking","Sleeping","Working"]
+	return GameManager.npc_state_machine.has_method("available_states") and GameManager.npc_state_machine.available_states() == required
+
+func player_talk_flow_test() -> bool:
+	GameManager.new_game()
+	var before: int = GameManager.npcs["alice"]["memories"].size()
+	var response := GameManager.interact("alice","talk")
+	var latest: Dictionary = GameManager.npcs["alice"]["memories"].back() if GameManager.npcs["alice"]["memories"].size() > 0 else {}
+	return response != "" and GameManager.npcs["alice"]["state"] == "Talking" and GameManager.npcs["alice"]["memories"].size() == before + 1 and str(latest.get("event_type","")) == "small_talk"
+
+func npc_social_interaction_modes_test() -> bool:
+	GameManager.new_game()
+	if not GameManager.has_method("social_interaction"): return false
+	var affinity_before := float(GameManager.npcs["bob"]["relationships"]["charlie"]["affinity"])
+	var greeted: Dictionary = GameManager.social_interaction("bob","charlie","greet")
+	if not bool(greeted.get("ok",false)) or float(GameManager.npcs["bob"]["relationships"]["charlie"]["affinity"]) <= affinity_before: return false
+	GameManager.create_memory("bob","saw_event","鮑伯看見玩家幫助村民。",18,70,"player","bob")
+	var shared: Dictionary = GameManager.social_interaction("bob","charlie","share_information")
+	var trust_before := float(GameManager.npcs["bob"]["relationships"]["charlie"]["trust"])
+	var argued: Dictionary = GameManager.social_interaction("bob","charlie","argue")
+	return bool(shared.get("ok",false)) and bool(argued.get("ok",false)) and GameManager.npcs["charlie"]["memories"].size() > 0 and float(GameManager.npcs["bob"]["relationships"]["charlie"]["trust"]) < trust_before
+
+func public_resource_gathering_test() -> bool:
+	GameManager.new_game()
+	GameManager.current_location = "forest_edge"
+	var before := GameManager.count_item(GameManager.player["inventory"],"herb")
+	var result: Dictionary = GameManager.gather_location_resource("herb") if GameManager.has_method("gather_location_resource") else {"ok":false}
+	return bool(result.get("ok",false)) and GameManager.count_item(GameManager.player["inventory"],"herb") == before + 1 and int(GameManager.world_flags.get("forest_herbs_gathered",0)) == 1
+
+func talk_and_gather_ui_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	var result := instance.get_node_or_null("CanvasLayer/ActionDock/TalkButton") != null and instance.get_node_or_null("CanvasLayer/InventoryPanel/GatherButton") != null and InputMap.has_action("talk")
+	instance.queue_free()
+	return result
+
+func player_camera_contract_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	var camera := instance.get_node_or_null("PlayerCamera") as Camera2D
+	var start := camera.position if camera != null else Vector2.ZERO
+	GameManager.player["position"] = Vector2(800,420)
+	instance.update_player_camera(0.5) if instance.has_method("update_player_camera") else false
+	var result: bool = camera != null and camera.position_smoothing_enabled and not camera.limit_smoothed and camera.limit_left == 0 and camera.limit_top == 0 and camera.limit_right == 1280 and camera.limit_bottom == 720 and camera.position == start and instance.get("camera_follow_target") == GameManager.player["position"]
+	instance.queue_free()
+	return result
+
+func sound_service_and_settings_test() -> bool:
+	var sound_manager := get_node_or_null("/root/SoundManager")
+	if sound_manager == null or not sound_manager.has_method("play_ui") or not sound_manager.has_method("play_interaction") or not sound_manager.has_method("set_enabled"): return false
+	sound_manager.set_enabled(false)
+	var disabled_ok: bool = not bool(sound_manager.enabled)
+	sound_manager.set_enabled(true)
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	var toggle := instance.get_node_or_null("CanvasLayer/SettingsPanel/AudioToggle") as CheckButton
+	var result := disabled_ok and bool(sound_manager.enabled) and sound_manager.get_node_or_null("UIAudioPlayer") != null and toggle != null
+	instance.queue_free()
+	return result
+
+func optional_ai_service_contract_test() -> bool:
+	var service_script = load("res://scripts/ai/ai_service.gd")
+	var mock_script = load("res://scripts/ai/mock_ai_provider.gd")
+	if service_script == null or mock_script == null: return false
+	var context := {"npc_profile":{"display_name":"艾莉絲"},"mood":"Happy","relevant_memories":[],"relationship":{"trust":20},"world_event":{},"situation":"greeting"}
+	var original: Dictionary = context.duplicate(true)
+	var service = service_script.new(mock_script.new())
+	var response: Dictionary = service.generate_dialogue(context)
+	var fallback = service_script.new()
+	var fallback_response: Dictionary = fallback.generate_dialogue(context)
+	return response.has_all(["dialogue","emotion","intent"]) and fallback_response.has_all(["dialogue","emotion","intent"]) and service.has_method("summarize_memories") and service.has_method("generate_long_term_goal") and context == original and not response.has("inventory") and not response.has("relationship_delta")
+
+func inventory_safety_contract_test() -> bool:
+	GameManager.new_game()
+	if not GameManager.has_method("has_item"): return false
+	var inventory: Dictionary = GameManager.player["inventory"]
+	var before: Dictionary = inventory.duplicate(true)
+	var invalid_add = Callable(GameManager,"add_item").call(inventory,"bread",-2)
+	var invalid_remove := GameManager.remove_item(inventory,"bread",-1)
+	var unknown_add = Callable(GameManager,"add_item").call(inventory,"missing_item",1)
+	return GameManager.has_item(inventory,"bread",1) and invalid_add == false and invalid_remove == false and unknown_add == false and inventory == before
+
+func personality_need_rates_test() -> bool:
+	GameManager.new_game()
+	var disciplined: Dictionary = GameManager.npcs["bob"].duplicate(true)
+	var impulsive: Dictionary = GameManager.npcs["charlie"].duplicate(true)
+	for npc in [disciplined,impulsive]:
+		npc["action"] = "Work"
+		npc["needs"] = {"hunger":20.0,"energy":80.0,"social":30.0,"safety":20.0}
+	GameManager.update_needs(disciplined)
+	GameManager.update_needs(impulsive)
+	return float(disciplined["needs"]["energy"]) > float(impulsive["needs"]["energy"]) and float(disciplined["needs"]["hunger"]) != float(impulsive["needs"]["hunger"])
+
+func world_event_manager_contract_test() -> bool:
+	var manager := get_node_or_null("/root/WorldEventManager")
+	if manager == null or not manager.has_method("start_event") or not manager.has_method("advance_event"): return false
+	for definition in GameManager.event_defs.values():
+		if not definition.has_all(["id","start_time","duration","effects","notifications"]): return false
+	var active: Dictionary = manager.start_event(GameManager.event_defs["rain"],120)
+	if int(active.get("started_at",-1)) != 120 or int(active.get("remaining_minutes",0)) <= 0: return false
+	var advanced: Dictionary = manager.advance_event(active,int(active["remaining_minutes"]))
+	return bool(advanced.get("ended",false)) and advanced.get("event",{}).is_empty()
+
+func debug_diagnostics_contract_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	instance.selected_id = "alice"
+	instance.refresh_debug()
+	var text_value := str(instance.debug_label.text)
+	var result := true
+	for label in ["目前目標","所在位置","移動目標","情緒","重要記憶","路徑節點"]: result = result and text_value.contains(label)
+	instance.queue_free()
+	return result
+
+func decision_event_log_contract_test() -> bool:
+	GameManager.new_game()
+	GameManager.decide(GameManager.npcs["alice"])
+	for line in GameManager.event_log:
+		if str(line).contains("Action") and str(line).contains("分數"): return true
+	return false
+
+func core_service_boundaries_test() -> bool:
+	var inventory_service = GameManager.get("inventory_service")
+	var needs_service = GameManager.get("needs_service")
+	var relationship_service = GameManager.get("relationship_service")
+	return inventory_service != null and inventory_service.has_method("add_item") and inventory_service.has_method("remove_item") and inventory_service.has_method("has_item") and needs_service != null and needs_service.has_method("update") and relationship_service != null and relationship_service.has_method("apply_change")
+
+func write_report() -> void:
+	var report := {"project":"Echo Village","timestamp":Time.get_datetime_string_from_system(),"passed":passed,"failed":failed,"results":results,"simulated_game_days":7}
+	var file := FileAccess.open("res://tests/simulation_test_report.json",FileAccess.WRITE)
+	if file != null: file.store_string(JSON.stringify(report,"\t"))

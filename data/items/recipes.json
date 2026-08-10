@@ -1,0 +1,11 @@
+{
+  "recipes": [
+    {
+      "id": "forest_remedy",
+      "ingredients": {"herb": 2},
+      "output_item": "medicine",
+      "output_amount": 1,
+      "required_location": "forest_edge"
+    }
+  ]
+}

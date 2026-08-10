@@ -1,0 +1,273 @@
+{
+	"failed": 0,
+	"passed": 66,
+	"project": "Echo Village",
+	"results": [
+		{
+			"name": "載入五位 NPC 設定檔",
+			"passed": true
+		},
+		{
+			"name": "所有 NPC 具有必要運行狀態",
+			"passed": true
+		},
+		{
+			"name": "背包增減資料一致",
+			"passed": true
+		},
+		{
+			"name": "關係值正確限制在範圍內",
+			"passed": true
+		},
+		{
+			"name": "正向互動會建立記憶",
+			"passed": true
+		},
+		{
+			"name": "存檔與讀檔能還原玩家狀態",
+			"passed": true
+		},
+		{
+			"name": "糧食短缺會提高麵包價格",
+			"passed": true
+		},
+		{
+			"name": "七日加速模擬保持健康",
+			"passed": true
+		},
+		{
+			"name": "展示情境會重現記憶擴散與勇氣決策",
+			"passed": true
+		},
+		{
+			"name": "玩家行動會推進村落編年與聲望",
+			"passed": true
+		},
+		{
+			"name": "村落編年會隨遊戲狀態序列化還原",
+			"passed": true
+		},
+		{
+			"name": "日夜階段會正確映射遊戲時間",
+			"passed": true
+		},
+		{
+			"name": "NPC 展示快照會安全提供情緒、需求與關係",
+			"passed": true
+		},
+		{
+			"name": "日夜視覺設定會提供可用亮度與標籤",
+			"passed": true
+		},
+		{
+			"name": "主介面具備完整展示控制列與編年面板",
+			"passed": true
+		},
+		{
+			"name": "居民互動介面提供情境操作列、靠近提示與結果回饋",
+			"passed": true
+		},
+		{
+			"name": "關鍵操作具備離散按鍵輸入映射",
+			"passed": true
+		},
+		{
+			"name": "繪本美術系統提供角色與日夜視覺資料",
+			"passed": true
+		},
+		{
+			"name": "擴充內容資料契約可載入",
+			"passed": true
+		},
+		{
+			"name": "舊版存檔可安全遷移至世界狀態 v2",
+			"passed": true
+		},
+		{
+			"name": "林間回音任務可依序推進並原子交付",
+			"passed": true
+		},
+		{
+			"name": "完成任務後不可重複取得獎勵",
+			"passed": true
+		},
+		{
+			"name": "森林配方製作成功且失敗時不消耗素材",
+			"passed": true
+		},
+		{
+			"name": "任務追蹤、世界地圖與任務日誌具備完整輸入路徑",
+			"passed": true
+		},
+		{
+			"name": "玩家可由詢問艾莉絲到贈禮黛安娜完成林間回音",
+			"passed": true
+		},
+		{
+			"name": "森林邊境具備獨立的繪本場景繪製契約",
+			"passed": true
+		},
+		{
+			"name": "主場景提供可重複的視覺 QA 擷取入口",
+			"passed": true
+		},
+		{
+			"name": "任務與森林視覺 QA 證據已產生",
+			"passed": true
+		},
+		{
+			"name": "消費者主選單與設定介面具備完整入口",
+			"passed": true
+		},
+		{
+			"name": "存檔服務支援繼續遊戲、自動存檔與偏好設定",
+			"passed": true
+		},
+		{
+			"name": "遊戲時間可以在模態介面期間可靠暫停",
+			"passed": true
+		},
+		{
+			"name": "買入與出售交易會原子更新雙方金錢與庫存",
+			"passed": true
+		},
+		{
+			"name": "交易面板提供選品、買入、出售與明確關閉路徑",
+			"passed": true
+		},
+		{
+			"name": "背包摘要涵蓋完整物品目錄與森林製作入口",
+			"passed": true
+		},
+		{
+			"name": "NPC runtime 具備完整代理狀態與 NPC 對 NPC 關係",
+			"passed": true
+		},
+		{
+			"name": "低重要度記憶會衰減且高重要度記憶受到保護",
+			"passed": true
+		},
+		{
+			"name": "世界事件跨越午夜仍會依持續時間結束",
+			"passed": true
+		},
+		{
+			"name": "NPC 受傷事件會產生可追溯後果",
+			"passed": true
+		},
+		{
+			"name": "主場景使用 Godot 2D Navigation 並提供卡住保護",
+			"passed": true
+		},
+		{
+			"name": "Debug 工具可調整需求、增加物品與傳送玩家",
+			"passed": true
+		},
+		{
+			"name": "F3 面板提供可操作的模擬診斷按鈕",
+			"passed": true
+		},
+		{
+			"name": "森林互動不會選取未出現在當地的村民",
+			"passed": true
+		},
+		{
+			"name": "五位 NPC Profile 具備年齡、對話人格與獨立住宅",
+			"passed": true
+		},
+		{
+			"name": "村落美術提供五間可辨識的居民住宅",
+			"passed": true
+		},
+		{
+			"name": "設定切換鈕在選取狀態仍維持高對比文字",
+			"passed": true
+		},
+		{
+			"name": "交易面板開啟時位於所有 HUD 卡片上方",
+			"passed": true
+		},
+		{
+			"name": "Utility AI 由可擴充的十種 NPC Action Registry 驅動",
+			"passed": true
+		},
+		{
+			"name": "NPC State Machine 管理移動、工作、睡眠與逾時復原",
+			"passed": true
+		},
+		{
+			"name": "十種 NPC 行動皆由獨立具名 Action 類別實作",
+			"passed": true
+		},
+		{
+			"name": "Utility AI 支援最低門檻、行動冷卻與 Mood 修正",
+			"passed": true
+		},
+		{
+			"name": "雨天會降低工作傾向並提高室內社交傾向",
+			"passed": true
+		},
+		{
+			"name": "危險事件的協助行為會留下記憶並改變 NPC 關係",
+			"passed": true
+		},
+		{
+			"name": "NPC State Machine 明確支援規格要求的六種核心狀態",
+			"passed": true
+		},
+		{
+			"name": "玩家 Talk 會進入交談狀態並建立短期記憶",
+			"passed": true
+		},
+		{
+			"name": "NPC 可打招呼、爭執與分享資訊並產生社會後果",
+			"passed": true
+		},
+		{
+			"name": "森林公共資源可採集且會更新玩家背包與地點狀態",
+			"passed": true
+		},
+		{
+			"name": "互動列與背包提供正式 Talk 與採集操作",
+			"passed": true
+		},
+		{
+			"name": "主場景具備平滑 Camera2D、世界邊界與玩家跟隨契約",
+			"passed": true
+		},
+		{
+			"name": "基礎音效服務可關閉、播放並由設定頁持久控制",
+			"passed": true
+		},
+		{
+			"name": "Optional AIService 僅輸出結構化文本並可安全 fallback",
+			"passed": true
+		},
+		{
+			"name": "Inventory 支援 has_item 並拒絕負數量與非法物品變更",
+			"passed": true
+		},
+		{
+			"name": "Needs 成長率會受到 NPC personality 影響且維持一致語意",
+			"passed": true
+		},
+		{
+			"name": "WorldEventManager 管理事件生命週期與完整資料契約",
+			"passed": true
+		},
+		{
+			"name": "F3 診斷資訊完整呈現目標、位置、情緒、記憶與路徑",
+			"passed": true
+		},
+		{
+			"name": "NPC 每次重要決策都會記錄 Action 與 Utility Score",
+			"passed": true
+		},
+		{
+			"name": "Inventory、Needs 與 Relationship 由獨立服務模組負責純邏輯",
+			"passed": true
+		}
+	],
+	"simulated_game_days": 7,
+	"timestamp": "2026-08-10T23:58:18"
+}
