@@ -1,0 +1,8 @@
+.godot/
+.import/
+*.import
+*.tmp
+*.log
+.env
+release/
+tools/godot/*.exe

@@ -1,0 +1,18 @@
+{
+  "quests": [
+    {
+      "id": "forest_echo",
+      "title": "林間回音",
+      "description": "艾莉絲需要你帶一份麵包到低語森林邊緣，交給正在採集草藥的黛安娜。",
+      "giver_id": "alice",
+      "prerequisites": [],
+      "objectives": [
+        {"kind": "talk_to_npc", "target_id": "alice", "amount": 1, "description": "向艾莉絲詢問委託"},
+        {"kind": "visit_location", "target_id": "forest_edge", "amount": 1, "description": "前往低語森林邊緣"},
+        {"kind": "deliver_item", "target_id": "bread", "recipient_id": "diana", "amount": 1, "description": "交付一份麵包給黛安娜"}
+      ],
+      "rewards": {"coin": 8, "herb": 2, "renown": 4},
+      "on_complete_flags": ["forest_echo_complete"]
+    }
+  ]
+}
