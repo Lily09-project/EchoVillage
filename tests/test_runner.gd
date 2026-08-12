@@ -1,5 +1,7 @@
 extends Node
 
+const UiRefreshSchedulerTest = preload("res://tests/suites/ui_refresh_scheduler_test.gd")
+
 var passed := 0
 var failed := 0
 var results: Array[Dictionary] = []
@@ -9,6 +11,7 @@ func _ready() -> void:
 
 func run() -> void:
 	await get_tree().process_frame
+	check("UI 刷新排程器合併髒區域請求", UiRefreshSchedulerTest.run())
 	check("Concrete Action scripts use explicit dependencies and instantiate", concrete_action_scripts_test())
 	GameManager.new_game()
 	check("載入五位 NPC 設定檔", GameManager.npcs.size() == 5)
