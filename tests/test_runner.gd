@@ -76,6 +76,16 @@ func run() -> void:
 	check("F3 診斷資訊完整呈現目標、位置、情緒、記憶與路徑", await debug_diagnostics_contract_test())
 	check("NPC 每次重要決策都會記錄 Action 與 Utility Score", decision_event_log_contract_test())
 	check("Inventory、Needs 與 Relationship 由獨立服務模組負責純邏輯", core_service_boundaries_test())
+	check("村落聲望具有五級且邊界計算正確", progression_reputation_tiers_test())
+	check("資料驅動成就可依世界快照解鎖", progression_achievement_rules_test())
+	check("成就評估具一次性且未知條件安全", progression_idempotency_and_safety_test())
+	check("新遊戲會建立可查詢的村落進展快照", progression_game_state_defaults_test())
+	check("互動、採集與任務會觸發對應成就", progression_gameplay_unlocks_test())
+	check("村落進展可存檔且舊版存檔安全補值", progression_save_compatibility_test())
+	check("村落手札提供 P 快捷鍵與完整模態入口", await progression_panel_structure_test())
+	check("村落手札清楚呈現稱號、進度與文字化成就狀態", await progression_panel_content_test())
+	check("村落手札具 44px 關閉操作且開啟時暫停模擬", await progression_panel_accessibility_test())
+	check("村落手札具有可重複的 GPU 視覺 QA 情境", await progression_visual_capture_contract_test())
 	write_report()
 	print("Echo Village 測試：%d 通過，%d 失敗" % [passed,failed])
 	get_tree().quit(0 if failed == 0 else 1)
@@ -722,6 +732,128 @@ func core_service_boundaries_test() -> bool:
 	var needs_service = GameManager.get("needs_service")
 	var relationship_service = GameManager.get("relationship_service")
 	return inventory_service != null and inventory_service.has_method("add_item") and inventory_service.has_method("remove_item") and inventory_service.has_method("has_item") and needs_service != null and needs_service.has_method("update") and relationship_service != null and relationship_service.has_method("apply_change")
+
+func progression_reputation_tiers_test() -> bool:
+	var script = load("res://scripts/progression/progression_service.gd")
+	if script == null: return false
+	var service = script.new([])
+	var cases := {0:"陌生旅人",4:"陌生旅人",5:"熟悉面孔",11:"熟悉面孔",12:"值得信賴",24:"值得信賴",25:"村落支柱",39:"村落支柱",40:"回音守望者"}
+	for renown in cases:
+		var tier: Dictionary = service.reputation_tier(int(renown))
+		if str(tier.get("title","")) != str(cases[renown]): return false
+		if not tier.has_all(["index","title","minimum","next_minimum"]): return false
+	return true
+
+func progression_achievement_rules_test() -> bool:
+	var script = load("res://scripts/progression/progression_service.gd")
+	var file := FileAccess.open("res://data/progression/achievements.json",FileAccess.READ)
+	if script == null or file == null: return false
+	var parsed = JSON.parse_string(file.get_as_text())
+	if not (parsed is Dictionary) or not (parsed.get("achievements",[]) is Array): return false
+	var definitions: Array = parsed["achievements"]
+	if definitions.size() != 6: return false
+	var service = script.new(definitions)
+	var state: Dictionary = service.default_state()
+	var snapshot := {"renown":25,"community_flags":{"kindness":true,"crisis":true},"completed_quests":["forest_echo"],"world_flags":{"forest_herbs_gathered":3},"stats":{"interactions":1}}
+	var result: Dictionary = service.evaluate(state,snapshot)
+	return result.get("unlocked",[]).size() == 6 and result.get("state",{}).get("unlocked_ids",[]).size() == 6
+
+func progression_idempotency_and_safety_test() -> bool:
+	var script = load("res://scripts/progression/progression_service.gd")
+	if script == null: return false
+	var definitions := [{"id":"known","title":"已知","description":"測試","condition":{"type":"renown_at_least","value":1}},{"id":"unknown","title":"未知","description":"測試","condition":{"type":"unsupported","value":1}}]
+	var service = script.new(definitions)
+	var first: Dictionary = service.evaluate(service.default_state(),{"renown":2})
+	var second: Dictionary = service.evaluate(first["state"],{"renown":2})
+	return first["unlocked"].size() == 1 and str(first["unlocked"][0]["id"]) == "known" and second["unlocked"].is_empty() and second["state"]["unlocked_ids"].size() == 1
+
+func progression_game_state_defaults_test() -> bool:
+	GameManager.new_game()
+	if not GameManager.has_method("progression_snapshot") or not GameManager.has_method("evaluate_progression"): return false
+	var snapshot: Dictionary = GameManager.progression_snapshot()
+	return snapshot.has_all(["renown","tier","next_tier_progress","unlocked_ids","achievements","stats"]) and str(snapshot["tier"].get("title","")) == "陌生旅人" and snapshot["unlocked_ids"].is_empty() and snapshot["achievements"].size() == 6
+
+func progression_gameplay_unlocks_test() -> bool:
+	GameManager.new_game()
+	GameManager.interact("alice","talk")
+	var first: Dictionary = GameManager.progression_snapshot() if GameManager.has_method("progression_snapshot") else {}
+	if "first_echo" not in first.get("unlocked_ids",[]): return false
+	GameManager.current_location = "forest_edge"
+	for _index in 3: GameManager.gather_location_resource("herb")
+	var gathered: Dictionary = GameManager.progression_snapshot()
+	if "herbalist" not in gathered.get("unlocked_ids",[]): return false
+	GameManager.new_game()
+	GameManager.interact("alice","ask")
+	GameManager.travel_to("forest_edge")
+	GameManager.interact("diana","give_bread")
+	var completed: Dictionary = GameManager.progression_snapshot()
+	return "forest_messenger" in completed.get("unlocked_ids",[]) and completed["unlocked_ids"].count("forest_messenger") == 1
+
+func progression_save_compatibility_test() -> bool:
+	GameManager.new_game()
+	GameManager.interact("alice","talk")
+	var saved: Dictionary = GameManager.serialize()
+	if int(saved.get("save_version",0)) != 3 or not saved.has("progression"): return false
+	GameManager.new_game()
+	if not GameManager.deserialize(saved): return false
+	if "first_echo" not in GameManager.progression_snapshot().get("unlocked_ids",[]): return false
+	var legacy: Dictionary = saved.duplicate(true)
+	legacy["save_version"] = 2
+	legacy.erase("progression")
+	if not GameManager.deserialize(legacy): return false
+	return GameManager.progression_snapshot().get("unlocked_ids",[]).is_empty()
+
+func progression_panel_structure_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	var panel = instance.get_node_or_null("CanvasLayer/ProgressionPanel")
+	var result: bool = panel != null and InputMap.has_action("progression") and panel.has_method("refresh") and panel.has_method("set_visible_with_motion")
+	instance.queue_free()
+	return result
+
+func progression_panel_content_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	var panel = instance.get_node_or_null("CanvasLayer/ProgressionPanel")
+	if panel == null:
+		instance.queue_free()
+		return false
+	GameManager.new_game()
+	GameManager.interact("alice","talk")
+	panel.refresh(GameManager.progression_snapshot())
+	var summary := panel.get_node_or_null("SummaryLabel") as Label
+	var achievements := panel.get_node_or_null("AchievementsLabel") as Label
+	var result: bool = summary != null and achievements != null and summary.text.contains("陌生旅人") and summary.text.contains("下一稱號") and achievements.text.contains("已完成") and achievements.text.contains("未完成") and achievements.text.contains("第一道回音")
+	instance.queue_free()
+	return result
+
+func progression_panel_accessibility_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	var panel = instance.get_node_or_null("CanvasLayer/ProgressionPanel")
+	var close = panel.get_node_or_null("CloseButton") as Button if panel != null else null
+	if panel != null:
+		panel.visible = true
+		instance.sync_simulation_pause()
+	var result: bool = close != null and close.size.y >= 44.0 and close.text.contains("P") and bool(GameTime.simulation_paused)
+	instance.queue_free()
+	GameTime.set_simulation_paused(false)
+	return result
+
+func progression_visual_capture_contract_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	var names: Array = instance.visual_qa_capture_names() if instance.has_method("visual_qa_capture_names") else []
+	instance.queue_free()
+	return "village_progression.png" in names
 
 func write_report() -> void:
 	var report := {"project":"Echo Village","timestamp":Time.get_datetime_string_from_system(),"passed":passed,"failed":failed,"results":results,"simulated_game_days":7}

@@ -1,0 +1,10 @@
+{
+  "achievements": [
+    {"id":"first_echo","title":"第一道回音","description":"與村民完成第一次互動。","condition":{"type":"stat_at_least","key":"interactions","value":1}},
+    {"id":"generous_heart","title":"慷慨之心","description":"以分享讓善意留在村民記憶中。","condition":{"type":"community_flag","key":"kindness"}},
+    {"id":"forest_messenger","title":"林間信使","description":"完成任務「林間回音」。","condition":{"type":"quest_completed","key":"forest_echo"}},
+    {"id":"herbalist","title":"藥草採集者","description":"在森林採集三株月光藥草。","condition":{"type":"world_flag_at_least","key":"forest_herbs_gathered","value":3}},
+    {"id":"crisis_witness","title":"危機見證者","description":"見證居民在危機中依人格做出選擇。","condition":{"type":"community_flag","key":"crisis"}},
+    {"id":"village_pillar","title":"村落支柱","description":"將村落聲望提升至 25。","condition":{"type":"renown_at_least","value":25}}
+  ]
+}

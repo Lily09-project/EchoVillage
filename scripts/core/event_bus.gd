@@ -11,6 +11,7 @@ signal community_progressed(entry: Dictionary)
 signal quest_changed(snapshot: Array)
 signal location_changed(location_id: String)
 signal inventory_changed(inventory: Dictionary)
+signal progression_unlocked(achievement: Dictionary)
 
 func log_event(timestamp: String, message: String) -> void:
 

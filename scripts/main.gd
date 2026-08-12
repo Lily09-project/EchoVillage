@@ -6,6 +6,7 @@ const QuestTrackerScene = preload("res://scenes/ui/QuestTracker.tscn")
 const WorldMapPanelScene = preload("res://scenes/ui/WorldMapPanel.tscn")
 const QuestLogPanelScene = preload("res://scenes/ui/QuestLogPanel.tscn")
 const TradePanelScene = preload("res://scenes/ui/TradePanel.tscn")
+const ProgressionPanelScene = preload("res://scenes/ui/ProgressionPanel.tscn")
 const NavigationCoordinatorScript = preload("res://scripts/navigation/navigation_coordinator.gd")
 
 const WORLD := Rect2(42, 92, 1196, 506)
@@ -64,6 +65,7 @@ var motion_toggle: CheckButton
 var fullscreen_toggle: CheckButton
 var audio_toggle: CheckButton
 var trade_panel
+var progression_panel
 var craft_button: Button
 var gather_button: Button
 var navigation_coordinator: Node2D
@@ -80,6 +82,7 @@ func _ready() -> void:
 	EventBus.quest_changed.connect(func(_snapshot: Array): refresh_ui())
 	EventBus.location_changed.connect(func(_location_id: String): refresh_ui())
 	EventBus.save_completed.connect(func(_path: String): refresh_ui())
+	EventBus.progression_unlocked.connect(handle_progression_unlock)
 	motion_enabled = SaveManager.get_preference("motion",true)
 	GameTime.set_simulation_paused(true)
 	queue_redraw()
@@ -96,7 +99,8 @@ func capture_visual_qa() -> void:
 		{"file":"forest_echo_complete.png","minute":930,"intro":false,"scenario":"forest_complete"},
 		{"file":"consumer_main_menu.png","minute":780,"intro":false,"scenario":"main_menu"},
 		{"file":"consumer_settings.png","minute":780,"intro":false,"scenario":"settings"},
-		{"file":"consumer_trade.png","minute":780,"intro":false,"scenario":"trade"}
+		{"file":"consumer_trade.png","minute":780,"intro":false,"scenario":"trade"},
+		{"file":"village_progression.png","minute":780,"intro":false,"scenario":"progression"}
 	]
 	for capture in captures:
 		var file_name := str(capture["file"])
@@ -107,6 +111,7 @@ func capture_visual_qa() -> void:
 		trade_panel.visible = false
 		inventory_panel.visible = false
 		journal_panel.visible = false
+		progression_panel.visible = false
 		world_map_panel.visible = false
 		quest_log_panel.visible = false
 		pause_panel.visible = false
@@ -121,6 +126,9 @@ func capture_visual_qa() -> void:
 			GameManager.interact("alice","ask")
 			GameManager.travel_to("forest_edge")
 			GameManager.interact("diana","give_bread")
+		if scenario == "progression":
+			GameManager.interact("alice","talk")
+			GameManager.interact("alice","give_bread")
 		if scenario == "trade": GameManager.player["position"] = GameManager.npcs["alice"]["position"] + Vector2(-38,0)
 		showcase_panel.visible = bool(capture["intro"])
 		selected_id = "" if bool(capture["intro"]) or scenario in ["main_menu","settings"] else ("bob" if scenario == "danger" else ("diana" if scenario == "forest_complete" else "alice"))
@@ -134,13 +142,17 @@ func capture_visual_qa() -> void:
 			main_menu_panel.visible = true
 			open_settings()
 		if scenario == "trade": open_trade_panel()
+		if scenario == "progression":
+			progression_panel.refresh(GameManager.progression_snapshot())
+			progression_panel.visible = true
+			progression_panel.move_to_front()
 		if scenario == "danger":
 			show_interaction_feedback("ask","危險來襲時，村民的協助與逃離選擇都會留下可追溯的記憶。")
 		if scenario == "forest_complete":
 			show_interaction_feedback("give","任務完成：黛安娜收下麵包，森林記住了你的善意。")
 		queue_redraw()
 		await get_tree().process_frame
-		if scenario in ["danger","forest_complete","settings","trade"]: await get_tree().create_timer(0.24).timeout
+		if scenario in ["danger","forest_complete","settings","trade","progression"]: await get_tree().create_timer(0.24).timeout
 		await RenderingServer.frame_post_draw
 		var image := get_viewport().get_texture().get_image()
 		var result := image.save_png("res://tests/visual_qa/" + file_name)
@@ -152,10 +164,10 @@ func capture_visual_qa() -> void:
 	get_tree().quit(0)
 
 func visual_qa_capture_names() -> Array:
-	return ["storybook_intro.png","storybook_explore_dawn.png","storybook_explore_noon.png","storybook_explore_night.png","storybook_event_danger.png","quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png"]
+	return ["storybook_intro.png","storybook_explore_dawn.png","storybook_explore_noon.png","storybook_explore_night.png","storybook_event_danger.png","quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","village_progression.png"]
 
 func create_input_map() -> void:
-	var bindings := {"interact":KEY_E,"talk":KEY_C,"give":KEY_G,"steal":KEY_X,"trade":KEY_T,"ask":KEY_Q,"cancel":KEY_ESCAPE,"debug":KEY_F3,"inventory":KEY_I,"journal":KEY_J,"world_map":KEY_M,"quest_log":KEY_K,"speed_normal":KEY_1,"speed_2x":KEY_2,"speed_5x":KEY_5,"speed_10x":KEY_0,"save_game":KEY_F5,"load_game":KEY_F9,"event_rain":KEY_R,"event_festival":KEY_F,"event_shortage":KEY_H,"event_danger":KEY_B,"event_injury":KEY_N}
+	var bindings := {"interact":KEY_E,"talk":KEY_C,"give":KEY_G,"steal":KEY_X,"trade":KEY_T,"ask":KEY_Q,"cancel":KEY_ESCAPE,"debug":KEY_F3,"inventory":KEY_I,"journal":KEY_J,"progression":KEY_P,"world_map":KEY_M,"quest_log":KEY_K,"speed_normal":KEY_1,"speed_2x":KEY_2,"speed_5x":KEY_5,"speed_10x":KEY_0,"save_game":KEY_F5,"load_game":KEY_F9,"event_rain":KEY_R,"event_festival":KEY_F,"event_shortage":KEY_H,"event_danger":KEY_B,"event_injury":KEY_N}
 	for action in bindings:
 		if not InputMap.has_action(action):
 			InputMap.add_action(action)
@@ -223,6 +235,11 @@ func handle_shortcuts() -> void:
 		open_side_panel(inventory_panel)
 	if Input.is_action_just_pressed("journal"):
 		open_side_panel(journal_panel)
+	if Input.is_action_just_pressed("progression"):
+		var opening: bool = not progression_panel.visible
+		progression_panel.refresh(GameManager.progression_snapshot())
+		progression_panel.set_visible_with_motion(opening,motion_enabled)
+		if opening: progression_panel.move_to_front()
 	if Input.is_action_just_pressed("world_map"):
 		world_map_panel.set_visible_with_motion(not world_map_panel.visible,motion_enabled)
 		quest_log_panel.visible = false
@@ -256,6 +273,8 @@ func handle_shortcuts() -> void:
 			showcase_panel.visible = false
 		elif journal_panel.visible:
 			journal_panel.visible = false
+		elif progression_panel.visible:
+			progression_panel.visible = false
 		elif inventory_panel.visible:
 			inventory_panel.visible = false
 		elif pause_panel.visible:
@@ -278,7 +297,7 @@ func create_ui() -> void:
 	renown_label = make_label(Vector2(900,6), Vector2(320,22), 13, VillageTheme.MOSS_LIGHT)
 	renown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	hint_label = make_label(Vector2(58,610), Vector2(730,28), 14, VillageTheme.PAPER)
-	hint_label.text = "E 查看村民  •  G 贈送  •  X 偷取  •  T 交易  •  Q 詢問  •  J 編年  •  F3 除錯"
+	hint_label.text = "E 查看村民  •  G 贈送  •  T 交易  •  J 編年  •  P 村落手札  •  F3 除錯"
 	log_label = make_label(Vector2(58,644), Vector2(730,66), 13, VillageTheme.PAPER_DARK)
 	log_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	toast_label = make_label(Vector2(390,566),Vector2(420,26),14,VillageTheme.SUN)
@@ -457,7 +476,7 @@ func apply_fullscreen(value: bool) -> void:
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN if value else DisplayServer.WINDOW_MODE_WINDOWED)
 
 func is_blocking_modal_open() -> bool:
-	return main_menu_panel.visible or settings_panel.visible or pause_panel.visible or showcase_panel.visible or inventory_panel.visible or journal_panel.visible or world_map_panel.visible or quest_log_panel.visible or trade_panel.visible
+	return main_menu_panel.visible or settings_panel.visible or pause_panel.visible or showcase_panel.visible or inventory_panel.visible or journal_panel.visible or progression_panel.visible or world_map_panel.visible or quest_log_panel.visible or trade_panel.visible
 
 func sync_simulation_pause() -> void:
 	GameTime.set_simulation_paused(is_blocking_modal_open())
@@ -467,10 +486,12 @@ func create_expansion_ui() -> void:
 	world_map_panel = WorldMapPanelScene.instantiate()
 	quest_log_panel = QuestLogPanelScene.instantiate()
 	trade_panel = TradePanelScene.instantiate()
+	progression_panel = ProgressionPanelScene.instantiate()
 	canvas.add_child(quest_tracker)
 	canvas.add_child(world_map_panel)
 	canvas.add_child(quest_log_panel)
 	canvas.add_child(trade_panel)
+	canvas.add_child(progression_panel)
 	world_map_panel.travel_requested.connect(handle_travel_request)
 	trade_panel.buy_requested.connect(handle_buy_request)
 	trade_panel.sell_requested.connect(handle_sell_request)
@@ -883,7 +904,8 @@ func refresh_ui() -> void:
 	clock_label.text = GameTime.formatted_time() + "  ·  " + str(visual["phase"]) + "  ×%.0f" % GameTime.time_scale
 	resource_label.text = "硬幣 %d   麵包 %d   藥品 %d" % [GameManager.player["coin"],GameManager.count_item(GameManager.player["inventory"],"bread"),GameManager.count_item(GameManager.player["inventory"],"medicine")]
 	event_label.text = "事件：" + str(GameManager.active_event.get("display_name","平靜的村落"))
-	renown_label.text = "村落聲望  %d  ·  編年 %d / 3" % [int(progress["renown"]),int(progress["unlocked"])]
+	var progression_snapshot: Dictionary = GameManager.progression_snapshot()
+	renown_label.text = "聲望 %d  ·  %s  ·  成就 %d / 6" % [int(progression_snapshot["renown"]),str(progression_snapshot["tier"].get("title","陌生旅人")),progression_snapshot["unlocked_ids"].size()]
 	time_label.text = "%s · 動態%s" % [str(visual["phase"]),"開" if motion_enabled else "關"]
 	log_label.text = "\n".join(GameManager.event_log.slice(maxi(0,GameManager.event_log.size() - 3)))
 	toast_label.text = ""
@@ -896,6 +918,7 @@ func refresh_ui() -> void:
 	gather_button.disabled = not GameManager.can_gather_location_resource("herb")
 	gather_button.tooltip_text = "森林每輪可採集 3 株月光藥草" if not gather_button.disabled else "需在森林邊緣，或本輪資源已採完"
 	journal_label.text = chronicle_text(progress)
+	progression_panel.refresh(progression_snapshot)
 	quest_tracker.refresh(GameManager.active_quest_snapshot())
 	world_map_panel.set_locations(GameManager.location_defs,GameManager.current_location,GameManager.discovered_locations)
 	quest_log_panel.refresh(GameManager.active_quest_snapshot(),GameManager.completed_quests)
@@ -916,6 +939,12 @@ func refresh_ui() -> void:
 func chronicle_text(progress: Dictionary) -> String:
 	var lines := ["目前聲望：%d" % int(progress["renown"]),"","[%s] 善意留下回音" % ("已解鎖" if bool(progress["kindness"]) else "未解鎖"),"贈送麵包，觀察記憶與信任如何改變。","","[%s] 流言開始擴散" % ("已解鎖" if bool(progress["rumor"]) else "未解鎖"),"偷取食物，觀察負面記憶如何傳播。","","[%s] 危機考驗勇氣" % ("已解鎖" if bool(progress["crisis"]) else "未解鎖"),"按 B 觸發危險，使用 F3 比較 NPC 決策。"]
 	return "\n".join(lines)
+
+func handle_progression_unlock(achievement: Dictionary) -> void:
+	var message := "成就解鎖：%s\n%s" % [str(achievement.get("title","新的回音")),str(achievement.get("description",""))]
+	show_interaction_feedback("achievement",message)
+	SoundManager.play_interaction("achievement")
+	refresh_ui()
 
 func inventory_summary() -> String:
 	var lines := ["硬幣  %d 枚" % int(GameManager.player["coin"]),""]

@@ -3,7 +3,7 @@ setlocal
 cd /d "%~dp0"
 
 echo ============================================================
-echo   Echo Village 1.1.0 - Windows Portable Release Builder
+echo   Echo Village 1.2.0 - Windows Portable Release Builder
 echo ============================================================
 echo [1/4] Running the complete automated test suite...
 call run_echo_village.bat --test

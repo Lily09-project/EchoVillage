@@ -12,6 +12,7 @@ const NPCStateMachineScript = preload("res://scripts/npc/npc_state_machine.gd")
 const InventoryServiceScript = preload("res://scripts/inventory/inventory_service.gd")
 const NeedsServiceScript = preload("res://scripts/needs/needs_service.gd")
 const RelationshipServiceScript = preload("res://scripts/relationship/relationship_service.gd")
+const ProgressionServiceScript = preload("res://scripts/progression/progression_service.gd")
 var npc_profiles: Dictionary = {}
 var dialogues: Dictionary = {}
 var event_defs: Dictionary = {}
@@ -19,6 +20,7 @@ var location_defs: Dictionary = {}
 var quest_defs: Dictionary = {}
 var recipe_defs: Dictionary = {}
 var item_defs: Dictionary = {}
+var achievement_defs: Array = []
 var npcs: Dictionary = {}
 var player := {"id":"player","position":Vector2(625,405),"inventory":{"bread":3,"medicine":1},"coin":24}
 var economy := {"bread":4,"vegetable":3,"wood":5,"medicine":9}
@@ -31,6 +33,7 @@ var discovered_locations: Array = ["village_square"]
 var active_quests := {}
 var completed_quests: Array = []
 var world_flags := {}
+var progression := {}
 var location_service
 var quest_service
 var economy_service
@@ -40,6 +43,7 @@ var minimum_action_score := 12.0
 var inventory_service = InventoryServiceScript.new()
 var needs_service = NeedsServiceScript.new()
 var relationship_service = RelationshipServiceScript.new()
+var progression_service = ProgressionServiceScript.new()
 
 func _ready() -> void:
 	load_data()
@@ -56,6 +60,8 @@ func load_data() -> void:
 	quest_defs = index_by_id(read_json("quests/quests.json").get("quests", []))
 	recipe_defs = index_by_id(read_json("items/recipes.json").get("recipes", []))
 	item_defs = read_json("items/items.json")
+	achievement_defs = read_json("progression/achievements.json").get("achievements",[])
+	progression_service = ProgressionServiceScript.new(achievement_defs)
 	inventory_service.configure(item_defs)
 	location_service = LocationServiceScript.new(location_defs)
 	quest_service = QuestServiceScript.new(quest_defs)
@@ -84,6 +90,7 @@ func new_game() -> void:
 	active_quests = {}
 	completed_quests = []
 	world_flags = {}
+	progression = progression_service.default_state()
 	for raw in npc_profiles.get("npcs", []):
 		var npc: Dictionary = raw.duplicate(true)
 		var spawn: Array = npc.get("spawn", [620,360])
@@ -266,6 +273,8 @@ func trim_memories(npc: Dictionary) -> void:
 
 func interact(npc_id: String, intent: String) -> String:
 	if not npcs.has(npc_id): return "尚未選取村民。"
+	progression["stats"]["interactions"] = int(progression.get("stats",{}).get("interactions",0)) + 1
+	evaluate_progression()
 	var npc: Dictionary = npcs[npc_id]
 	if intent == "talk":
 		npc["state"] = "Talking"
@@ -338,6 +347,7 @@ func gather_location_resource(item_id: String) -> Dictionary:
 	notify_quest("collect_item",item_id)
 	EventBus.inventory_changed.emit(player["inventory"].duplicate(true))
 	add_log("玩家在森林採集了月光藥草。")
+	evaluate_progression()
 	return {"ok":true,"item_id":item_id,"amount":1,"remaining":3 - int(world_flags["forest_herbs_gathered"])}
 
 func dialogue(npc: Dictionary) -> String:
@@ -482,6 +492,7 @@ func record_community(flag: String, renown_change: int, title: String, descripti
 	community["entries"].append(entry)
 	EventBus.community_progressed.emit(entry)
 	add_log("村落編年解鎖：「%s」" % title)
+	evaluate_progression()
 
 func community_progress() -> Dictionary:
 	var result: Dictionary = community.duplicate(true)
@@ -605,17 +616,52 @@ func award_quest(quest_id: String) -> void:
 	create_memory(str(definition.get("giver_id","alice")),"quest_completed","玩家完成了「%s」。" % str(definition.get("title",quest_id)),24,55)
 	add_log("完成任務：「%s」" % str(definition.get("title",quest_id)))
 	EventBus.inventory_changed.emit(player["inventory"].duplicate(true))
+	evaluate_progression()
+
+func evaluate_progression() -> Array:
+	var result: Dictionary = progression_service.evaluate(progression,_progression_context())
+	progression = result.get("state",progression_service.default_state()).duplicate(true)
+	var unlocked: Array = result.get("unlocked",[])
+	for achievement in unlocked:
+		var safe: Dictionary = achievement.duplicate(true)
+		EventBus.progression_unlocked.emit(safe)
+		add_log("成就解鎖：「%s」" % str(safe.get("title","未命名成就")))
+	return unlocked.duplicate(true)
+
+func _progression_context() -> Dictionary:
+	return {
+		"renown":int(community.get("renown",0)),
+		"community_flags":community.duplicate(true),
+		"completed_quests":completed_quests.duplicate(true),
+		"world_flags":world_flags.duplicate(true),
+		"stats":progression.get("stats",{}).duplicate(true),
+		"timestamp":GameTime.formatted_time()
+	}
+
+func progression_snapshot() -> Dictionary:
+	var renown := int(community.get("renown",0))
+	var tier: Dictionary = progression_service.reputation_tier(renown)
+	var minimum := int(tier.get("minimum",0))
+	var next_minimum := int(tier.get("next_minimum",minimum))
+	var progress_ratio := 1.0 if next_minimum <= minimum else clampf(float(renown - minimum) / float(next_minimum - minimum),0.0,1.0)
+	var achievements: Array = []
+	for value in achievement_defs:
+		var definition: Dictionary = value.duplicate(true)
+		definition["unlocked"] = str(definition.get("id","")) in progression.get("unlocked_ids",[])
+		achievements.append(definition)
+	return {"renown":renown,"tier":tier,"next_tier_progress":progress_ratio,"unlocked_ids":progression.get("unlocked_ids",[]).duplicate(true),"achievements":achievements,"stats":progression.get("stats",{}).duplicate(true)}
 
 func legacy_serialize() -> Dictionary:
 	return {"save_version":1,"player":encode_value(player),"npcs":encode_value(npcs),"economy":economy,"active_event":active_event,"event_log":event_log,"memory_sequence":memory_sequence,"community":community}
 func serialize() -> Dictionary:
 	var state := legacy_serialize()
-	state["save_version"] = 2
+	state["save_version"] = 3
 	state["current_location"] = current_location
 	state["discovered_locations"] = discovered_locations.duplicate(true)
 	state["active_quests"] = active_quests.duplicate(true)
 	state["completed_quests"] = completed_quests.duplicate(true)
 	state["world_flags"] = world_flags.duplicate(true)
+	state["progression"] = progression.duplicate(true)
 	return state
 func deserialize(data: Dictionary) -> bool:
 	if not (data is Dictionary): return false
@@ -633,6 +679,7 @@ func deserialize(data: Dictionary) -> bool:
 	active_quests = data.get("active_quests",{}).duplicate(true)
 	completed_quests = data.get("completed_quests",[]).duplicate(true)
 	world_flags = data.get("world_flags",{}).duplicate(true)
+	progression = data.get("progression",progression_service.default_state()).duplicate(true)
 	return true
 func encode_value(value):
 	if value is Vector2: return {"__vector2":[value.x,value.y]}

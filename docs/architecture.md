@@ -29,7 +29,8 @@
 | `QuestService` | 目標進度、獎勵與冪等完成 |
 | `EconomyService` | 配方驗證與原子製作 |
 | `LocationService` | 地點切換、發現與區域內容 |
-| `SaveManager` | v2 存檔、自動存檔、偏好與 v1 遷移 |
+| `ProgressionService` | 五級聲望、資料驅動成就、一次性解鎖與安全條件評估 |
+| `SaveManager` | v3 世界狀態、自動存檔、偏好與舊版遷移 |
 | `SoundManager` | 可關閉的程式化 UI／互動提示音 |
 | `AIService`（Optional） | 結構化文本、記憶摘要、建議目標與模板 fallback；不改權威狀態 |
 
@@ -43,6 +44,7 @@
 - 新事件：加入 `world_events.json`，在事件處理器定義需要的可追溯後果。
 - 新行動：建立 Action 策略並註冊到 `ActionRegistry`；狀態映射加入 State Machine。
 - 新任務／地點／配方：只需擴充對應 JSON，服務層會驗證資料。
+- 新成就：加入 `achievements.json` 的條件定義；ProgressionService 只讀權威快照並回傳解鎖結果。
 
 ## 防故障策略
 
