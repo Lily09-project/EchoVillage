@@ -9,6 +9,7 @@ func _ready() -> void:
 
 func run() -> void:
 	await get_tree().process_frame
+	check("Concrete Action scripts use explicit dependencies and instantiate", concrete_action_scripts_test())
 	GameManager.new_game()
 	check("載入五位 NPC 設定檔", GameManager.npcs.size() == 5)
 	check("所有 NPC 具有必要運行狀態", runtime_state_is_valid())
@@ -103,6 +104,30 @@ func runtime_state_is_valid() -> bool:
 	for npc in GameManager.npcs.values():
 		for key in ["position","target","needs","inventory","relationships","memories","mood","action","state"]:
 			if not npc.has(key): return false
+	return true
+
+func concrete_action_scripts_test() -> bool:
+	var scripts := {
+		"Eat":"res://scripts/actions/eat_action.gd",
+		"Sleep":"res://scripts/actions/sleep_action.gd",
+		"Work":"res://scripts/actions/work_action.gd",
+		"Socialize":"res://scripts/actions/socialize_action.gd",
+		"Wander":"res://scripts/actions/wander_action.gd",
+		"Shop":"res://scripts/actions/shop_action.gd",
+		"GoHome":"res://scripts/actions/go_home_action.gd",
+		"Flee":"res://scripts/actions/flee_action.gd",
+		"Help":"res://scripts/actions/help_action.gd",
+		"Rest":"res://scripts/actions/rest_action.gd"
+	}
+	for action_id in scripts:
+		var path: String = scripts[action_id]
+		var file := FileAccess.open(path, FileAccess.READ)
+		if file == null or not file.get_as_text().begins_with('extends "res://scripts/actions/utility_action.gd"'):
+			return false
+		var script = load(path)
+		var action = script.new() if script != null else null
+		if action == null or action.action_id != action_id:
+			return false
 	return true
 
 func inventory_test() -> bool:

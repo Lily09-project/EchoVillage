@@ -39,12 +39,26 @@ if /I "%~1"=="--test" (
     echo Structural validation failed with exit code !VALIDATION_RESULT!.
     exit /b !VALIDATION_RESULT!
   )
+  set "PREFLIGHT_LOG=%ROOT%\tests\.godot_preflight_output.log"
+  set "PREFLIGHT_ERROR_LOG=%ROOT%\tests\.godot_preflight_error.log"
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "$stdout = Join-Path $env:ROOT 'tests\.godot_preflight_output.log'; $stderr = Join-Path $env:ROOT 'tests\.godot_preflight_error.log'; $process = Start-Process -FilePath $env:GODOT -ArgumentList @('--headless', '--editor', '--path', $env:ROOT, '--import', '--quit') -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru -WindowStyle Hidden; if (-not $process.WaitForExit(60000)) { Stop-Process -Id $process.Id -Force; exit 124 }; exit $process.ExitCode"
+  set "PREFLIGHT_RESULT=!ERRORLEVEL!"
+  type "!PREFLIGHT_LOG!"
+  type "!PREFLIGHT_ERROR_LOG!"
+  findstr /C:"SCRIPT ERROR" /C:"ERROR: Failed to load script" "!PREFLIGHT_LOG!" "!PREFLIGHT_ERROR_LOG!" >nul && set "PREFLIGHT_RESULT=1"
+  del /q "!PREFLIGHT_LOG!" "!PREFLIGHT_ERROR_LOG!" >nul 2>nul
+  if not "!PREFLIGHT_RESULT!"=="0" (
+    echo Parser/bootstrap preflight failed with exit code !PREFLIGHT_RESULT!.
+    exit /b !PREFLIGHT_RESULT!
+  )
   set "TEST_LOG=%ROOT%\tests\.godot_test_output.log"
-  "%GODOT%" --headless --path "%ROOT%" --quit-after 180 --scene res://tests/TestRunner.tscn > "!TEST_LOG!" 2>&1
+  set "TEST_ERROR_LOG=%ROOT%\tests\.godot_test_error.log"
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "$stdout = Join-Path $env:ROOT 'tests\.godot_test_output.log'; $stderr = Join-Path $env:ROOT 'tests\.godot_test_error.log'; $process = Start-Process -FilePath $env:GODOT -ArgumentList @('--headless', '--path', $env:ROOT, '--scene', 'res://tests/TestRunner.tscn') -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru -WindowStyle Hidden; if (-not $process.WaitForExit(120000)) { Stop-Process -Id $process.Id -Force; exit 124 }; exit $process.ExitCode"
   set "RESULT=!ERRORLEVEL!"
   type "!TEST_LOG!"
-  findstr /C:"SCRIPT ERROR" /C:"ERROR: Failed to load script" "!TEST_LOG!" >nul && set "RESULT=1"
-  del /q "!TEST_LOG!" >nul 2>nul
+  type "!TEST_ERROR_LOG!"
+  findstr /C:"SCRIPT ERROR" /C:"ERROR: Failed to load script" "!TEST_LOG!" "!TEST_ERROR_LOG!" >nul && set "RESULT=1"
+  del /q "!TEST_LOG!" "!TEST_ERROR_LOG!" >nul 2>nul
   echo.
   echo Test process exit code: !RESULT!.
   exit /b !RESULT!
