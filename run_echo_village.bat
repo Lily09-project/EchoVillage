@@ -41,7 +41,7 @@ if /I "%~1"=="--test" (
   )
   set "PREFLIGHT_LOG=%ROOT%\tests\.godot_preflight_output.log"
   set "PREFLIGHT_ERROR_LOG=%ROOT%\tests\.godot_preflight_error.log"
-  powershell -NoProfile -ExecutionPolicy Bypass -Command "$stdout = Join-Path $env:ROOT 'tests\.godot_preflight_output.log'; $stderr = Join-Path $env:ROOT 'tests\.godot_preflight_error.log'; $process = Start-Process -FilePath $env:GODOT -ArgumentList @('--headless', '--editor', '--path', $env:ROOT, '--import', '--quit') -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru -WindowStyle Hidden; if (-not $process.WaitForExit(60000)) { Stop-Process -Id $process.Id -Force; exit 124 }; exit $process.ExitCode"
+  powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\tools\run_godot_bounded.ps1" -Godot "%GODOT%" -ProjectRoot "%ROOT%" -StandardOutput "!PREFLIGHT_LOG!" -StandardError "!PREFLIGHT_ERROR_LOG!" -TimeoutSeconds 60 --headless --editor --path "%ROOT%" --import --quit
   set "PREFLIGHT_RESULT=!ERRORLEVEL!"
   type "!PREFLIGHT_LOG!"
   type "!PREFLIGHT_ERROR_LOG!"
@@ -53,7 +53,7 @@ if /I "%~1"=="--test" (
   )
   set "TEST_LOG=%ROOT%\tests\.godot_test_output.log"
   set "TEST_ERROR_LOG=%ROOT%\tests\.godot_test_error.log"
-  powershell -NoProfile -ExecutionPolicy Bypass -Command "$stdout = Join-Path $env:ROOT 'tests\.godot_test_output.log'; $stderr = Join-Path $env:ROOT 'tests\.godot_test_error.log'; $process = Start-Process -FilePath $env:GODOT -ArgumentList @('--headless', '--path', $env:ROOT, '--scene', 'res://tests/TestRunner.tscn') -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru -WindowStyle Hidden; if (-not $process.WaitForExit(120000)) { Stop-Process -Id $process.Id -Force; exit 124 }; exit $process.ExitCode"
+  powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\tools\run_godot_bounded.ps1" -Godot "%GODOT%" -ProjectRoot "%ROOT%" -StandardOutput "!TEST_LOG!" -StandardError "!TEST_ERROR_LOG!" -TimeoutSeconds 120 --headless --path "%ROOT%" --scene res://tests/TestRunner.tscn
   set "RESULT=!ERRORLEVEL!"
   type "!TEST_LOG!"
   type "!TEST_ERROR_LOG!"
