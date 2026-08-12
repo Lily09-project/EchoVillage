@@ -7,5 +7,6 @@ static func expansion_defaults() -> Dictionary:
 		"discovered_locations":["village_square"],
 		"active_quests":{},
 		"completed_quests":[],
-		"world_flags":{}
+		"world_flags":{},
+		"progression":{"unlocked_ids":[],"unlocked_at":{},"stats":{"interactions":0,"trades":0}}
 	}

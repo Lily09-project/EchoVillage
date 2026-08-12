@@ -20,7 +20,8 @@ Echo Village 是以 Godot 4 與 GDScript 完成的繁體中文 2D 生活模擬 R
 - 村落／森林探索、Godot 2D Navigation 與雙層卡住復原。
 - 完整主選單、設定、暫停、HUD、背包、地圖、任務與交易 UX。
 - 自動存檔、版本化序列化、舊檔遷移與不重複任務獎勵。
-- 66 項自動測試、十張 GPU 視覺 QA 與 portable Windows 發行管線。
+- 五級村落聲望、六項資料驅動成就與可持久保存的村落手札。
+- 76 項自動測試、十一張 GPU 視覺 QA 與 portable Windows 發行管線。
 
 ## 關鍵工程決策
 
@@ -40,7 +41,7 @@ Echo Village 是以 Godot 4 與 GDScript 完成的繁體中文 2D 生活模擬 R
 
 ## 成果
 
-專案形成可直接交付的 1.1.0 Windows 作品：核心玩法可完整遊玩、所有主要功能有測試證據、UI 有實機視覺證據，並保留清楚的擴充邊界。這個作品可用來展示 Gameplay Engineering、AI Architecture、Systems Design、UI Implementation、Testing 與 Release Engineering。
+專案形成可直接交付的 1.2.0 Windows 作品：核心玩法可完整遊玩，聲望與資料驅動成就讓玩家選擇形成長期進展；所有主要功能有測試證據、UI 有實機視覺證據，並保留清楚的擴充邊界。這個作品可用來展示 Gameplay Engineering、AI Architecture、Progression Design、Systems Design、UI Implementation、Testing 與 Release Engineering。
 
 ## 建議展示順序（3–5 分鐘）
 

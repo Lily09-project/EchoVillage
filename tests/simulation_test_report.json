@@ -1,6 +1,6 @@
 {
 	"failed": 0,
-	"passed": 66,
+	"passed": 76,
 	"project": "Echo Village",
 	"results": [
 		{
@@ -266,8 +266,48 @@
 		{
 			"name": "Inventory、Needs 與 Relationship 由獨立服務模組負責純邏輯",
 			"passed": true
+		},
+		{
+			"name": "村落聲望具有五級且邊界計算正確",
+			"passed": true
+		},
+		{
+			"name": "資料驅動成就可依世界快照解鎖",
+			"passed": true
+		},
+		{
+			"name": "成就評估具一次性且未知條件安全",
+			"passed": true
+		},
+		{
+			"name": "新遊戲會建立可查詢的村落進展快照",
+			"passed": true
+		},
+		{
+			"name": "互動、採集與任務會觸發對應成就",
+			"passed": true
+		},
+		{
+			"name": "村落進展可存檔且舊版存檔安全補值",
+			"passed": true
+		},
+		{
+			"name": "村落手札提供 P 快捷鍵與完整模態入口",
+			"passed": true
+		},
+		{
+			"name": "村落手札清楚呈現稱號、進度與文字化成就狀態",
+			"passed": true
+		},
+		{
+			"name": "村落手札具 44px 關閉操作且開啟時暫停模擬",
+			"passed": true
+		},
+		{
+			"name": "村落手札具有可重複的 GPU 視覺 QA 情境",
+			"passed": true
 		}
 	],
 	"simulated_game_days": 7,
-	"timestamp": "2026-08-10T23:58:18"
+	"timestamp": "2026-08-12T21:00:39"
 }

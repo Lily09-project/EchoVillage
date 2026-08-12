@@ -5,7 +5,7 @@
 3. 回到開場或重啟後點選 **B 流言擴散**，選取查理，說明他並未被偷竊卻因共享記憶而改變信任。
 4. 點選 **C 突發危險**，按 F3，指出艾莉絲的 Flee 分數與鮑伯的 Help 分數差異。
 5. 按 J 開啟村落編年，連結三個情境為「玩家決策會持久改寫村莊敘事」；按 F5／F9 說明此狀態也可完整儲存與恢復。
-6. 最後執行 `run_echo_village.bat --test` 展示 66 項自動測試，再展示 `tests/visual_qa/` 的十張主選單、交易、日夜、危險與任務畫面。
+6. 按 P 展示村落手札、五級聲望與六項成就，再執行 `run_echo_village.bat --test` 展示 76 項自動測試及十一張 GPU QA 畫面。
 7. 開啟 `release/EchoVillage/EchoVillage.exe`，說明可攜版已內附 runtime，消費者不需安裝 Godot。
 
 關鍵結論：這個專案不是把 LLM 當成遊戲邏輯，而是把 Agent simulation 做成可解釋、可重播、可測試的系統。

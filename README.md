@@ -35,7 +35,7 @@ run_echo_village.bat
 build_release.bat
 ```
 
-> 原始碼版本需要 Godot 4.2 以上，可放入 `tools/godot/`、加入 PATH，或用 `GODOT_EXECUTABLE` 指定。此工作目錄已附本機 runtime；大型引擎執行檔不納入 Git。一般玩家請直接使用 `release/EchoVillage_1.1.0_Windows.zip`，不需安裝 Godot。
+> 原始碼版本需要 Godot 4.2 以上，可放入 `tools/godot/`、加入 PATH，或用 `GODOT_EXECUTABLE` 指定。此工作目錄已附本機 runtime；大型引擎執行檔不納入 Git。一般玩家請直接使用 `release/EchoVillage_1.2.0_Windows.zip`，不需安裝 Godot。
 
 ## Core Features｜核心功能
 
@@ -52,7 +52,8 @@ build_release.bat
 - Godot 2D Navigation、卡住偵測、安全復原與 F3 開發診斷工具。
 - 平滑 Camera2D、可關閉的程式化提示音與持久音效設定。
 - Optional AIService／Mock Provider／模板 fallback；只產生文字、摘要與建議目標。
-- 日夜光影、情境 HUD、十張可重複產生的 GPU 視覺 QA 畫面。
+- 五級村落聲望、六項資料驅動成就、一次性解鎖與可持久保存的村落手札。
+- 日夜光影、情境 HUD、十一張可重複產生的 GPU 視覺 QA 畫面。
 
 ![村落遊玩畫面](tests/visual_qa/storybook_explore_noon.png)
 
@@ -60,7 +61,9 @@ build_release.bat
 
 ## Screenshots｜遊戲畫面
 
-完整的十張 1280×720 GPU 擷取證據位於 [`tests/visual_qa/`](tests/visual_qa/)，涵蓋主選單、設定、交易、日夜、世界事件與任務流程。
+完整的十一張 1280×720 GPU 擷取證據位於 [`tests/visual_qa/`](tests/visual_qa/)，涵蓋主選單、設定、交易、村落手札、日夜、世界事件與任務流程。
+
+![村落聲望與成就手札](tests/visual_qa/village_progression.png)
 
 ## Controls｜操作
 
@@ -70,6 +73,7 @@ build_release.bat
 | E / C | 選取最近居民並交談／再次交談 |
 | G / X / T / Q | 贈送麵包／偷竊／交易／詢問某人 |
 | I / J / M | 背包／任務日誌／世界地圖 |
+| P | 村落手札、聲望稱號與成就里程碑 |
 | K | 前往森林邊境或返回村落 |
 | 1 / 2 / 5 / 0 | 模擬速度 1×／2×／5×／10× |
 | F5 / F9 | 手動存檔／讀檔 |
@@ -99,9 +103,12 @@ flowchart TD
     ACTIONS --> MEMORY
     MEMORY --> REL
     BUS[EventBus] <--> UI
-    NPC <--> SAVE[Save System v2]
+    NPC <--> SAVE[World State v3 / Save Migration]
     DATA[JSON Profiles / Items / Events / Dialogue] --> NPC
     OPTIONAL[Optional AIService + Mock + Fallback] -. dialogue / summary / suggested goal only .-> UI
+    PROGRESSION[Progression Service / Achievements] --> UI
+    MEMORY --> PROGRESSION
+    REL --> PROGRESSION
 ```
 
 程式邏輯、內容資料、服務層、UI 與存檔遷移分離，便於增加居民、事件、任務與地點。詳見 [架構文件](docs/architecture.md)。
@@ -128,9 +135,9 @@ flowchart TD
 
 ## Testing｜品質與測試
 
-- 66 項 Godot 自動化測試，涵蓋七日加速模擬、存檔、經濟、任務、記憶、社交、事件、Navigation、Camera、音效、UI、可及性與 AI 架構。
+- 76 項 Godot 自動化測試，涵蓋七日加速模擬、存檔、經濟、任務、記憶、社交、進展、事件、Navigation、Camera、音效、UI、可及性與 AI 架構。
 - 測試啟動器會額外掃描 `SCRIPT ERROR` 與載入錯誤，避免只有斷言綠燈但 runtime 已壞。
-- 10 張 1280×720 GPU 視覺 QA 截圖，涵蓋主選單、設定、交易、日夜、危險事件與完整任務。
+- 11 張 1280×720 GPU 視覺 QA 截圖，涵蓋主選單、設定、交易、村落手札、日夜、危險事件與完整任務。
 - Windows portable 成品會再執行獨立煙霧測試。
 
 ```bat
@@ -159,7 +166,7 @@ release/      一鍵建置的 Windows 可攜版（不納入版本控制）
 
 ## Future Roadmap
 
-下一階段可擴充季節與天氣、居民友誼事件、更多職業經濟鏈、控制器操作與多語系。
+下一階段可擴充季節循環、居民友誼事件、更多職業經濟鏈、控制器操作與多語系。
 
 ## 作品集文件
 
@@ -172,4 +179,4 @@ release/      一鍵建置的 Windows 可攜版（不納入版本控制）
 - [展示腳本](docs/showcase_script.md)
 - [版本紀錄](CHANGELOG.md)
 
-版本：1.1.0｜Godot 4.5.2 runtime｜目標平台：Windows 10/11 64-bit
+版本：1.2.0｜Godot 4.5.2 runtime｜目標平台：Windows 10/11 64-bit
