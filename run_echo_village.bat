@@ -39,26 +39,33 @@ if /I "%~1"=="--test" (
     echo Structural validation failed with exit code !VALIDATION_RESULT!.
     exit /b !VALIDATION_RESULT!
   )
-  set "PREFLIGHT_LOG=%ROOT%\tests\.godot_preflight_output.log"
-  set "PREFLIGHT_ERROR_LOG=%ROOT%\tests\.godot_preflight_error.log"
-  powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\tools\run_godot_bounded.ps1" -Godot "%GODOT%" -ProjectRoot "%ROOT%" -StandardOutput "!PREFLIGHT_LOG!" -StandardError "!PREFLIGHT_ERROR_LOG!" -TimeoutSeconds 60 --headless --editor --path "%ROOT%" --import --quit
+  set "RUN_TAG=!RANDOM!_!RANDOM!"
+  set "PREFLIGHT_LOG=%TEMP%\EchoVillage_preflight_output_!RUN_TAG!.log"
+  set "PREFLIGHT_ERROR_LOG=%TEMP%\EchoVillage_preflight_error_!RUN_TAG!.log"
+  set "PREFLIGHT_ENGINE_LOG=%TEMP%\EchoVillage_preflight_engine_!RUN_TAG!.log"
+  powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\tools\run_godot_bounded.ps1" -Godot "%GODOT%" -ProjectRoot "%ROOT%" -StandardOutput "!PREFLIGHT_LOG!" -StandardError "!PREFLIGHT_ERROR_LOG!" -TimeoutSeconds 60 --headless --editor --path "%ROOT%" --import --quit --log-file "!PREFLIGHT_ENGINE_LOG!"
   set "PREFLIGHT_RESULT=!ERRORLEVEL!"
+  if not exist "!PREFLIGHT_ENGINE_LOG!" set "PREFLIGHT_RESULT=1"
   type "!PREFLIGHT_LOG!"
   type "!PREFLIGHT_ERROR_LOG!"
-  findstr /C:"SCRIPT ERROR" /C:"ERROR: Failed to load script" "!PREFLIGHT_LOG!" "!PREFLIGHT_ERROR_LOG!" >nul && set "PREFLIGHT_RESULT=1"
-  del /q "!PREFLIGHT_LOG!" "!PREFLIGHT_ERROR_LOG!" >nul 2>nul
+  type "!PREFLIGHT_ENGINE_LOG!"
+  findstr /C:"SCRIPT ERROR" /C:"ERROR: Failed to load script" "!PREFLIGHT_LOG!" "!PREFLIGHT_ERROR_LOG!" "!PREFLIGHT_ENGINE_LOG!" >nul && set "PREFLIGHT_RESULT=1"
+  del /q "!PREFLIGHT_LOG!" "!PREFLIGHT_ERROR_LOG!" "!PREFLIGHT_ENGINE_LOG!" >nul 2>nul
   if not "!PREFLIGHT_RESULT!"=="0" (
     echo Parser/bootstrap preflight failed with exit code !PREFLIGHT_RESULT!.
     exit /b !PREFLIGHT_RESULT!
   )
-  set "TEST_LOG=%ROOT%\tests\.godot_test_output.log"
-  set "TEST_ERROR_LOG=%ROOT%\tests\.godot_test_error.log"
-  powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\tools\run_godot_bounded.ps1" -Godot "%GODOT%" -ProjectRoot "%ROOT%" -StandardOutput "!TEST_LOG!" -StandardError "!TEST_ERROR_LOG!" -TimeoutSeconds 120 --headless --path "%ROOT%" --scene res://tests/TestRunner.tscn
+  set "TEST_LOG=%TEMP%\EchoVillage_test_output_!RUN_TAG!.log"
+  set "TEST_ERROR_LOG=%TEMP%\EchoVillage_test_error_!RUN_TAG!.log"
+  set "TEST_ENGINE_LOG=%TEMP%\EchoVillage_test_engine_!RUN_TAG!.log"
+  powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\tools\run_godot_bounded.ps1" -Godot "%GODOT%" -ProjectRoot "%ROOT%" -StandardOutput "!TEST_LOG!" -StandardError "!TEST_ERROR_LOG!" -TimeoutSeconds 120 --headless --path "%ROOT%" --scene res://tests/TestRunner.tscn --log-file "!TEST_ENGINE_LOG!"
   set "RESULT=!ERRORLEVEL!"
+  if not exist "!TEST_ENGINE_LOG!" set "RESULT=1"
   type "!TEST_LOG!"
   type "!TEST_ERROR_LOG!"
-  findstr /C:"SCRIPT ERROR" /C:"ERROR: Failed to load script" "!TEST_LOG!" "!TEST_ERROR_LOG!" >nul && set "RESULT=1"
-  del /q "!TEST_LOG!" "!TEST_ERROR_LOG!" >nul 2>nul
+  type "!TEST_ENGINE_LOG!"
+  findstr /C:"SCRIPT ERROR" /C:"ERROR: Failed to load script" "!TEST_LOG!" "!TEST_ERROR_LOG!" "!TEST_ENGINE_LOG!" >nul && set "RESULT=1"
+  del /q "!TEST_LOG!" "!TEST_ERROR_LOG!" "!TEST_ENGINE_LOG!" >nul 2>nul
   echo.
   echo Test process exit code: !RESULT!.
   exit /b !RESULT!
