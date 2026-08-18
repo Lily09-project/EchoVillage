@@ -22,6 +22,7 @@ func run() -> void:
 	check("存檔與讀檔能還原玩家狀態", save_load_test())
 	check("糧食短缺會提高麵包價格", event_price_test())
 	check("七日加速模擬保持健康", simulation_test())
+	check("三十日加速模擬保持健康", long_simulation_stability_test())
 	check("展示情境會重現記憶擴散與勇氣決策", showcase_test())
 	check("玩家行動會推進村落編年與聲望", community_progress_test())
 	check("村落編年會隨遊戲狀態序列化還原", community_progress_save_test())
@@ -60,6 +61,9 @@ func run() -> void:
 	check("村落美術提供五間可辨識的居民住宅", village_homes_visual_contract_test())
 	check("設定切換鈕在選取狀態仍維持高對比文字", await settings_selected_contrast_test())
 	check("交易面板開啟時位於所有 HUD 卡片上方", await trade_modal_layering_test())
+	check("模態面板互斥且關閉狀態一致", await modal_exclusivity_test())
+	check("暫停選單動態偏好與設定頁同步", await motion_preference_sync_test())
+	check("任務日誌使用玩家可讀的獎勵與任務名稱", await quest_log_copy_test())
 	check("Utility AI 由可擴充的十種 NPC Action Registry 驅動", npc_action_registry_test())
 	check("NPC State Machine 管理移動、工作、睡眠與逾時復原", npc_state_machine_test())
 	check("十種 NPC 行動皆由獨立具名 Action 類別實作", concrete_npc_actions_test())
@@ -173,6 +177,20 @@ func simulation_test() -> bool:
 			if float(value) < 0.0 or float(value) > 100.0: return false
 		if npc["state"] == "" or npc["action"] == "": return false
 	return true
+
+func long_simulation_stability_test() -> bool:
+	GameManager.new_game()
+	var started_at := Time.get_ticks_usec()
+	for _minute in 43200:
+		GameTime.advance_minute()
+	var elapsed_ms := int((Time.get_ticks_usec() - started_at) / 1000)
+	var snapshot: Dictionary = GameManager.serialize()
+	for npc in GameManager.npcs.values():
+		for value in npc["needs"].values():
+			if float(value) < 0.0 or float(value) > 100.0: return false
+		if str(npc.get("state","")) == "" or str(npc.get("action","")) == "": return false
+	print("LONG_SIMULATION days=30 elapsed_ms=%d" % elapsed_ms)
+	return int(snapshot.get("save_version",0)) >= 3 and snapshot.has("npcs") and snapshot.has("progression")
 
 func showcase_test() -> bool:
 	GameManager.load_showcase("rumor")
@@ -546,6 +564,54 @@ func trade_modal_layering_test() -> bool:
 	instance.queue_free()
 	return result
 
+func modal_exclusivity_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	if scene == null: return false
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	instance.main_menu_panel.visible = false
+	instance.open_side_panel(instance.inventory_panel)
+	var inventory_open: bool = instance.inventory_panel.visible and not instance.journal_panel.visible
+	instance.open_side_panel(instance.journal_panel)
+	var journal_replaced: bool = instance.journal_panel.visible and not instance.inventory_panel.visible
+	instance.toggle_modal_panel(instance.progression_panel)
+	var progression_replaced: bool = instance.progression_panel.visible and not instance.journal_panel.visible
+	instance.close_modal_panels()
+	var all_closed: bool = not instance.inventory_panel.visible and not instance.journal_panel.visible and not instance.progression_panel.visible and not instance.trade_panel.visible
+	instance.queue_free()
+	return inventory_open and journal_replaced and progression_replaced and all_closed
+
+func motion_preference_sync_test() -> bool:
+	var previous := SaveManager.get_preference("motion",true)
+	SaveManager.set_preference("motion",false)
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	if scene == null:
+		SaveManager.set_preference("motion",previous)
+		return false
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	var pause_button := instance.pause_motion_button as Button
+	var settings_toggle := instance.motion_toggle as CheckButton
+	var disabled_state: bool = not instance.motion_enabled and pause_button != null and pause_button.text.contains("關") and settings_toggle != null and not settings_toggle.button_pressed
+	instance.set_motion_enabled(true)
+	var enabled_state := bool(SaveManager.get_preference("motion",false)) and pause_button.text.contains("開") and settings_toggle.button_pressed
+	instance.queue_free()
+	SaveManager.set_preference("motion",previous)
+	return disabled_state and enabled_state
+
+func quest_log_copy_test() -> bool:
+	GameManager.new_game()
+	var scene := load("res://scenes/ui/QuestLogPanel.tscn") as PackedScene
+	if scene == null: return false
+	var panel := scene.instantiate()
+	add_child(panel)
+	panel.refresh([{"title":"林間回音","description":"測試任務","objective":{"description":"測試目標"},"rewards":{"coin":8,"herb":2}}],["forest_echo"])
+	var body := str(panel.body_label.text)
+	panel.queue_free()
+	return body.contains("金幣 +8") and body.contains("月光藥草 +2") and body.contains("林間回音") and not body.contains("{\"coin\"") and not body.contains("forest_echo")
+
 func npc_action_registry_test() -> bool:
 	var registry_script = load("res://scripts/ai/action_registry.gd")
 	if registry_script == null: return false
@@ -884,6 +950,6 @@ func progression_visual_capture_contract_test() -> bool:
 	return "village_progression.png" in names
 
 func write_report() -> void:
-	var report := {"project":"Echo Village","timestamp":Time.get_datetime_string_from_system(),"passed":passed,"failed":failed,"results":results,"simulated_game_days":7}
+	var report := {"project":"Echo Village","timestamp":Time.get_datetime_string_from_system(),"passed":passed,"failed":failed,"results":results,"simulated_game_days":30}
 	var file := FileAccess.open("res://tests/simulation_test_report.json",FileAccess.WRITE)
 	if file != null: file.store_string(JSON.stringify(report,"\t"))

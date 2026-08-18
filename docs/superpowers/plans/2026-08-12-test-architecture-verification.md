@@ -144,7 +144,7 @@ function Invoke-CheckedProcess {
 
 - [ ] **Step 2: Add safe tracked-file checks**
 
-Use `git ls-files`; reject tracked `.env`, private-key extensions, save files, `.godot`, engine executables, ZIP/PCK release artifacts, common token assignment patterns, private-key headers, and `11046030@ntub.edu.tw`. Store only rule IDs and paths, never match content.
+Use `git ls-files`; reject tracked `.env`, private-key extensions, save files, `.godot`, engine executables, ZIP/PCK release artifacts, common token assignment patterns, private-key headers, and personal email addresses. Store only rule IDs and paths, never match content.
 
 - [ ] **Step 3: Write verification JSON**
 

@@ -35,6 +35,7 @@ var inventory_panel: Panel
 var inventory_label: Label
 var pause_panel: Panel
 var pause_label: Label
+var pause_motion_button: Button
 var toast_label: Label
 var journal_panel: Panel
 var journal_label: Label
@@ -84,6 +85,7 @@ func _ready() -> void:
 	EventBus.save_completed.connect(func(_path: String): refresh_ui())
 	EventBus.progression_unlocked.connect(handle_progression_unlock)
 	motion_enabled = SaveManager.get_preference("motion",true)
+	sync_motion_controls()
 	GameTime.set_simulation_paused(true)
 	queue_redraw()
 	if "--visual-qa" in OS.get_cmdline_user_args(): call_deferred("capture_visual_qa")
@@ -232,20 +234,16 @@ func handle_shortcuts() -> void:
 		debug_visible = not debug_visible
 		debug_panel.visible = debug_visible
 	if Input.is_action_just_pressed("inventory"):
-		open_side_panel(inventory_panel)
+		toggle_modal_panel(inventory_panel)
 	if Input.is_action_just_pressed("journal"):
-		open_side_panel(journal_panel)
+		toggle_modal_panel(journal_panel)
 	if Input.is_action_just_pressed("progression"):
-		var opening: bool = not progression_panel.visible
-		progression_panel.refresh(GameManager.progression_snapshot())
-		progression_panel.set_visible_with_motion(opening,motion_enabled)
-		if opening: progression_panel.move_to_front()
+		if not progression_panel.visible: progression_panel.refresh(GameManager.progression_snapshot())
+		toggle_modal_panel(progression_panel)
 	if Input.is_action_just_pressed("world_map"):
-		world_map_panel.set_visible_with_motion(not world_map_panel.visible,motion_enabled)
-		quest_log_panel.visible = false
+		toggle_modal_panel(world_map_panel)
 	if Input.is_action_just_pressed("quest_log"):
-		quest_log_panel.set_visible_with_motion(not quest_log_panel.visible,motion_enabled)
-		world_map_panel.visible = false
+		toggle_modal_panel(quest_log_panel)
 	if Input.is_action_just_pressed("give"): perform("give_bread")
 	if Input.is_action_just_pressed("talk"): perform("talk")
 	if Input.is_action_just_pressed("steal"): perform("steal_food")
@@ -429,7 +427,7 @@ func create_settings_panel() -> void:
 	fullscreen_toggle = make_settings_toggle("FullscreenToggle",Vector2(24,238),"全螢幕顯示")
 	audio_toggle = make_settings_toggle("AudioToggle",Vector2(24,296),"介面與互動提示音效")
 	autosave_toggle.toggled.connect(func(value: bool): SaveManager.set_preference("autosave",value))
-	motion_toggle.toggled.connect(func(value: bool): motion_enabled = value; SaveManager.set_preference("motion",value))
+	motion_toggle.toggled.connect(func(value: bool): set_motion_enabled(value))
 	fullscreen_toggle.toggled.connect(apply_fullscreen)
 	audio_toggle.toggled.connect(func(value: bool): SoundManager.set_enabled(value))
 	var close := Button.new()
@@ -459,7 +457,8 @@ func make_settings_toggle(node_name: String, at: Vector2, label: String) -> Chec
 
 func open_settings() -> void:
 	autosave_toggle.button_pressed = SaveManager.get_preference("autosave",true)
-	motion_toggle.button_pressed = SaveManager.get_preference("motion",true)
+	motion_enabled = SaveManager.get_preference("motion",true)
+	sync_motion_controls()
 	fullscreen_toggle.button_pressed = SaveManager.get_preference("fullscreen",false)
 	audio_toggle.button_pressed = SaveManager.get_preference("audio",true)
 	SoundManager.play_ui()
@@ -633,13 +632,15 @@ func create_pause_panel() -> void:
 	style_action_button(menu,VillageTheme.SUN)
 	pause_panel.add_child(menu)
 	var motion := Button.new()
+	pause_motion_button = motion
 	motion.text = "動態效果：開"
 	motion.position = Vector2(18,159)
 	motion.size = Vector2(314,34)
 	motion.add_theme_font_size_override("font_size",12)
 	style_action_button(motion,VillageTheme.TEAL)
-	motion.pressed.connect(func(): motion_enabled = not motion_enabled; motion.text = "動態效果：開" if motion_enabled else "動態效果：關")
+	motion.pressed.connect(func(): set_motion_enabled(not motion_enabled))
 	pause_panel.add_child(motion)
+	sync_motion_controls()
 	pause_panel.visible = false
 
 func make_label(position_value: Vector2, size_value: Vector2, font_size: int, color: Color) -> Label:
@@ -860,11 +861,40 @@ func launch_showcase(scenario: String) -> void:
 	showcase_panel.visible = false
 
 func open_side_panel(panel: Panel) -> void:
-	var should_open := not panel.visible
+	toggle_modal_panel(panel)
+
+func close_modal_panels() -> void:
 	inventory_panel.visible = false
 	journal_panel.visible = false
-	panel.visible = should_open
-	if should_open: animate_panel_in(panel)
+	progression_panel.visible = false
+	world_map_panel.visible = false
+	quest_log_panel.visible = false
+	trade_panel.visible = false
+	pause_panel.visible = false
+	showcase_panel.visible = false
+
+func toggle_modal_panel(panel: Control) -> void:
+	var should_open := not panel.visible
+	close_modal_panels()
+	if should_open:
+		if panel.has_method("set_visible_with_motion"):
+			panel.set_visible_with_motion(true,motion_enabled)
+		else:
+			panel.visible = true
+			animate_panel_in(panel)
+		panel.move_to_front()
+	sync_simulation_pause()
+
+func set_motion_enabled(value: bool) -> void:
+	motion_enabled = value
+	SaveManager.set_preference("motion",value)
+	sync_motion_controls()
+
+func sync_motion_controls() -> void:
+	if motion_toggle != null:
+		motion_toggle.set_pressed_no_signal(motion_enabled)
+	if pause_motion_button != null:
+		pause_motion_button.text = "動態效果：開" if motion_enabled else "動態效果：關"
 
 func animate_panel_in(panel: Control) -> void:
 	if not motion_enabled: return
@@ -974,6 +1004,7 @@ func open_trade_panel() -> void:
 		show_interaction_feedback("trade","請先靠近一位居民並按 E 選取。")
 		return
 	refresh_trade_panel()
+	close_modal_panels()
 	trade_panel.set_visible_with_motion(true,motion_enabled)
 	trade_panel.move_to_front()
 	sync_simulation_pause()

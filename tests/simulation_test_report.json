@@ -1,6 +1,6 @@
 {
 	"failed": 0,
-	"passed": 78,
+	"passed": 82,
 	"project": "Echo Village",
 	"results": [
 		{
@@ -41,6 +41,10 @@
 		},
 		{
 			"name": "七日加速模擬保持健康",
+			"passed": true
+		},
+		{
+			"name": "三十日加速模擬保持健康",
 			"passed": true
 		},
 		{
@@ -196,6 +200,18 @@
 			"passed": true
 		},
 		{
+			"name": "模態面板互斥且關閉狀態一致",
+			"passed": true
+		},
+		{
+			"name": "暫停選單動態偏好與設定頁同步",
+			"passed": true
+		},
+		{
+			"name": "任務日誌使用玩家可讀的獎勵與任務名稱",
+			"passed": true
+		},
+		{
 			"name": "Utility AI 由可擴充的十種 NPC Action Registry 驅動",
 			"passed": true
 		},
@@ -316,6 +332,6 @@
 			"passed": true
 		}
 	],
-	"simulated_game_days": 7,
-	"timestamp": "2026-08-18T15:44:06"
+	"simulated_game_days": 30,
+	"timestamp": "2026-08-18T22:37:01"
 }
