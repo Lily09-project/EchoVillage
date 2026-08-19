@@ -4,6 +4,8 @@
 
 `run_echo_village.bat --test` 先執行結構與 JSON 驗證，再執行 Godot 測試場景；任何斷言、Script Error、腳本載入錯誤或非零退出碼都會使流程失敗。
 
+GitHub Actions workflow `.github/workflows/ci.yml` 在乾淨 Windows runner 上固定使用 Godot 4.5.2，呼叫同一個 `.bat` 入口，並上傳 `tests/simulation_test_report.json` 作為 artifact。
+
 ## 目前覆蓋：86 項
 
 - 資料與 runtime：五位 NPC、必要欄位、獨立住宅、NPC 對 NPC 關係。

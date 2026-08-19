@@ -1,0 +1,78 @@
+name: Echo Village CI
+
+on:
+  push:
+    branches:
+      - master
+      - 'codex/**'
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: echo-village-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Echo Village CI
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Godot 4.5.2 stable
+        shell: pwsh
+        env:
+          GODOT_VERSION: 4.5.2
+          GODOT_TAG: 4.5.2-stable
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $archive = Join-Path $env:RUNNER_TEMP 'godot-4.5.2-win64.zip'
+          $install = Join-Path $env:RUNNER_TEMP 'godot-4.5.2-win64'
+          $url = "https://github.com/godotengine/godot-builds/releases/download/$env:GODOT_TAG/Godot_v$env:GODOT_VERSION-stable_win64.exe.zip"
+          Invoke-WebRequest -Uri $url -OutFile $archive
+          if (Test-Path -LiteralPath $install) { Remove-Item -LiteralPath $install -Recurse -Force }
+          Expand-Archive -LiteralPath $archive -DestinationPath $install -Force
+          $executable = Join-Path $install 'Godot_v4.5.2-stable_win64.exe'
+          if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) { throw "Godot executable was not found after extraction: $executable" }
+          "GODOT_EXECUTABLE=$executable" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "GODOT_VERSION=$env:GODOT_VERSION" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Cache Godot import data
+        uses: actions/cache@v4
+        with:
+          path: .godot
+          key: godot-${{ runner.os }}-${{ hashFiles('project.godot', 'data/**/*.json', 'scripts/**/*.gd', 'scenes/**/*.tscn') }}
+
+      - name: Run structural and Godot quality gate
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & cmd.exe /d /c 'run_echo_village.bat --test'
+          $exitCode = $LASTEXITCODE
+          if ($exitCode -ne 0) { throw "Echo Village quality gate failed with exit code $exitCode." }
+
+      - name: Validate generated report
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $reportPath = Join-Path $env:GITHUB_WORKSPACE 'tests\simulation_test_report.json'
+          if (-not (Test-Path -LiteralPath $reportPath -PathType Leaf)) { throw "Test report was not generated: $reportPath" }
+          $report = Get-Content -Raw -Encoding UTF8 -LiteralPath $reportPath | ConvertFrom-Json
+          if ([int]$report.failed -ne 0) { throw "The generated report contains $($report.failed) failed tests." }
+          if ([int]$report.passed -lt 86) { throw "The generated report contains only $($report.passed) passing tests." }
+          Write-Output "CI report: passed=$($report.passed) failed=$($report.failed)"
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: echo-village-test-report
+          path: tests/simulation_test_report.json
+          if-no-files-found: warn

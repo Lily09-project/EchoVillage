@@ -8,6 +8,8 @@ Echo Village 是一款以「居民會記得、會判斷，也會因玩家行動�
 
 ![Echo Village 主選單](tests/visual_qa/consumer_main_menu.png)
 
+[![Echo Village CI](https://github.com/Lily09-project/EchoVillage/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/Lily09-project/EchoVillage/actions/workflows/ci.yml)
+
 ## 一分鐘了解 Echo Village
 
 ### 玩家體驗
@@ -44,6 +46,10 @@ Echo Village 是一款以「居民會記得、會判斷，也會因玩家行動�
 | 自動測試 | `86 passed / 0 failed` |
 | 長時間穩定性 | 30 日加速模擬通過 |
 | 發行驗證 | Windows portable export 與獨立 smoke test 通過 |
+
+### 可重現品質流程
+
+每次推送 `master`／`codex/**` 或建立對 `master` 的 Pull Request 時，GitHub Actions 會在乾淨的 Windows runner 上固定使用 Godot `4.5.2-stable`，執行 `run_echo_village.bat --test` 的結構驗證、完整 Godot 測試與報告檢查。工作流程只需要 `contents: read`，不使用專案 secrets；每次執行都會保留 `simulation_test_report.json` artifact，方便審查失敗原因與回歸差異。
 
 ## 實際遊戲畫面
 
@@ -211,6 +217,8 @@ build_release.bat
 ```bat
 run_echo_village.bat --test
 ```
+
+CI workflow：`.github/workflows/ci.yml`。本機與 CI 共用同一個批次品質閘門，避免兩套測試規則逐漸分歧。
 
 目前測試涵蓋：
 
