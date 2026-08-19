@@ -41,6 +41,10 @@ var journal_panel: Panel
 var journal_label: Label
 var journal_title_label: Label
 var journal_mode := "chronicle"
+var daily_echo_day := 1
+var daily_echo_category := "all"
+const DAILY_ECHO_CATEGORIES := ["all","social","world","quest","economy","location","progression"]
+const DAILY_ECHO_CATEGORY_LABELS := {"all":"全部","social":"居民","world":"世界","quest":"任務","economy":"經濟","location":"地點","progression":"進展"}
 var time_panel: Panel
 var time_label: Label
 var renown_label: Label
@@ -593,19 +597,49 @@ func create_journal_panel() -> void:
 	journal_panel = Panel.new()
 	journal_panel.name = "ChroniclePanel"
 	journal_panel.position = Vector2(860,108)
-	journal_panel.size = Vector2(360,350)
+	journal_panel.size = Vector2(360,390)
 	journal_panel.add_theme_stylebox_override("panel",VillageTheme.card_style(VillageTheme.CREAM,VillageTheme.LILAC))
 	canvas.add_child(journal_panel)
 	var eyebrow := make_panel_label(journal_panel,Vector2(18,14),Vector2(270,18),12,VillageTheme.LILAC)
 	eyebrow.text = "每個選擇都會留下回音"
 	journal_title_label = make_panel_label(journal_panel,Vector2(18,34),Vector2(320,30),20,VillageTheme.INK)
 	journal_title_label.text = "村落編年  /  CHRONICLE"
-	journal_label = make_panel_label(journal_panel,Vector2(18,73),Vector2(320,220),13,VillageTheme.INK_SOFT)
+	journal_label = make_panel_label(journal_panel,Vector2(18,73),Vector2(320,177),13,VillageTheme.INK_SOFT)
 	journal_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var previous_button := Button.new()
+	previous_button.name = "DailyPrevButton"
+	previous_button.text = "‹ 上一日"
+	previous_button.position = Vector2(18,258)
+	previous_button.size = Vector2(96,34)
+	previous_button.add_theme_font_size_override("font_size",12)
+	previous_button.tooltip_text = "回看前一天的事件"
+	style_action_button(previous_button,VillageTheme.TEAL)
+	previous_button.pressed.connect(func(): set_daily_echo_day(daily_echo_day - 1))
+	journal_panel.add_child(previous_button)
+	var next_button := Button.new()
+	next_button.name = "DailyNextButton"
+	next_button.text = "下一日 ›"
+	next_button.position = Vector2(120,258)
+	next_button.size = Vector2(96,34)
+	next_button.add_theme_font_size_override("font_size",12)
+	next_button.tooltip_text = "回看後一天的事件"
+	style_action_button(next_button,VillageTheme.TEAL)
+	next_button.pressed.connect(func(): set_daily_echo_day(daily_echo_day + 1))
+	journal_panel.add_child(next_button)
+	var filter_button := Button.new()
+	filter_button.name = "DailyFilterButton"
+	filter_button.text = "分類：全部"
+	filter_button.position = Vector2(222,258)
+	filter_button.size = Vector2(120,34)
+	filter_button.add_theme_font_size_override("font_size",12)
+	filter_button.tooltip_text = "切換居民、世界、任務、經濟、地點與進展事件"
+	style_action_button(filter_button,VillageTheme.SUN)
+	filter_button.pressed.connect(cycle_daily_echo_category)
+	journal_panel.add_child(filter_button)
 	var daily_button := Button.new()
 	daily_button.name = "DailySummaryButton"
 	daily_button.text = "今日回音  L"
-	daily_button.position = Vector2(18,299)
+	daily_button.position = Vector2(18,342)
 	daily_button.size = Vector2(190,34)
 	daily_button.add_theme_font_size_override("font_size",12)
 	style_action_button(daily_button,VillageTheme.SUN)
@@ -613,7 +647,7 @@ func create_journal_panel() -> void:
 	journal_panel.add_child(daily_button)
 	var close := Button.new()
 	close.text = "關閉  J"
-	close.position = Vector2(218,299)
+	close.position = Vector2(218,342)
 	close.size = Vector2(124,34)
 	close.add_theme_font_size_override("font_size",12)
 	style_action_button(close,VillageTheme.LILAC)
@@ -986,7 +1020,11 @@ func chronicle_text(progress: Dictionary) -> String:
 	return "\n".join(lines)
 
 func set_journal_mode(mode: String) -> void:
+	var was_daily := journal_mode == "daily"
 	journal_mode = "daily" if mode == "daily" else "chronicle"
+	if journal_mode == "daily" and not was_daily:
+		daily_echo_day = GameTime.day
+		daily_echo_category = "all"
 	if journal_label != null: refresh_journal_panel(GameManager.community_progress())
 
 func refresh_journal_panel(progress: Dictionary = {}) -> void:
@@ -994,16 +1032,41 @@ func refresh_journal_panel(progress: Dictionary = {}) -> void:
 	var snapshot: Dictionary = progress if not progress.is_empty() else GameManager.community_progress()
 	var is_daily: bool = journal_mode == "daily"
 	journal_title_label.text = "今日回音  /  DAILY ECHOES" if is_daily else "村落編年  /  CHRONICLE"
-	journal_label.text = daily_echoes_text(GameManager.daily_summary()) if is_daily else chronicle_text(snapshot)
+	if is_daily:
+		daily_echo_day = clampi(daily_echo_day,1,maxi(1,GameTime.day))
+		journal_label.text = daily_echoes_text(GameManager.daily_summary(daily_echo_day,daily_echo_category),daily_echo_category)
+		var previous_button := journal_panel.get_node_or_null("DailyPrevButton") as Button
+		var next_button := journal_panel.get_node_or_null("DailyNextButton") as Button
+		var filter_button := journal_panel.get_node_or_null("DailyFilterButton") as Button
+		if previous_button != null:
+			previous_button.disabled = daily_echo_day <= 1
+			previous_button.tooltip_text = "已經是最早保留日期" if previous_button.disabled else "回看前一天的事件"
+		if next_button != null:
+			next_button.disabled = daily_echo_day >= GameTime.day
+			next_button.tooltip_text = "目前沒有更晚的日期" if next_button.disabled else "回看後一天的事件"
+		if filter_button != null: filter_button.text = "分類：%s" % str(DAILY_ECHO_CATEGORY_LABELS.get(daily_echo_category,"全部"))
 	var toggle_button := journal_panel.get_node_or_null("DailySummaryButton") as Button
 	if toggle_button != null: toggle_button.text = "村落編年  J" if is_daily else "今日回音  L"
 
-func daily_echoes_text(summary: Dictionary) -> String:
+func set_daily_echo_day(value: int) -> void:
+	daily_echo_day = clampi(value,1,maxi(1,GameTime.day))
+	if journal_mode == "daily" and journal_label != null: refresh_journal_panel(GameManager.community_progress())
+
+func set_daily_echo_category(value: String) -> void:
+	daily_echo_category = value if DAILY_ECHO_CATEGORIES.has(value) else "all"
+	if journal_mode == "daily" and journal_label != null: refresh_journal_panel(GameManager.community_progress())
+
+func cycle_daily_echo_category() -> void:
+	var index := DAILY_ECHO_CATEGORIES.find(daily_echo_category)
+	set_daily_echo_category(str(DAILY_ECHO_CATEGORIES[(index + 1) % DAILY_ECHO_CATEGORIES.size()]))
+
+func daily_echoes_text(summary: Dictionary, category: String = "all") -> String:
 	var counts: Dictionary = summary.get("category_counts",{})
-	var lines := ["第 %d 天 · 共記錄 %d 件事件" % [int(summary.get("day",GameTime.day)),int(summary.get("total_events",0))],"居民 %d  ·  世界 %d  ·  任務 %d" % [int(counts.get("social",0)),int(counts.get("world",0)),int(counts.get("quest",0))],"經濟 %d  ·  地點 %d  ·  進展 %d" % [int(counts.get("economy",0)),int(counts.get("location",0)),int(counts.get("progression",0))],""]
+	var category_label := str(DAILY_ECHO_CATEGORY_LABELS.get(category,"全部"))
+	var lines := ["第 %d 天 · %s · 共記錄 %d 件事件" % [int(summary.get("day",GameTime.day)),category_label,int(summary.get("total_events",0))],"居民 %d  ·  世界 %d  ·  任務 %d" % [int(counts.get("social",0)),int(counts.get("world",0)),int(counts.get("quest",0))],"經濟 %d  ·  地點 %d  ·  進展 %d" % [int(counts.get("economy",0)),int(counts.get("location",0)),int(counts.get("progression",0))],""]
 	var highlights: Array = summary.get("highlights",[])
 	if highlights.is_empty():
-		lines.append("今天還沒有值得記下的回音。")
+		lines.append("這一天沒有符合目前篩選的回音。")
 	else:
 		lines.append("重要回音")
 		for value in highlights.slice(0,5):

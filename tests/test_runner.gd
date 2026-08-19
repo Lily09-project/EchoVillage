@@ -27,7 +27,9 @@ func run() -> void:
 	check("玩家行動會推進村落編年與聲望", community_progress_test())
 	check("村落編年會隨遊戲狀態序列化還原", community_progress_save_test())
 	check("每日回音時間軸會分類並彙整重要事件", daily_echoes_summary_test())
+	check("每日回音可依日期與分類查詢且維持邊界", daily_echoes_history_filter_test())
 	check("每日回音面板提供摘要切換與快捷鍵入口", await daily_echoes_ui_test())
+	check("每日回音面板提供歷史日期與分類控制", await daily_echoes_history_ui_test())
 	check("日夜階段會正確映射遊戲時間", day_phase_test())
 	check("NPC 展示快照會安全提供情緒、需求與關係", npc_showcase_snapshot_test())
 	check("日夜視覺設定會提供可用亮度與標籤", visual_profile_test())
@@ -239,6 +241,26 @@ func daily_echoes_summary_test() -> bool:
 	var restored_summary: Dictionary = GameManager.daily_summary(1)
 	return has_required_fields and classified and has_highlights and restored and int(restored_summary.get("total_events",0)) >= 3
 
+func daily_echoes_history_filter_test() -> bool:
+	GameTime.reset_clock()
+	GameManager.new_game()
+	GameManager.add_log("玩家與艾莉絲交談。")
+	GameManager.add_log("玩家買入麵包。")
+	GameTime.day = 2
+	GameTime.minute = 360
+	GameManager.add_log("第二天完成任務。")
+	var social_day_one: Array = GameManager.timeline_snapshot("social",1,20)
+	var economy_day_one: Array = GameManager.timeline_snapshot("economy",1,20)
+	var day_one: Array = GameManager.timeline_snapshot("all",1,20)
+	var day_two: Array = GameManager.timeline_snapshot("all",2,20)
+	var bounded: Array = GameManager.timeline_snapshot("all",-1,1)
+	var filtered_summary: Dictionary = GameManager.daily_summary(1,"social")
+	var all_social: bool = not social_day_one.is_empty()
+	for value in social_day_one:
+		all_social = all_social and int(value.get("day",0)) == 1 and str(value.get("category","")) == "social"
+	var summary_is_filtered: bool = int(filtered_summary.get("total_events",0)) == 1 and int(filtered_summary.get("category_counts",{}).get("social",0)) == 1 and int(filtered_summary.get("category_counts",{}).get("economy",0)) == 0
+	return all_social and economy_day_one.size() == 1 and day_one.size() >= 3 and day_two.size() == 1 and bounded.size() == 1 and summary_is_filtered
+
 func daily_echoes_ui_test() -> bool:
 	var scene := load("res://scenes/main/Main.tscn") as PackedScene
 	if scene == null: return false
@@ -259,6 +281,32 @@ func daily_echoes_ui_test() -> bool:
 		button.emit_signal("pressed")
 		var toggled_back: bool = instance.journal_mode == "chronicle" and str(instance.journal_title_label.text).contains("村落編年") and button.text.contains("今日回音")
 		result = result and toggled_back
+	instance.queue_free()
+	return result
+
+func daily_echoes_history_ui_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	if scene == null: return false
+	GameTime.reset_clock()
+	GameManager.new_game()
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	instance.main_menu_panel.visible = false
+	instance.set_journal_mode("daily")
+	var previous := instance.get_node_or_null("CanvasLayer/ChroniclePanel/DailyPrevButton") as Button
+	var next := instance.get_node_or_null("CanvasLayer/ChroniclePanel/DailyNextButton") as Button
+	var filter := instance.get_node_or_null("CanvasLayer/ChroniclePanel/DailyFilterButton") as Button
+	instance.set_daily_echo_day(0)
+	instance.set_daily_echo_category("social")
+	instance.refresh_ui()
+	var text := str(instance.journal_label.text)
+	var result: bool = previous != null and next != null and filter != null and previous.disabled and next.disabled and instance.daily_echo_day == 1 and instance.daily_echo_category == "social" and text.contains("居民")
+	if filter != null:
+		filter.emit_signal("pressed")
+		result = result and instance.daily_echo_category == "world" and filter.text.contains("世界")
+	instance.set_daily_echo_day(99)
+	result = result and instance.daily_echo_day == GameTime.day
 	instance.queue_free()
 	return result
 

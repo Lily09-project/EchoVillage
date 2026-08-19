@@ -1,6 +1,6 @@
 {
 	"failed": 0,
-	"passed": 84,
+	"passed": 86,
 	"project": "Echo Village",
 	"results": [
 		{
@@ -64,7 +64,15 @@
 			"passed": true
 		},
 		{
+			"name": "每日回音可依日期與分類查詢且維持邊界",
+			"passed": true
+		},
+		{
 			"name": "每日回音面板提供摘要切換與快捷鍵入口",
+			"passed": true
+		},
+		{
+			"name": "每日回音面板提供歷史日期與分類控制",
 			"passed": true
 		},
 		{
@@ -341,5 +349,5 @@
 		}
 	],
 	"simulated_game_days": 30,
-	"timestamp": "2026-08-19T15:35:29"
+	"timestamp": "2026-08-19T16:13:53"
 }

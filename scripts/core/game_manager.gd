@@ -759,7 +759,7 @@ func timeline_snapshot(category: String = "all", target_day: int = -1, limit: in
 		if result.size() >= safe_limit: break
 	return result
 
-func daily_summary(target_day: int = -1) -> Dictionary:
+func daily_summary(target_day: int = -1, category: String = "all") -> Dictionary:
 	var day_value: int = GameTime.day if target_day < 0 else target_day
 	var category_counts := {"social":0,"world":0,"quest":0,"economy":0,"progression":0,"location":0,"simulation":0}
 	var highlights: Array = []
@@ -767,10 +767,11 @@ func daily_summary(target_day: int = -1) -> Dictionary:
 	for value in timeline_events:
 		var event: Dictionary = value
 		if int(event.get("day",0)) != day_value: continue
+		if category != "all" and str(event.get("category","simulation")) != category: continue
 		total_events += 1
-		var category: String = str(event.get("category","simulation"))
-		category_counts[category] = int(category_counts.get(category,0)) + 1
-		if category != "simulation": highlights.append(event.duplicate(true))
+		var event_category: String = str(event.get("category","simulation"))
+		category_counts[event_category] = int(category_counts.get(event_category,0)) + 1
+		if event_category != "simulation": highlights.append(event.duplicate(true))
 	if highlights.size() > 6:
 		highlights = highlights.slice(highlights.size() - 6)
 	highlights.reverse()
