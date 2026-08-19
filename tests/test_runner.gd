@@ -39,6 +39,8 @@ func run() -> void:
 	check("繪本美術系統提供角色與日夜視覺資料", village_art_system_test())
 	check("擴充內容資料契約可載入", expansion_data_contract_test())
 	check("舊版存檔可安全遷移至世界狀態 v2", save_v1_migration_test())
+	check("存檔邊界會拒絕損壞與超大資料", save_envelope_validation_test())
+	check("偏好設定只接受布林型別", preference_type_safety_test())
 	check("林間回音任務可依序推進並原子交付", forest_echo_progression_test())
 	check("完成任務後不可重複取得獎勵", quest_reward_idempotency_test())
 	check("森林配方製作成功且失敗時不消耗素材", crafting_atomicity_test())
@@ -385,6 +387,31 @@ func save_v1_migration_test() -> bool:
 	var migrated: Dictionary = result.get("data",{})
 	var state: Dictionary = migrated.get("world_state",{})
 	return int(migrated.get("save_version",0)) == 2 and state.has_all(["player","npcs","current_location","discovered_locations","active_quests","completed_quests","world_flags"]) and int(state["player"]["inventory"].get("bread",0)) == 2
+
+func save_envelope_validation_test() -> bool:
+	var migration = load("res://scripts/save/save_migration.gd")
+	if migration == null or not migration.has_method("migrate"): return false
+	var malformed := [
+		{"save_version":2,"world_state":{"player":"tampered","npcs":{}}},
+		{"save_version":2,"world_state":{"player":{"inventory":[]},"npcs":{}}},
+		{"save_version":1,"time":GameTime.serialize(),"world":{"player":"tampered","npcs":[]}},
+		{"save_version":1,"time":GameTime.serialize(),"world":{"player":{},"npcs":{"alice":"tampered"}}}
+	]
+	for payload in malformed:
+		if bool(migration.migrate(payload).get("ok",false)): return false
+	var oversized: Dictionary = GameManager.serialize()
+	var timeline: Array = []
+	for _index in 513: timeline.append({"message":"oversized"})
+	oversized["timeline_events"] = timeline
+	var oversized_result: Dictionary = migration.migrate({"save_version":2,"world_state":oversized})
+	if bool(oversized_result.get("ok",false)): return false
+	return bool(migration.migrate({"save_version":2,"world_state":GameManager.serialize()}).get("ok",false))
+
+func preference_type_safety_test() -> bool:
+	if not SaveManager.has_method("sanitize_preferences"): return false
+	var original: Dictionary = SaveManager.preferences.duplicate(true)
+	var sanitized: Dictionary = SaveManager.sanitize_preferences({"autosave":"false","motion":0,"fullscreen":1,"audio":false,"onboarding_seen":"true"})
+	return sanitized.get("autosave") == original.get("autosave") and sanitized.get("motion") == original.get("motion") and sanitized.get("fullscreen") == original.get("fullscreen") and sanitized.get("audio") == false and sanitized.get("onboarding_seen") == original.get("onboarding_seen")
 
 func forest_echo_progression_test() -> bool:
 	GameManager.new_game()

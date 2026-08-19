@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-$required = @('project.godot','scenes\main\Main.tscn','scripts\main.gd','scripts\core\game_manager.gd','scripts\save\save_manager.gd','tests\test_runner.gd','tests\TestRunner.tscn','run_echo_village.bat','.github\workflows\ci.yml','data\npcs\npc_profiles.json','data\items\items.json','data\items\recipes.json','data\dialogue\templates.json','data\events\world_events.json','data\world\locations.json','data\quests\quests.json')
+$required = @('project.godot','scenes\main\Main.tscn','scripts\main.gd','scripts\core\game_manager.gd','scripts\save\save_manager.gd','tests\test_runner.gd','tests\TestRunner.tscn','run_echo_village.bat','build_release.bat','tools\run_godot_bounded.ps1','tools\security_audit.ps1','.github\workflows\ci.yml','data\npcs\npc_profiles.json','data\items\items.json','data\items\recipes.json','data\dialogue\templates.json','data\events\world_events.json','data\world\locations.json','data\quests\quests.json')
 $issues = @()
 foreach($relative in $required){ if(-not (Test-Path -LiteralPath (Join-Path $root $relative))){ $issues += "Missing: $relative" } }
 Get-ChildItem -LiteralPath (Join-Path $root 'data') -Recurse -Filter *.json | ForEach-Object {
@@ -43,9 +43,19 @@ foreach($recipe in $recipeData.recipes){
 $workflowPath = Join-Path $root '.github\workflows\ci.yml'
 if(Test-Path -LiteralPath $workflowPath -PathType Leaf){
   $workflowText = Get-Content -Raw -Encoding UTF8 -LiteralPath $workflowPath
-  $workflowRequired = @('name: Echo Village CI','pull_request:','workflow_dispatch:','permissions:','contents: read','runs-on: windows-latest','4.5.2-stable','GODOT_EXECUTABLE','run_echo_village.bat --test','actions/upload-artifact@v4','tests/simulation_test_report.json','if: always()')
+  $workflowRequired = @('name: Echo Village CI','pull_request:','workflow_dispatch:','permissions:','contents: read','runs-on: windows-latest','4.5.2-stable','GODOT_EXECUTABLE','run_echo_village.bat --test','actions/upload-artifact@v4','tests/simulation_test_report.json','tests/security_audit_report.json','if: always()')
   foreach($token in $workflowRequired){ if($workflowText -notmatch [regex]::Escape($token)){ $issues += "CI workflow lacks required contract: $token" } }
   foreach($forbidden in @('TODO','TBD','YOUR_','CHANGE_ME','api_key','password','secret')){ if($workflowText -match [regex]::Escape($forbidden)){ $issues += "CI workflow contains forbidden placeholder or secret-like text: $forbidden" } }
+}
+$runnerPath = Join-Path $root 'tools\run_godot_bounded.ps1'
+if(Test-Path -LiteralPath $runnerPath -PathType Leaf){
+  $runnerText = Get-Content -Raw -Encoding UTF8 -LiteralPath $runnerPath
+  foreach($token in @('taskkill.exe','/PID $ProcessId','/T /F','exit 124')){ if($runnerText -notmatch [regex]::Escape($token)){ $issues += "Bounded Godot runner lacks process cleanup contract: $token" } }
+}
+$releasePath = Join-Path $root 'build_release.bat'
+if(Test-Path -LiteralPath $releasePath -PathType Leaf){
+  $releaseText = Get-Content -Raw -Encoding UTF8 -LiteralPath $releasePath
+  foreach($token in @('GODOT_EXECUTABLE','GODOT_RUNTIME','--export-pack','SMOKE_LOG','Invalid wrapper executable name')){ if($releaseText -notmatch [regex]::Escape($token)){ $issues += "Release builder lacks delivery contract: $token" } }
 }
 if($issues.Count -gt 0){ $issues | ForEach-Object { Write-Error $_ }; exit 1 }
 Write-Output "PASS: structural and JSON validation completed for $root"

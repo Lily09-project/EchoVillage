@@ -6,7 +6,7 @@
 
 GitHub Actions workflow `.github/workflows/ci.yml` 在乾淨 Windows runner 上固定使用 Godot 4.5.2，呼叫同一個 `.bat` 入口，並上傳 `tests/simulation_test_report.json` 作為 artifact。
 
-## 目前覆蓋：87 項
+## 目前覆蓋：89 項
 
 - 資料與 runtime：五位 NPC、必要欄位、獨立住宅、NPC 對 NPC 關係。
 - 長時間模擬：七日加速，需求保持 0–100，狀態與 Action 有效。
@@ -22,6 +22,7 @@ GitHub Actions workflow `.github/workflows/ci.yml` 在乾淨 Windows runner 上�
 - 首次旅程：新遊戲三步驟導覽、下一步／略過／Esc、`onboarding_seen` 偏好與暫停選單 `F1` 重開；同時驗證指南按鈕不與動態開關重疊。
 - 可及性：設定選取狀態文字對比、清楚焦點與完整鍵盤路徑。
 - Navigation：五個實際 Agent、路徑偵錯與停滯復原。
+- 安全邊界：損壞／竄改／超大存檔拒絕、偏好型別白名單、tracked-file secrets／私鑰／release artifact 稽核。
 
 ## 視覺 QA
 
@@ -29,7 +30,11 @@ GitHub Actions workflow `.github/workflows/ci.yml` 在乾淨 Windows runner 上�
 
 ## 發行驗證
 
-`build_release.bat` 依序執行：87 項測試 → PCK 匯出 → portable runtime 組裝 → 120 幀成品煙霧測試。最後另檢查成品檔案、大小與殘留程序。
+`build_release.bat` 依序執行：89 項測試 → PCK 匯出 → portable runtime 組裝 → 120 幀成品煙霧測試。最後另檢查成品檔案、大小與殘留程序。
+
+## 安全稽核
+
+`tools/security_audit.ps1` 以 `git ls-files` 為邊界，檢查 secrets／private key pattern、`.env`、使用者 save/preferences、`.godot`／release 目錄與 engine binary。稽核報告寫入被 `.gitignore` 排除的 `tests/security_audit_report.json`，CI 會驗證 `passed=true` 且 `finding_count=0`；不會把匹配到的敏感內容印出。
 
 ## 驗收條件
 
@@ -37,4 +42,4 @@ GitHub Actions workflow `.github/workflows/ci.yml` 在乾淨 Windows runner 上�
 - Console 不含 `SCRIPT ERROR` 或腳本載入失敗。
 - 十二張視覺證據齊全且尺寸正確，包含首次旅程導覽與按鈕層級。
 - `EchoVillage.exe` 可從 release 資料夾載入同名 PCK。
-- 一鍵啟動與一鍵建置皆不依賴系統 PATH。
+- 一鍵啟動可透過 bundled runtime 或 `GODOT_EXECUTABLE` 執行；一鍵建置在明確設定 `GODOT_RUNTIME`（或提供 bundled GUI runtime）後不依賴系統 PATH，且不會把 console bootstrap 誤包成玩家執行檔。

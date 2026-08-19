@@ -37,7 +37,7 @@
 | 32 Camera | 完成 | Camera2D 平滑跟隨與世界邊界。 |
 | 33 Input | 完成 | Input Map 提供 WASD/方向鍵、E/C、I、Esc、F3 等。 |
 | 34–37 Architecture/Data | 完成 | Autoload 節制、EventBus、JSON 資料、純邏輯服務與清楚目錄。 |
-| 38 Automated Tests | 完成 | 76 項 headless tests 與 runtime error gate。 |
+| 38 Automated Tests | 完成 | 89 項 headless tests、security audit 與 runtime error gate。 |
 | 39 Simulation Test | 完成 | 七日、5 NPC、Needs／Inventory／Relationship／Memory／Action 邊界驗證。 |
 | 40 Performance | 完成 | 每十遊戲分鐘決策，Navigation 與渲染分離，5 NPC 無昂貴逐幀評分。 |
 | 41 NPC 設定 | 完成 | 五位指定角色具可辨識職業、個性、日程、住宅與關係。 |
@@ -52,7 +52,7 @@
 | 51 Architecture Diagram | 完成 | Mermaid 含 Player、World、NPC、AI、Needs、Schedule、Action、Memory、Relationship、Inventory、Events、Save、UI、Optional LLM。 |
 | 52 Portfolio | 完成 | Case Study 與 README 聚焦 autonomous NPC architecture。 |
 | 53 禁止範圍 | 遵守 | 未加入多人、戰鬥、大世界、3D、Steam 或大量 NPC。 |
-| 54 Final Verification | 完成 | 1.2.0 build、76 tests、11 張 GPU QA、portable smoke 與 artifact audit。 |
+| 54 Final Verification | 完成 | 1.2.0 build、89 tests、12 張 GPU QA、tracked-file security audit、portable smoke 與 artifact audit。 |
 
 ## 1.2.0 延伸完成項目
 

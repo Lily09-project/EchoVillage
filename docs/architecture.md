@@ -31,6 +31,7 @@
 | `LocationService` | 地點切換、發現與區域內容 |
 | `ProgressionService` | 五級聲望、資料驅動成就、一次性解鎖與安全條件評估 |
 | `SaveManager` | v3 世界狀態、自動存檔、偏好與舊版遷移 |
+| `SaveMigration` | 在載入前驗證 envelope／world state 型別、陣列數量上限與版本相容性，拒絕損壞或竄改資料 |
 | `Main` onboarding UI | 首次旅程三步驟、模態暫停、Esc／略過、F1 重開；只保存 `onboarding_seen` 偏好，不寫入世界狀態 |
 | `SoundManager` | 可關閉的程式化 UI／互動提示音 |
 | `AIService`（Optional） | 結構化文本、記憶摘要、建議目標與模板 fallback；不改權威狀態 |

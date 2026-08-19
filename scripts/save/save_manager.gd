@@ -53,10 +53,16 @@ func load_preferences() -> Dictionary:
 	var file := FileAccess.open(PREFERENCES_PATH,FileAccess.READ)
 	if file == null: return preferences.duplicate(true)
 	var parsed = JSON.parse_string(file.get_as_text())
-	if parsed is Dictionary:
-		for key in preferences:
-			if parsed.has(key): preferences[key] = bool(parsed[key])
+	preferences = sanitize_preferences(parsed)
 	return preferences.duplicate(true)
+
+func sanitize_preferences(raw: Variant) -> Dictionary:
+	var sanitized: Dictionary = preferences.duplicate(true)
+	if not (raw is Dictionary): return sanitized
+	var parsed: Dictionary = raw
+	for key in sanitized:
+		if parsed.has(key) and parsed[key] is bool: sanitized[key] = parsed[key]
+	return sanitized
 
 func set_preference(key: String, value: bool) -> bool:
 	if not preferences.has(key): return false

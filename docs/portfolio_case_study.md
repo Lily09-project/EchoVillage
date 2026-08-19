@@ -22,7 +22,7 @@ Echo Village 是以 Godot 4 與 GDScript 完成的繁體中文 2D 生活模擬 R
 - 自動存檔、版本化序列化、舊檔遷移與不重複任務獎勵。
 - 五級村落聲望、六項資料驅動成就與可持久保存的村落手札。
 - 首次旅程導覽：三步驟、可略過、Esc 關閉、偏好持久化與暫停選單 F1 重開，降低新玩家理解成本。
-- 87 項自動測試、十二張 GPU 視覺 QA、CI quality gate 與 portable Windows 發行管線。
+- 89 項自動測試、十二張 GPU 視覺 QA、CI quality gate、tracked-file security audit 與 portable Windows 發行管線。
 
 ## 關鍵工程決策
 
@@ -32,6 +32,7 @@ Echo Village 是以 Godot 4 與 GDScript 完成的繁體中文 2D 生活模擬 R
 4. **防假綠燈測試**：測試器除斷言外還掃描 Godot runtime 錯誤。
 5. **免安裝交付**：沒有 Export Templates 時採 portable runtime + PCK，消費者仍可直接雙擊。
 6. **以首次體驗驗收產品**：導覽只保存偏好、不污染世界存檔；測試同時覆蓋完成、略過、Esc 與從暫停選單重開。
+7. **把本機輸入當成不可信資料**：存檔遷移先做型別／數量上限驗證，偏好只接受 boolean；repository 以 tracked-file audit 防止 secrets 與發行產物外洩。
 
 ## 問題與修復案例
 

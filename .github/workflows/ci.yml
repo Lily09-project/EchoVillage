@@ -66,13 +66,21 @@ jobs:
           if (-not (Test-Path -LiteralPath $reportPath -PathType Leaf)) { throw "Test report was not generated: $reportPath" }
           $report = Get-Content -Raw -Encoding UTF8 -LiteralPath $reportPath | ConvertFrom-Json
           if ([int]$report.failed -ne 0) { throw "The generated report contains $($report.failed) failed tests." }
-          if ([int]$report.passed -lt 86) { throw "The generated report contains only $($report.passed) passing tests." }
+          if ([int]$report.passed -lt 89) { throw "The generated report contains only $($report.passed) passing tests." }
           Write-Output "CI report: passed=$($report.passed) failed=$($report.failed)"
+
+          $securityPath = Join-Path $env:GITHUB_WORKSPACE 'tests\security_audit_report.json'
+          if (-not (Test-Path -LiteralPath $securityPath -PathType Leaf)) { throw "Security audit report was not generated: $securityPath" }
+          $security = Get-Content -Raw -Encoding UTF8 -LiteralPath $securityPath | ConvertFrom-Json
+          if (-not [bool]$security.passed -or [int]$security.finding_count -ne 0) { throw "Security audit reported $($security.finding_count) finding(s)." }
+          Write-Output "Security audit: tracked_files=$($security.tracked_files) finding_count=$($security.finding_count)"
 
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: echo-village-test-report
-          path: tests/simulation_test_report.json
+          path: |
+            tests/simulation_test_report.json
+            tests/security_audit_report.json
           if-no-files-found: warn

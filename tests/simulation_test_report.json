@@ -1,6 +1,6 @@
 {
 	"failed": 0,
-	"passed": 87,
+	"passed": 89,
 	"project": "Echo Village",
 	"results": [
 		{
@@ -109,6 +109,14 @@
 		},
 		{
 			"name": "舊版存檔可安全遷移至世界狀態 v2",
+			"passed": true
+		},
+		{
+			"name": "存檔邊界會拒絕損壞與超大資料",
+			"passed": true
+		},
+		{
+			"name": "偏好設定只接受布林型別",
 			"passed": true
 		},
 		{
@@ -353,5 +361,5 @@
 		}
 	],
 	"simulated_game_days": 30,
-	"timestamp": "2026-08-19T17:32:35"
+	"timestamp": "2026-08-19T18:22:49"
 }

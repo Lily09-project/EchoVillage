@@ -24,6 +24,19 @@ function Normalize-ProcessPath {
 	}
 }
 
+function Stop-ProcessTree {
+	param([int] $ProcessId)
+
+	# Godot's editor bootstrap can spawn a second process (for example when it
+	# imports the project cache). Stopping only the direct child leaves that
+	# process behind and makes a one-command test appear hung on the next run.
+	try {
+		& "$env:SystemRoot\System32\taskkill.exe" /PID $ProcessId /T /F 2>$null | Out-Null
+	} catch {
+		Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue
+	}
+}
+
 try {
 	Normalize-ProcessPath
 	if (-not (Test-Path -LiteralPath $Godot -PathType Leaf)) {
@@ -36,7 +49,7 @@ try {
 }
 
 if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
-	Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+	Stop-ProcessTree -ProcessId $process.Id
 	[Console]::Error.WriteLine("Godot process timed out after $TimeoutSeconds seconds and was terminated.")
 	exit 124
 }

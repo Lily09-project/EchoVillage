@@ -43,7 +43,7 @@ Echo Village 是一款以「居民會記得、會判斷，也會因玩家行動�
 | 內容語言 | 繁體中文 |
 | 世界狀態 schema | `v3`；存檔 envelope 為 `v2`，並提供舊版遷移 |
 | 目前內容 | 5 位居民、10 種 NPC Action、2 個主要區域、1 條多階段任務鏈 |
-| 自動測試 | `87 passed / 0 failed` |
+| 自動測試 | `89 passed / 0 failed` |
 | 長時間穩定性 | 30 日加速模擬通過 |
 | 發行驗證 | Windows portable export 與獨立 smoke test 通過 |
 
@@ -209,7 +209,15 @@ build_release.bat
 5. 組裝 portable 目錄並複製第三方授權 notices。
 6. 啟動 packaged executable 做 smoke test。
 
-輸出位於 `release/EchoVillage/`。`release/` 與 engine binary 不納入 Git 版本控制；這可以避免 repository 被大型發行檔與本機工具污染。
+`build_release.bat` 會把「測試引擎」與「玩家 runtime」分開處理：`GODOT_EXECUTABLE`（或 `tools/godot/*_console.exe`）只負責 headless 測試與 PCK 匯出；真正要放進 portable 目錄的 GUI runtime 必須透過 `GODOT_RUNTIME` 指定，或放在 `tools/godot/Godot_v4.5.2-stable_win64.exe`。這能避免誤把 console/editor bootstrap 當成玩家執行檔，導致 `Invalid wrapper executable name` 的假發行成功。
+
+```powershell
+$env:GODOT_EXECUTABLE = "C:\Path\To\Godot_v4.5.2-stable_win64_console.exe"
+$env:GODOT_RUNTIME = "C:\Path\To\Godot_v4.5.2-stable_win64.exe"
+.\build_release.bat
+```
+
+建置會驗證 smoke test 的退出碼與 `ERROR:`／`SCRIPT ERROR`／wrapper 錯誤；timeout 時會清理 Godot 子程序。輸出位於 `release/EchoVillage/`。`release/` 與 engine binary 不納入 Git 版本控制；這可以避免 repository 被大型發行檔與本機工具污染。
 
 ## 測試與品質保證
 
@@ -235,8 +243,9 @@ CI workflow：`.github/workflows/ci.yml`。本機與 CI 共用同一個批次品
 - UI shell、模態互斥、交易層級、任務文案、村落手札與設定同步。
 - 7 日與 30 日加速模擬的需求邊界、NPC 狀態與存檔完整性。
 - `SCRIPT ERROR`、載入失敗與 launcher timeout 掃描。
+- repository security audit：只掃描 Git tracked 檔案，拒絕 secrets、私鑰、使用者存檔、`.godot`／release artifacts，報告不輸出敏感內容。
 
-測試結果會寫入 `tests/simulation_test_report.json`。目前驗收快照為 `87 passed / 0 failed`，包含首次旅程導覽、暫停選單重開與按鈕版面防重疊驗證。
+測試結果會寫入 `tests/simulation_test_report.json`。目前驗收快照為 `89 passed / 0 failed`，包含首次旅程導覽、暫停選單重開、按鈕版面防重疊，以及損壞／超大存檔與偏好型別驗證。
 
 ### Visual QA
 
@@ -318,6 +327,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\validate_project.ps1
 ### 安全邊界
 
 - 真實 `.env`、API key、token、password、使用者存檔與本機 cache 不提交至 repository。
+- `tools/security_audit.ps1` 會在 `run_echo_village.bat --test` 中自動執行；也可以單獨執行它產生 `tests/security_audit_report.json`，只輸出規則 ID、路徑與摘要，不輸出匹配內容。
 - Optional AI provider 只透過環境變數設定，參考 `.env.example`。
 - AIService 只輸出結構化文字、記憶摘要與建議目標，不能直接修改 GameManager 的權威狀態。
 - Client-facing UI 不承擔權限或資料驗證責任；交易、製作、任務與存檔都在 domain/service 層重新驗證。
@@ -352,7 +362,7 @@ EchoVillage/
 
 ### 找不到 Godot
 
-請安裝 Godot 4.2+，或將 console executable 放入 `tools/godot/`、加入 PATH，或設定 `GODOT_EXECUTABLE`。一般玩家應使用 portable release，不需要 Godot。
+請安裝 Godot 4.2+，或將 console executable 放入 `tools/godot/`、加入 PATH，或設定 `GODOT_EXECUTABLE`。若要執行 `build_release.bat`，另外需要 GUI export runtime，請設定 `GODOT_RUNTIME` 或放入 `tools/godot/Godot_v4.5.2-stable_win64.exe`。一般玩家應使用 portable release，不需要 Godot。
 
 ### 測試啟動但沒有結果
 

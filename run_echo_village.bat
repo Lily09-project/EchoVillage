@@ -39,6 +39,12 @@ if /I "%~1"=="--test" (
     echo Structural validation failed with exit code !VALIDATION_RESULT!.
     exit /b !VALIDATION_RESULT!
   )
+  powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\tools\security_audit.ps1" -ReportPath "%ROOT%\tests\security_audit_report.json"
+  set "SECURITY_RESULT=!ERRORLEVEL!"
+  if not "!SECURITY_RESULT!"=="0" (
+    echo Security audit failed with exit code !SECURITY_RESULT!.
+    exit /b !SECURITY_RESULT!
+  )
   set "RUN_TAG=!RANDOM!_!RANDOM!"
   set "PREFLIGHT_LOG=%TEMP%\EchoVillage_preflight_output_!RUN_TAG!.log"
   set "PREFLIGHT_ERROR_LOG=%TEMP%\EchoVillage_preflight_error_!RUN_TAG!.log"

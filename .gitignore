@@ -3,6 +3,7 @@
 *.import
 *.tmp
 *.log
+tests/security_audit_report.json
 .env
 .worktrees/
 .superpowers/
