@@ -52,5 +52,5 @@
 - Verify: `.github/workflows/ci.yml`, `run_echo_village.bat`, `tools/validate_project.ps1`, `tests/simulation_test_report.json`.
 
 - [x] **Step 1: Run `tools/validate_project.ps1` and the full bounded Godot suite** with the installed Godot executable.
-- [x] **Step 2: Run `run_echo_village.bat --test` and require exit code 0, `TEST_RESULT passed=86 failed=0`, and no script/load errors.
+- [x] **Step 2: Run `run_echo_village.bat --test` and require exit code 0, `TEST_RESULT passed=87 failed=0`, and no script/load errors.
 - [x] **Step 3: Run `git diff --check`, stage only useful project files, commit, push, and compare local／remote SHA.

@@ -3,7 +3,7 @@ extends Node
 const SAVE_PATH := "user://echo_village_save.json"
 const PREFERENCES_PATH := "user://echo_village_preferences.json"
 const SaveMigrationService = preload("res://scripts/save/save_migration.gd")
-var preferences := {"autosave":true,"motion":true,"fullscreen":false,"audio":true}
+var preferences := {"autosave":true,"motion":true,"fullscreen":false,"audio":true,"onboarding_seen":false}
 var last_save_kind := ""
 
 func _ready() -> void:

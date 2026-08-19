@@ -43,7 +43,7 @@ Echo Village 是一款以「居民會記得、會判斷，也會因玩家行動�
 | 內容語言 | 繁體中文 |
 | 世界狀態 schema | `v3`；存檔 envelope 為 `v2`，並提供舊版遷移 |
 | 目前內容 | 5 位居民、10 種 NPC Action、2 個主要區域、1 條多階段任務鏈 |
-| 自動測試 | `86 passed / 0 failed` |
+| 自動測試 | `87 passed / 0 failed` |
 | 長時間穩定性 | 30 日加速模擬通過 |
 | 發行驗證 | Windows portable export 與獨立 smoke test 通過 |
 
@@ -157,6 +157,7 @@ Action 分數會受到需求、人格、日程、Mood、世界事件、物品可
 | `1` / `2` / `5` / `0` | 模擬速度 1×／2×／5×／10× |
 | `F5` / `F9` | 手動存檔／讀檔 |
 | `F3` | 開發診斷面板 |
+| `F1` | 重新開啟三步驟操作指南 |
 | `Esc` | 關閉目前模態視窗或開啟暫停選單 |
 
 開啟交易、背包、設定、任務、地圖或村落手札時，模擬會依模態規則暫停。動態效果與提示音可以在設定中關閉，偏好會持久保存。
@@ -235,17 +236,23 @@ CI workflow：`.github/workflows/ci.yml`。本機與 CI 共用同一個批次品
 - 7 日與 30 日加速模擬的需求邊界、NPC 狀態與存檔完整性。
 - `SCRIPT ERROR`、載入失敗與 launcher timeout 掃描。
 
-測試結果會寫入 `tests/simulation_test_report.json`。目前驗收快照為 `86 passed / 0 failed`。
+測試結果會寫入 `tests/simulation_test_report.json`。目前驗收快照為 `87 passed / 0 failed`，包含首次旅程導覽、暫停選單重開與按鈕版面防重疊驗證。
 
 ### Visual QA
 
-Visual QA 截圖位於 `tests/visual_qa/`，涵蓋主選單、設定、交易、村落手札、開場、黎明、正午、夜晚、危險事件、任務進行與森林任務完成。
+Visual QA 截圖位於 `tests/visual_qa/`，涵蓋主選單、設定、交易、村落手札、首次旅程導覽、開場、黎明、正午、夜晚、危險事件、任務進行與森林任務完成，共 12 張 1280×720 GPU 證據。
 
 ```bat
 tools\godot\Godot_v4.5.2-stable_win64_console.exe --path . -- --visual-qa
 ```
 
 檢查重點包括文字截斷、模態層級、顏色對比、按鈕可見性、狀態更新、面板遮擋、互動回饋，以及 1280×720 以外尺寸的可讀性。
+
+### 首次旅程導覽（First-session onboarding）
+
+![首次旅程導覽](tests/visual_qa/consumer_onboarding.png)
+
+第一次按下「新遊戲」時，Echo Village 會以可略過的三步驟導覽說明移動、居民互動與村落長期回音。導覽期間模擬會暫停，玩家可用 `下一步`、`略過導覽` 或 `Esc` 完成流程；之後也能在暫停選單按 `操作指南 F1` 重開。是否看過導覽只保存於偏好設定，不會污染世界存檔或改變 NPC 模擬。
 
 ## 系統架構
 

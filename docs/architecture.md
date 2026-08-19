@@ -31,10 +31,15 @@
 | `LocationService` | 地點切換、發現與區域內容 |
 | `ProgressionService` | 五級聲望、資料驅動成就、一次性解鎖與安全條件評估 |
 | `SaveManager` | v3 世界狀態、自動存檔、偏好與舊版遷移 |
+| `Main` onboarding UI | 首次旅程三步驟、模態暫停、Esc／略過、F1 重開；只保存 `onboarding_seen` 偏好，不寫入世界狀態 |
 | `SoundManager` | 可關閉的程式化 UI／互動提示音 |
 | `AIService`（Optional） | 結構化文本、記憶摘要、建議目標與模板 fallback；不改權威狀態 |
 
 `GameManager.timeline_events` 會將重要 log 轉成結構化「回音事件」，保存遊戲日、分鐘、日夜階段、地點、分類與玩家可讀訊息。`timeline_snapshot()` 提供依日期、分類與數量上限的唯讀查詢，`daily_summary()` 則聚合居民、世界、任務、經濟、地點與進展分類，供村落編年面板的「今日回音」模式使用。主介面只保存歷史日期／分類篩選等暫時 UI 狀態，不污染存檔資料。時間軸隨世界狀態一起序列化，舊版存檔缺少此欄位時安全使用空集合。
+
+### 首次旅程導覽狀態
+
+新遊戲建立後，`Main.start_new_game()` 依 `SaveManager.preferences.onboarding_seen` 顯示三步驟導覽。導覽是純 presentation state：`OnboardingBackdrop` 攔截輸入、`OnboardingPanel` 提供步驟內容，`GameTime.simulation_paused` 透過既有模態規則暫停。完成、略過或按 `Esc` 都會將偏好設為 `true`；暫停選單的 `GuideButton` 以 `force=true` 重開並重置步驟，不改變世界、NPC、任務或存檔版本。
 
 ## 資料契約
 

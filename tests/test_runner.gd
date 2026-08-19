@@ -48,6 +48,7 @@ func run() -> void:
 	check("主場景提供可重複的視覺 QA 擷取入口", await visual_capture_interface_test())
 	check("任務與森林視覺 QA 證據已產生", expansion_visual_capture_test())
 	check("消費者主選單與設定介面具備完整入口", await consumer_shell_structure_test())
+	check("首次旅程導覽可逐步操作、略過並從暫停選單重開", await onboarding_experience_test())
 	check("存檔服務支援繼續遊戲、自動存檔與偏好設定", save_service_capabilities_test())
 	check("遊戲時間可以在模態介面期間可靠暫停", game_time_pause_test())
 	check("買入與出售交易會原子更新雙方金錢與庫存", trade_atomicity_test())
@@ -453,12 +454,12 @@ func visual_capture_interface_test() -> bool:
 	var result := instance.has_method("capture_visual_qa") and instance.has_method("visual_qa_capture_names")
 	if result:
 		var names: Array = instance.visual_qa_capture_names()
-		for expected in ["quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png"]: result = result and expected in names
+		for expected in ["quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","consumer_onboarding.png"]: result = result and expected in names
 	instance.queue_free()
 	return result
 
 func expansion_visual_capture_test() -> bool:
-	for expected in ["quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png"]:
+	for expected in ["quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","consumer_onboarding.png"]:
 		if not FileAccess.file_exists("res://tests/visual_qa/" + expected): return false
 	return true
 
@@ -654,6 +655,40 @@ func trade_modal_layering_test() -> bool:
 	var panel := instance.get_node_or_null("CanvasLayer/TradePanel")
 	var result: bool = panel != null and panel.get_index() == panel.get_parent().get_child_count() - 1
 	instance.queue_free()
+	return result
+
+func onboarding_experience_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	if scene == null: return false
+	var previous_seen := SaveManager.get_preference("onboarding_seen",false)
+	SaveManager.preferences["onboarding_seen"] = false
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	instance.start_new_game()
+	await get_tree().process_frame
+	var panel := instance.get_node_or_null("CanvasLayer/OnboardingPanel") as Panel
+	var backdrop := instance.get_node_or_null("CanvasLayer/OnboardingBackdrop") as ColorRect
+	var next := instance.get_node_or_null("CanvasLayer/OnboardingPanel/NextButton") as Button
+	var skip := instance.get_node_or_null("CanvasLayer/OnboardingPanel/SkipButton") as Button
+	var guide := instance.get_node_or_null("CanvasLayer/PausePanel/GuideButton") as Button
+	var pause_motion := instance.pause_motion_button as Button
+	var step_label := instance.get_node_or_null("CanvasLayer/OnboardingPanel/StepLabel") as Label
+	var pause_layout_ok: bool = guide != null and pause_motion != null and guide.position.y + guide.size.y <= instance.pause_panel.size.y and guide.position.y + guide.size.y <= pause_motion.position.y
+	var result: bool = panel != null and backdrop != null and next != null and skip != null and guide != null and step_label != null and pause_layout_ok and panel.visible and backdrop.visible and step_label.text.contains("1 / 3") and bool(GameTime.simulation_paused)
+	if next != null:
+		next.emit_signal("pressed")
+		result = result and step_label.text.contains("2 / 3")
+	if skip != null:
+		skip.emit_signal("pressed")
+		result = result and not panel.visible and SaveManager.get_preference("onboarding_seen",false) and not bool(GameTime.simulation_paused)
+	if guide != null:
+		instance.pause_panel.visible = true
+		instance.sync_simulation_pause()
+		guide.emit_signal("pressed")
+		result = result and panel.visible and step_label.text.contains("1 / 3") and bool(GameTime.simulation_paused)
+	instance.queue_free()
+	SaveManager.set_preference("onboarding_seen",previous_seen)
 	return result
 
 func modal_exclusivity_test() -> bool:

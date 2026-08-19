@@ -1,6 +1,6 @@
 {
 	"failed": 0,
-	"passed": 86,
+	"passed": 87,
 	"project": "Echo Village",
 	"results": [
 		{
@@ -145,6 +145,10 @@
 		},
 		{
 			"name": "消費者主選單與設定介面具備完整入口",
+			"passed": true
+		},
+		{
+			"name": "首次旅程導覽可逐步操作、略過並從暫停選單重開",
 			"passed": true
 		},
 		{
@@ -349,5 +353,5 @@
 		}
 	],
 	"simulated_game_days": 30,
-	"timestamp": "2026-08-19T16:21:43"
+	"timestamp": "2026-08-19T17:32:35"
 }

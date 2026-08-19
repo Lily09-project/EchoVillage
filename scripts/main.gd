@@ -45,6 +45,18 @@ var daily_echo_day := 1
 var daily_echo_category := "all"
 const DAILY_ECHO_CATEGORIES := ["all","social","world","quest","economy","location","progression"]
 const DAILY_ECHO_CATEGORY_LABELS := {"all":"全部","social":"居民","world":"世界","quest":"任務","economy":"經濟","location":"地點","progression":"進展"}
+var onboarding_panel: Panel
+var onboarding_backdrop: ColorRect
+var onboarding_title_label: Label
+var onboarding_body_label: Label
+var onboarding_step_label: Label
+var onboarding_next_button: Button
+var onboarding_step := 0
+const ONBOARDING_STEPS := [
+	{"title":"先看見村落的節奏","body":"用 WASD 或方向鍵移動。時間會自己前進，居民會依需求、個性與日程做出選擇。\n\n先觀察，不急著改變任何人。"},
+	{"title":"靠近一個真實的居民","body":"走近居民後按 E 查看資料。\n\n按 C 交談，或按 Q 詢問近況；每次互動都可能留下記憶，影響下一次相遇。"},
+	{"title":"讓你的選擇留下回音","body":"按 G 贈禮、T 交易，或前往森林推進任務。\n\n按 J 查看村落編年，按 L 回看每日回音，追蹤你的選擇如何改變村莊。"}
+]
 var time_panel: Panel
 var time_label: Label
 var renown_label: Label
@@ -94,7 +106,10 @@ func _ready() -> void:
 	sync_motion_controls()
 	GameTime.set_simulation_paused(true)
 	queue_redraw()
-	if "--visual-qa" in OS.get_cmdline_user_args(): call_deferred("capture_visual_qa")
+	if is_visual_qa_requested(): call_deferred("capture_visual_qa")
+
+func is_visual_qa_requested() -> bool:
+	return "--visual-qa" in OS.get_cmdline_user_args() or "--visual-qa" in OS.get_cmdline_args() or OS.get_environment("ECHO_VILLAGE_VISUAL_QA") == "1"
 
 func capture_visual_qa() -> void:
 	var captures := [
@@ -108,7 +123,8 @@ func capture_visual_qa() -> void:
 		{"file":"consumer_main_menu.png","minute":780,"intro":false,"scenario":"main_menu"},
 		{"file":"consumer_settings.png","minute":780,"intro":false,"scenario":"settings"},
 		{"file":"consumer_trade.png","minute":780,"intro":false,"scenario":"trade"},
-		{"file":"village_progression.png","minute":780,"intro":false,"scenario":"progression"}
+		{"file":"village_progression.png","minute":780,"intro":false,"scenario":"progression"},
+		{"file":"consumer_onboarding.png","minute":780,"intro":false,"scenario":"onboarding"}
 	]
 	for capture in captures:
 		var file_name := str(capture["file"])
@@ -123,6 +139,8 @@ func capture_visual_qa() -> void:
 		world_map_panel.visible = false
 		quest_log_panel.visible = false
 		pause_panel.visible = false
+		onboarding_panel.visible = false
+		onboarding_backdrop.visible = false
 		impact_feedback.visible = false
 		GameTime.set_simulation_paused(false)
 		if scenario == "danger":
@@ -154,13 +172,15 @@ func capture_visual_qa() -> void:
 			progression_panel.refresh(GameManager.progression_snapshot())
 			progression_panel.visible = true
 			progression_panel.move_to_front()
+		if scenario == "onboarding":
+			show_onboarding(true)
 		if scenario == "danger":
 			show_interaction_feedback("ask","危險來襲時，村民的協助與逃離選擇都會留下可追溯的記憶。")
 		if scenario == "forest_complete":
 			show_interaction_feedback("give","任務完成：黛安娜收下麵包，森林記住了你的善意。")
 		queue_redraw()
 		await get_tree().process_frame
-		if scenario in ["danger","forest_complete","settings","trade","progression"]: await get_tree().create_timer(0.24).timeout
+		if scenario in ["danger","forest_complete","settings","trade","progression","onboarding"]: await get_tree().create_timer(0.24).timeout
 		await RenderingServer.frame_post_draw
 		var image := get_viewport().get_texture().get_image()
 		var result := image.save_png("res://tests/visual_qa/" + file_name)
@@ -172,10 +192,10 @@ func capture_visual_qa() -> void:
 	get_tree().quit(0)
 
 func visual_qa_capture_names() -> Array:
-	return ["storybook_intro.png","storybook_explore_dawn.png","storybook_explore_noon.png","storybook_explore_night.png","storybook_event_danger.png","quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","village_progression.png"]
+	return ["storybook_intro.png","storybook_explore_dawn.png","storybook_explore_noon.png","storybook_explore_night.png","storybook_event_danger.png","quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","village_progression.png","consumer_onboarding.png"]
 
 func create_input_map() -> void:
-	var bindings := {"interact":KEY_E,"talk":KEY_C,"give":KEY_G,"steal":KEY_X,"trade":KEY_T,"ask":KEY_Q,"cancel":KEY_ESCAPE,"debug":KEY_F3,"inventory":KEY_I,"journal":KEY_J,"daily_summary":KEY_L,"progression":KEY_P,"world_map":KEY_M,"quest_log":KEY_K,"speed_normal":KEY_1,"speed_2x":KEY_2,"speed_5x":KEY_5,"speed_10x":KEY_0,"save_game":KEY_F5,"load_game":KEY_F9,"event_rain":KEY_R,"event_festival":KEY_F,"event_shortage":KEY_H,"event_danger":KEY_B,"event_injury":KEY_N}
+	var bindings := {"interact":KEY_E,"talk":KEY_C,"give":KEY_G,"steal":KEY_X,"trade":KEY_T,"ask":KEY_Q,"cancel":KEY_ESCAPE,"guide":KEY_F1,"debug":KEY_F3,"inventory":KEY_I,"journal":KEY_J,"daily_summary":KEY_L,"progression":KEY_P,"world_map":KEY_M,"quest_log":KEY_K,"speed_normal":KEY_1,"speed_2x":KEY_2,"speed_5x":KEY_5,"speed_10x":KEY_0,"save_game":KEY_F5,"load_game":KEY_F9,"event_rain":KEY_R,"event_festival":KEY_F,"event_shortage":KEY_H,"event_danger":KEY_B,"event_injury":KEY_N}
 	for action in bindings:
 		if not InputMap.has_action(action):
 			InputMap.add_action(action)
@@ -234,11 +254,16 @@ func handle_shortcuts() -> void:
 	if settings_panel.visible:
 		if Input.is_action_just_pressed("cancel"): close_settings()
 		return
+	if onboarding_panel.visible:
+		if Input.is_action_just_pressed("cancel"): complete_onboarding()
+		return
 	if main_menu_panel.visible: return
 	if Input.is_action_just_pressed("interact"): select_nearest()
 	if Input.is_action_just_pressed("debug"):
 		debug_visible = not debug_visible
 		debug_panel.visible = debug_visible
+	if Input.is_action_just_pressed("guide"):
+		show_onboarding(true)
 	if Input.is_action_just_pressed("inventory"):
 		toggle_modal_panel(inventory_panel)
 	if Input.is_action_just_pressed("journal"):
@@ -281,6 +306,8 @@ func handle_shortcuts() -> void:
 			showcase_panel.visible = false
 		elif journal_panel.visible:
 			journal_panel.visible = false
+		elif onboarding_panel.visible:
+			complete_onboarding()
 		elif progression_panel.visible:
 			progression_panel.visible = false
 		elif inventory_panel.visible:
@@ -349,6 +376,7 @@ func create_ui() -> void:
 	create_showcase_panel()
 	create_main_menu()
 	create_settings_panel()
+	create_onboarding_panel()
 
 func create_main_menu() -> void:
 	main_menu_panel = Panel.new()
@@ -407,6 +435,7 @@ func start_new_game() -> void:
 	SaveManager.autosave_game()
 	sync_simulation_pause()
 	show_interaction_feedback("start","新旅程已開始。靠近居民按 E 交談，向艾莉絲詢問第一份委託。")
+	show_onboarding()
 
 func continue_game() -> void:
 	if not SaveManager.load_game():
@@ -480,12 +509,91 @@ func close_settings() -> void:
 	settings_panel.visible = false
 	sync_simulation_pause()
 
+func create_onboarding_panel() -> void:
+	onboarding_backdrop = ColorRect.new()
+	onboarding_backdrop.name = "OnboardingBackdrop"
+	onboarding_backdrop.position = Vector2.ZERO
+	onboarding_backdrop.size = Vector2(1280,720)
+	onboarding_backdrop.color = Color(0.03,0.08,0.12,0.72)
+	onboarding_backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	canvas.add_child(onboarding_backdrop)
+	onboarding_panel = Panel.new()
+	onboarding_panel.name = "OnboardingPanel"
+	onboarding_panel.position = Vector2(345,145)
+	onboarding_panel.size = Vector2(590,430)
+	onboarding_panel.add_theme_stylebox_override("panel",VillageTheme.card_style(VillageTheme.CREAM,VillageTheme.SUN))
+	canvas.add_child(onboarding_panel)
+	var eyebrow := make_panel_label(onboarding_panel,Vector2(28,22),Vector2(530,20),12,VillageTheme.LILAC)
+	eyebrow.text = "第一次來到 Echo Village？"
+	onboarding_title_label = make_panel_label(onboarding_panel,Vector2(28,52),Vector2(530,38),25,VillageTheme.INK)
+	onboarding_body_label = make_panel_label(onboarding_panel,Vector2(28,108),Vector2(534,180),15,VillageTheme.INK_SOFT)
+	onboarding_body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	onboarding_step_label = make_panel_label(onboarding_panel,Vector2(28,302),Vector2(170,24),13,VillageTheme.LILAC)
+	onboarding_step_label.name = "StepLabel"
+	onboarding_step_label.text = "第 1 / 3 步"
+	var hint := make_panel_label(onboarding_panel,Vector2(28,328),Vector2(534,22),12,VillageTheme.INK_SOFT)
+	hint.text = "可以隨時按 Esc 離開，之後也能從暫停選單重看。"
+	var skip := Button.new()
+	skip.name = "SkipButton"
+	skip.position = Vector2(28,365)
+	skip.size = Vector2(190,48)
+	skip.text = "略過導覽"
+	skip.tooltip_text = "直接開始探索，不會改變世界狀態"
+	skip.add_theme_font_size_override("font_size",13)
+	style_action_button(skip,VillageTheme.LILAC)
+	skip.pressed.connect(complete_onboarding)
+	onboarding_panel.add_child(skip)
+	onboarding_next_button = Button.new()
+	onboarding_next_button.name = "NextButton"
+	onboarding_next_button.position = Vector2(354,365)
+	onboarding_next_button.size = Vector2(208,48)
+	onboarding_next_button.add_theme_font_size_override("font_size",14)
+	style_action_button(onboarding_next_button,VillageTheme.MOSS)
+	onboarding_next_button.pressed.connect(advance_onboarding)
+	onboarding_panel.add_child(onboarding_next_button)
+	onboarding_backdrop.visible = false
+	onboarding_panel.visible = false
+	refresh_onboarding()
+
+func show_onboarding(force: bool = false) -> void:
+	if not force and SaveManager.get_preference("onboarding_seen",false): return
+	onboarding_step = 0
+	for panel in [settings_panel,pause_panel,showcase_panel,inventory_panel,journal_panel,progression_panel,world_map_panel,quest_log_panel,trade_panel]:
+		if panel != null: panel.visible = false
+	if main_menu_panel != null: main_menu_panel.visible = false
+	refresh_onboarding()
+	onboarding_backdrop.visible = true
+	onboarding_panel.visible = true
+	onboarding_panel.move_to_front()
+	sync_simulation_pause()
+
+func refresh_onboarding() -> void:
+	if onboarding_panel == null: return
+	var step: Dictionary = ONBOARDING_STEPS[clampi(onboarding_step,0,ONBOARDING_STEPS.size() - 1)]
+	onboarding_title_label.text = str(step.get("title","開始探索"))
+	onboarding_body_label.text = str(step.get("body",""))
+	onboarding_step_label.text = "第 %d / %d 步" % [onboarding_step + 1,ONBOARDING_STEPS.size()]
+	onboarding_next_button.text = "開始探索" if onboarding_step >= ONBOARDING_STEPS.size() - 1 else "下一步"
+
+func advance_onboarding() -> void:
+	if onboarding_step >= ONBOARDING_STEPS.size() - 1:
+		complete_onboarding()
+		return
+	onboarding_step += 1
+	refresh_onboarding()
+
+func complete_onboarding() -> void:
+	SaveManager.set_preference("onboarding_seen",true)
+	onboarding_backdrop.visible = false
+	onboarding_panel.visible = false
+	sync_simulation_pause()
+
 func apply_fullscreen(value: bool) -> void:
 	SaveManager.set_preference("fullscreen",value)
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN if value else DisplayServer.WINDOW_MODE_WINDOWED)
 
 func is_blocking_modal_open() -> bool:
-	return main_menu_panel.visible or settings_panel.visible or pause_panel.visible or showcase_panel.visible or inventory_panel.visible or journal_panel.visible or progression_panel.visible or world_map_panel.visible or quest_log_panel.visible or trade_panel.visible
+	return main_menu_panel.visible or settings_panel.visible or pause_panel.visible or onboarding_panel.visible or showcase_panel.visible or inventory_panel.visible or journal_panel.visible or progression_panel.visible or world_map_panel.visible or quest_log_panel.visible or trade_panel.visible
 
 func sync_simulation_pause() -> void:
 	GameTime.set_simulation_paused(is_blocking_modal_open())
@@ -659,7 +767,7 @@ func create_pause_panel() -> void:
 	pause_panel = Panel.new()
 	pause_panel.name = "PausePanel"
 	pause_panel.position = Vector2(465,250)
-	pause_panel.size = Vector2(350,208)
+	pause_panel.size = Vector2(350,260)
 	pause_panel.add_theme_stylebox_override("panel",VillageTheme.card_style(VillageTheme.PAPER,VillageTheme.LILAC))
 	canvas.add_child(pause_panel)
 	var title := make_panel_label(pause_panel,Vector2(18,18),Vector2(310,32),22,VillageTheme.INK)
@@ -669,21 +777,31 @@ func create_pause_panel() -> void:
 	var resume := Button.new()
 	resume.text = "繼續探索"
 	resume.position = Vector2(18,111)
-	resume.size = Vector2(145,38)
+	resume.size = Vector2(145,42)
 	resume.pressed.connect(func(): pause_panel.visible = false)
 	style_action_button(resume,VillageTheme.MOSS)
 	pause_panel.add_child(resume)
 	var menu := Button.new()
 	menu.text = "展示選單"
 	menu.position = Vector2(187,111)
-	menu.size = Vector2(145,38)
+	menu.size = Vector2(145,42)
 	menu.pressed.connect(func(): pause_panel.visible = false; showcase_panel.visible = true)
 	style_action_button(menu,VillageTheme.SUN)
 	pause_panel.add_child(menu)
+	var guide := Button.new()
+	guide.name = "GuideButton"
+	guide.text = "操作指南  F1"
+	guide.position = Vector2(18,164)
+	guide.size = Vector2(314,42)
+	guide.tooltip_text = "重新查看三步驟首次旅程導覽"
+	guide.add_theme_font_size_override("font_size",13)
+	style_action_button(guide,VillageTheme.TEAL)
+	guide.pressed.connect(func(): pause_panel.visible = false; show_onboarding(true))
+	pause_panel.add_child(guide)
 	var motion := Button.new()
 	pause_motion_button = motion
 	motion.text = "動態效果：開"
-	motion.position = Vector2(18,159)
+	motion.position = Vector2(18,212)
 	motion.size = Vector2(314,34)
 	motion.add_theme_font_size_override("font_size",12)
 	style_action_button(motion,VillageTheme.TEAL)
