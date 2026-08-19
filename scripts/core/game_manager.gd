@@ -4,6 +4,7 @@ const DATA_PATH := "res://data/"
 const DECISION_INTERVAL := 10
 const ACTION_SWITCH_COOLDOWN := 15
 const MAX_MEMORIES_PER_NPC := 32
+const MAX_DECODE_DEPTH := 64
 const LocationServiceScript = preload("res://scripts/services/location_service.gd")
 const QuestServiceScript = preload("res://scripts/services/quest_service.gd")
 const EconomyServiceScript = preload("res://scripts/services/economy_service.gd")
@@ -671,26 +672,89 @@ func serialize() -> Dictionary:
 	return state
 func deserialize(data: Dictionary) -> bool:
 	if not (data is Dictionary): return false
-	player = decode_value(data.get("player",player))
-	npcs = decode_value(data.get("npcs",npcs))
-	economy = data.get("economy",economy)
-	active_event = data.get("active_event",{})
+	var candidate_player = decode_value(data.get("player",player))
+	var candidate_npcs = decode_value(data.get("npcs",npcs))
+	if not _valid_player_state(candidate_player): return false
+	if not _valid_npc_state(candidate_npcs): return false
+	var candidate_economy = data.get("economy",economy)
+	var candidate_event = data.get("active_event",{})
+	var candidate_event_log = data.get("event_log",[])
+	var candidate_memory_sequence = data.get("memory_sequence",0)
+	var candidate_community = data.get("community",{"renown":0,"kindness":false,"rumor":false,"crisis":false,"entries":[]})
+	var candidate_location = data.get("current_location","village_square")
+	var candidate_discovered = data.get("discovered_locations",["village_square"])
+	var candidate_active_quests = data.get("active_quests",{})
+	var candidate_completed = data.get("completed_quests",[])
+	var candidate_flags = data.get("world_flags",{})
+	var candidate_progression = data.get("progression",progression_service.default_state())
+	var candidate_timeline = data.get("timeline_events",[])
+	var candidate_timeline_sequence = data.get("timeline_sequence",candidate_timeline.size() if candidate_timeline is Array else 0)
+	if not _valid_numeric_map(candidate_economy) or not (candidate_event is Dictionary): return false
+	if not (candidate_event_log is Array) or candidate_event_log.size() > 512: return false
+	if not _valid_integer(candidate_memory_sequence,0,1000000000): return false
+	if not (candidate_community is Dictionary) or not (candidate_location is String): return false
+	if not (candidate_discovered is Array) or candidate_discovered.size() > 512: return false
+	if not (candidate_active_quests is Dictionary) or not (candidate_completed is Array) or candidate_completed.size() > 512: return false
+	if not (candidate_flags is Dictionary) or not (candidate_progression is Dictionary): return false
+	if not (candidate_timeline is Array) or candidate_timeline.size() > 512: return false
+	for value in candidate_timeline:
+		if not (value is Dictionary): return false
+	if not _valid_integer(candidate_timeline_sequence,0,1000000000): return false
+	player = candidate_player
+	npcs = candidate_npcs
+	economy = candidate_economy.duplicate(true)
+	active_event = candidate_event.duplicate(true)
 	event_log.clear()
-	for entry in data.get("event_log",[]):
-		event_log.append(str(entry))
-	memory_sequence = int(data.get("memory_sequence",0))
-	community = data.get("community",{"renown":0,"kindness":false,"rumor":false,"crisis":false,"entries":[]}).duplicate(true)
-	current_location = str(data.get("current_location","village_square"))
-	discovered_locations = data.get("discovered_locations",["village_square"]).duplicate(true)
-	active_quests = data.get("active_quests",{}).duplicate(true)
-	completed_quests = data.get("completed_quests",[]).duplicate(true)
-	world_flags = data.get("world_flags",{}).duplicate(true)
-	progression = data.get("progression",progression_service.default_state()).duplicate(true)
+	for entry in candidate_event_log: event_log.append(str(entry))
+	memory_sequence = int(candidate_memory_sequence)
+	community = candidate_community.duplicate(true)
+	current_location = candidate_location
+	discovered_locations = candidate_discovered.duplicate(true)
+	active_quests = candidate_active_quests.duplicate(true)
+	completed_quests = candidate_completed.duplicate(true)
+	world_flags = candidate_flags.duplicate(true)
+	progression = candidate_progression.duplicate(true)
 	timeline_events.clear()
-	for value in data.get("timeline_events",[]):
-		if value is Dictionary: timeline_events.append(value.duplicate(true))
-	timeline_sequence = int(data.get("timeline_sequence",timeline_events.size()))
+	for value in candidate_timeline: timeline_events.append(value.duplicate(true))
+	timeline_sequence = int(candidate_timeline_sequence)
 	return true
+
+func _valid_player_state(value: Variant) -> bool:
+	if not (value is Dictionary): return false
+	var state: Dictionary = value
+	if not state.has("inventory") or not _valid_numeric_map(state.get("inventory")): return false
+	for key in ["position","target"]:
+		if state.has(key) and not (state[key] is Vector2): return false
+	if state.has("coin") and not _valid_number(state.get("coin"),0.0,1000000000.0): return false
+	return true
+
+func _valid_npc_state(value: Variant) -> bool:
+	if not (value is Dictionary) or value.size() > 64: return false
+	for npc_value in value.values():
+		if not (npc_value is Dictionary): return false
+		var npc: Dictionary = npc_value
+		if npc.has("inventory") and not _valid_numeric_map(npc.get("inventory")): return false
+		if npc.has("relationships") and not (npc.get("relationships") is Dictionary): return false
+		if npc.has("memories") and (not (npc.get("memories") is Array) or npc.get("memories").size() > MAX_MEMORIES_PER_NPC): return false
+		for key in ["position","target","current_target"]:
+			if npc.has(key) and not (npc[key] is Vector2): return false
+	return true
+
+func _valid_numeric_map(value: Variant) -> bool:
+	if not (value is Dictionary): return false
+	for entry in value.values():
+		if not _valid_number(entry,0.0,1000000000.0): return false
+	return true
+
+func _valid_number(value: Variant, minimum: float, maximum: float) -> bool:
+	if not (value is int or value is float): return false
+	var number := float(value)
+	return number >= minimum and number <= maximum
+
+func _valid_integer(value: Variant, minimum: int, maximum: int) -> bool:
+	if not (value is int or value is float): return false
+	var number := float(value)
+	return number == floor(number) and number >= float(minimum) and number <= float(maximum)
 func encode_value(value):
 	if value is Vector2: return {"__vector2":[value.x,value.y]}
 	if value is Dictionary:
@@ -702,15 +766,26 @@ func encode_value(value):
 		for item in value: result.append(encode_value(item))
 		return result
 	return value
-func decode_value(value):
+func decode_value(value, depth: int = 0):
+	if depth > MAX_DECODE_DEPTH: return null
 	if value is Dictionary:
-		if value.has("__vector2"): return Vector2(float(value["__vector2"][0]),float(value["__vector2"][1]))
+		if value.has("__vector2"):
+			var encoded = value["__vector2"]
+			if encoded is Array and encoded.size() == 2 and (encoded[0] is int or encoded[0] is float) and (encoded[1] is int or encoded[1] is float):
+				var x := float(encoded[0])
+				var y := float(encoded[1])
+				if x > -100000.0 and x < 100000.0 and y > -100000.0 and y < 100000.0:
+					return Vector2(x,y)
+			# Invalid vector markers are untrusted save data. Drop only the marker
+			# and continue decoding the remaining dictionary fields safely.
 		var result := {}
-		for key in value: result[key] = decode_value(value[key])
+		for key in value:
+			if str(key) == "__vector2": continue
+			result[key] = decode_value(value[key],depth + 1)
 		return result
 	if value is Array:
 		var result: Array = []
-		for item in value: result.append(decode_value(item))
+		for item in value: result.append(decode_value(item,depth + 1))
 		return result
 	return value
 func read_json(relative: String) -> Dictionary:

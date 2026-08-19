@@ -32,7 +32,7 @@ Echo Village 是以 Godot 4 與 GDScript 完成的繁體中文 2D 生活模擬 R
 4. **防假綠燈測試**：測試器除斷言外還掃描 Godot runtime 錯誤。
 5. **免安裝交付**：沒有 Export Templates 時採 portable runtime + PCK，消費者仍可直接雙擊。
 6. **以首次體驗驗收產品**：導覽只保存偏好、不污染世界存檔；測試同時覆蓋完成、略過、Esc 與從暫停選單重開。
-7. **把本機輸入當成不可信資料**：存檔遷移先做型別／數量上限驗證，偏好只接受 boolean；repository 以 tracked-file audit 防止 secrets 與發行產物外洩。
+7. **把本機輸入當成不可信資料**：存檔與偏好在 JSON 解析前先做 byte／型別／數值／數量上限驗證；`GameManager.deserialize()` 以候選狀態原子套用，malformed `Vector2`、非法時間、深層資料與混合型別 AI context 透過 fuzz 回歸測試；repository 以 tracked-file audit 防止 secrets 與發行產物外洩。
 
 ## 問題與修復案例
 

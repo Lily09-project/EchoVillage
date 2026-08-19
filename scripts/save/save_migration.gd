@@ -6,6 +6,7 @@ const MAX_NPCS := 64
 const MAX_TIMELINE_EVENTS := 512
 const MAX_EVENT_LOG_ENTRIES := 512
 const MAX_MEMORIES_PER_NPC := 128
+const MAX_SAVE_DAY := 1000000
 
 static func migrate(envelope: Dictionary) -> Dictionary:
 	var raw_version = envelope.get("save_version",1)
@@ -17,7 +18,7 @@ static func migrate(envelope: Dictionary) -> Dictionary:
 	else:
 		return {"ok":false,"reason":"存檔版本格式無效。"}
 	if version > 2: return {"ok":false,"reason":"存檔版本比目前遊戲新。"}
-	if envelope.has("time") and not (envelope.get("time") is Dictionary):
+	if envelope.has("time") and not _valid_time(envelope.get("time")):
 		return {"ok":false,"reason":"存檔時間資料格式無效。"}
 	if version == 2:
 		if not _valid_world_state(envelope.get("world_state")): return {"ok":false,"reason":"存檔世界資料格式無效。"}
@@ -57,3 +58,22 @@ static func _valid_world_state(value: Variant) -> bool:
 	if state.has("world_flags") and not (state.get("world_flags") is Dictionary): return false
 	if state.has("progression") and not (state.get("progression") is Dictionary): return false
 	return true
+
+static func _valid_time(value: Variant) -> bool:
+	if not (value is Dictionary): return false
+	var time: Dictionary = value
+	if time.has("minute") and not _valid_integral_range(time.get("minute"),0,1439): return false
+	if time.has("day") and not _valid_integral_range(time.get("day"),1,MAX_SAVE_DAY): return false
+	if time.has("day_of_week") and not _valid_integral_range(time.get("day_of_week"),1,7): return false
+	if time.has("time_scale") and not _valid_number_range(time.get("time_scale"),0.01,10.0): return false
+	return true
+
+static func _valid_integral_range(value: Variant, minimum: float, maximum: float) -> bool:
+	if not (value is int or value is float): return false
+	var number := float(value)
+	return number == floor(number) and number >= minimum and number <= maximum
+
+static func _valid_number_range(value: Variant, minimum: float, maximum: float) -> bool:
+	if not (value is int or value is float): return false
+	var number := float(value)
+	return number >= minimum and number <= maximum

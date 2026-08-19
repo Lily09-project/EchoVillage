@@ -9,19 +9,33 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-function Normalize-ProcessPath {
-	$environment = [Environment]::GetEnvironmentVariables([EnvironmentVariableTarget]::Process)
-	$pathKey = @($environment.Keys | Where-Object { [string]$_ -ceq 'Path' } | Select-Object -First 1)
-	if ($pathKey.Count -eq 0) {
-		$pathKey = @($environment.Keys | Where-Object { [string]$_ -ieq 'Path' } | Select-Object -First 1)
-	}
-	$pathValue = if ($pathKey.Count -eq 1) { [string]$environment[$pathKey[0]] } else { '' }
-	[Environment]::SetEnvironmentVariable('PATH', $null, [EnvironmentVariableTarget]::Process)
-	[Environment]::SetEnvironmentVariable('Path', $pathValue, [EnvironmentVariableTarget]::Process)
-	$pathKeys = @([Environment]::GetEnvironmentVariables([EnvironmentVariableTarget]::Process).Keys | Where-Object { [string]$_ -ieq 'Path' })
-	if ($pathKeys.Count -ne 1) {
-		throw "Could not normalize process Path entries (found $($pathKeys.Count))."
-	}
+function ConvertTo-ProcessArgument {
+	param([string] $Argument)
+	if ($null -eq $Argument) { return '' }
+	if ($Argument -notmatch '[\s"]') { return $Argument }
+	# The runner only passes paths and switches (never embedded quotes). Escaping
+	# backslashes before a closing quote keeps Windows argument parsing stable.
+	return '"' + $Argument.Replace('"', '\"') + '"'
+}
+
+function New-IsolatedProcessStartInfo {
+	param(
+		[string] $FilePath,
+		[string[]] $Arguments,
+		[string] $WorkingDirectory
+	)
+	$info = New-Object System.Diagnostics.ProcessStartInfo
+	$info.FileName = $FilePath
+	$info.WorkingDirectory = $WorkingDirectory
+	$info.Arguments = (($Arguments | ForEach-Object { ConvertTo-ProcessArgument ([string]$_) }) -join ' ')
+	$info.UseShellExecute = $false
+	$info.CreateNoWindow = $true
+	$info.RedirectStandardOutput = $true
+	$info.RedirectStandardError = $true
+
+	# ProcessStartInfo avoids Start-Process' duplicate Path/PATH serialization
+	# failure while preserving the caller's environment for Godot user data.
+	return $info
 }
 
 function Stop-ProcessTree {
@@ -38,11 +52,18 @@ function Stop-ProcessTree {
 }
 
 try {
-	Normalize-ProcessPath
 	if (-not (Test-Path -LiteralPath $Godot -PathType Leaf)) {
 		throw "Godot executable does not exist: $Godot"
 	}
-	$process = Start-Process -FilePath $Godot -ArgumentList $GodotArguments -RedirectStandardOutput $StandardOutput -RedirectStandardError $StandardError -PassThru -WindowStyle Hidden -ErrorAction Stop
+	if (-not (Test-Path -LiteralPath $ProjectRoot -PathType Container)) {
+		throw "Godot project root does not exist: $ProjectRoot"
+	}
+	$startInfo = New-IsolatedProcessStartInfo -FilePath $Godot -Arguments $GodotArguments -WorkingDirectory $ProjectRoot
+	$process = [System.Diagnostics.Process]::new()
+	$process.StartInfo = $startInfo
+	if (-not $process.Start()) { throw "Process.Start returned false for $Godot" }
+	$stdoutTask = $process.StandardOutput.ReadToEndAsync()
+	$stderrTask = $process.StandardError.ReadToEndAsync()
 } catch {
 	[Console]::Error.WriteLine("Godot launcher error: $($_.Exception.Message)")
 	exit 125
@@ -50,8 +71,13 @@ try {
 
 if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
 	Stop-ProcessTree -ProcessId $process.Id
+	$process.WaitForExit()
+	[System.IO.File]::WriteAllText($StandardOutput, $stdoutTask.Result)
+	[System.IO.File]::WriteAllText($StandardError, $stderrTask.Result)
 	[Console]::Error.WriteLine("Godot process timed out after $TimeoutSeconds seconds and was terminated.")
 	exit 124
 }
 
+[System.IO.File]::WriteAllText($StandardOutput, $stdoutTask.Result)
+[System.IO.File]::WriteAllText($StandardError, $stderrTask.Result)
 exit $process.ExitCode

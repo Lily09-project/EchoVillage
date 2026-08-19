@@ -244,8 +244,11 @@ CI workflow：`.github/workflows/ci.yml`。本機與 CI 共用同一個批次品
 - 7 日與 30 日加速模擬的需求邊界、NPC 狀態與存檔完整性。
 - `SCRIPT ERROR`、載入失敗與 launcher timeout 掃描。
 - repository security audit：只掃描 Git tracked 檔案，拒絕 secrets、私鑰、使用者存檔、`.godot`／release artifacts，報告不輸出敏感內容。
+- 安全 fuzz：malformed `Vector2`、非法時間欄位、混合型別 Optional AI context、深層巢狀資料與直接 `GameManager.deserialize()` 的原子拒絕路徑。
 
 測試結果會寫入 `tests/simulation_test_report.json`。目前驗收快照為 `89 passed / 0 failed`，包含首次旅程導覽、暫停選單重開、按鈕版面防重疊，以及損壞／超大存檔與偏好型別驗證。
+
+安全測試會在 Debug 模式使用隔離儲存目錄；可透過 `ECHO_VILLAGE_TEST_STORAGE_ROOT` 指定 CI 的暫存路徑，未設定時使用專案內的 `.test-data/`。正式遊戲不會啟用這個測試導向。
 
 ### Visual QA
 
@@ -329,6 +332,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\validate_project.ps1
 - 真實 `.env`、API key、token、password、使用者存檔與本機 cache 不提交至 repository。
 - `tools/security_audit.ps1` 會在 `run_echo_village.bat --test` 中自動執行；也可以單獨執行它產生 `tests/security_audit_report.json`，只輸出規則 ID、路徑與摘要，不輸出匹配內容。
 - `SaveManager` 會在 JSON 解析前限制存檔 4 MiB、偏好檔 64 KiB，並拒絕損壞、型別不符或超過集合上限的內容。
+- `GameManager.deserialize()` 先在候選狀態上完成型別、數值、集合與巢狀資料驗證，通過後才一次套用；失敗載入不會部分覆蓋目前有效狀態。`Vector2` 解碼、時間欄位與 Optional AI context 也有嚴格形狀／範圍／長度限制，惡意或損壞輸入會安全降級，不會觸發 runtime error。
 - Optional AI provider 只透過環境變數設定，參考 `.env.example`。
 - AIService 只輸出結構化文字、記憶摘要與建議目標，不能直接修改 GameManager 的權威狀態。
 - Client-facing UI 不承擔權限或資料驗證責任；交易、製作、任務與存檔都在 domain/service 層重新驗證。

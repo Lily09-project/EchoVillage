@@ -11,6 +11,13 @@ func _ready() -> void:
 
 func run() -> void:
 	await get_tree().process_frame
+	var test_storage_root := OS.get_environment("ECHO_VILLAGE_TEST_STORAGE_ROOT")
+	if test_storage_root.is_empty(): test_storage_root = "res://.test-data"
+	var isolated_storage_ready := SaveManager.configure_test_storage(test_storage_root)
+	if not isolated_storage_ready:
+		check("測試使用隔離存檔目錄", false)
+		get_tree().quit(1)
+		return
 	check("UI 刷新排程器合併髒區域請求", UiRefreshSchedulerTest.run())
 	check("Concrete Action scripts use explicit dependencies and instantiate", concrete_action_scripts_test())
 	GameManager.new_game()
@@ -405,15 +412,49 @@ func save_envelope_validation_test() -> bool:
 	oversized["timeline_events"] = timeline
 	var oversized_result: Dictionary = migration.migrate({"save_version":2,"world_state":oversized})
 	if bool(oversized_result.get("ok",false)): return false
+	var safe_state: Dictionary = GameManager.serialize()
+	var invalid_times: Array = [
+		{"minute":"tampered","day":1,"day_of_week":1,"time_scale":1.0},
+		{"minute":-1,"day":1,"day_of_week":1,"time_scale":1.0},
+		{"minute":1440,"day":1,"day_of_week":1,"time_scale":1.0},
+		{"minute":360,"day":0,"day_of_week":1,"time_scale":1.0},
+		{"minute":360,"day":1,"day_of_week":8,"time_scale":1.0},
+		{"minute":360,"day":1,"day_of_week":1,"time_scale":0.0},
+		{"minute":[],"day":1,"day_of_week":1,"time_scale":1.0}
+	]
+	for invalid_time in invalid_times:
+		if bool(migration.migrate({"save_version":2,"time":invalid_time,"world_state":safe_state}).get("ok",false)): return false
+	GameTime.deserialize({"minute":"tampered","day":-1,"day_of_week":99,"time_scale":0.0})
+	var direct_time_safe := GameTime.minute == 360 and GameTime.day == 1 and GameTime.day_of_week == 1 and is_equal_approx(GameTime.time_scale,1.0)
+	GameTime.reset_clock()
+	if not direct_time_safe: return false
+	var malformed_state_accepted := GameManager.deserialize({"player":"tampered","npcs":{}})
+	GameManager.new_game()
+	if malformed_state_accepted: return false
 	if not bool(migration.migrate({"save_version":2,"world_state":GameManager.serialize()}).get("ok",false)): return false
-	var temp_path := "user://echo_village_oversized_test.tmp"
+	var temp_path := SaveManager._storage_path("echo_village_oversized_test.tmp","user://echo_village_oversized_test.tmp")
 	var temp_file := FileAccess.open(temp_path,FileAccess.WRITE)
 	if temp_file == null: return false
 	temp_file.store_string("x".repeat(SaveManager.MAX_SAVE_BYTES + 1))
 	temp_file.close()
 	var rejected_oversized_file := SaveManager.read_limited_text(temp_path,SaveManager.MAX_SAVE_BYTES).is_empty()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(temp_path))
-	return rejected_oversized_file
+	if not rejected_oversized_file: return false
+	var malformed_vectors: Array = [
+		{"__vector2":[]},
+		{"__vector2":[1]},
+		{"__vector2":"tampered"},
+		{"nested":{"__vector2":[1]}}
+	]
+	for malformed_vector in malformed_vectors:
+		var decoded = GameManager.decode_value(malformed_vector)
+		if not (decoded is Dictionary) or decoded.has("__vector2"): return false
+	var valid_vector = GameManager.decode_value({"__vector2":[12,34]})
+	if not (valid_vector is Vector2) or valid_vector != Vector2(12,34): return false
+	var deeply_nested: Dictionary = {"leaf":"ok"}
+	for _depth in 96: deeply_nested = {"nested":deeply_nested}
+	if not (GameManager.decode_value(deeply_nested) is Dictionary): return false
+	return true
 
 func preference_type_safety_test() -> bool:
 	if not SaveManager.has_method("sanitize_preferences"): return false
@@ -930,7 +971,11 @@ func optional_ai_service_contract_test() -> bool:
 	var response: Dictionary = service.generate_dialogue(context)
 	var fallback = service_script.new()
 	var fallback_response: Dictionary = fallback.generate_dialogue(context)
-	return response.has_all(["dialogue","emotion","intent"]) and fallback_response.has_all(["dialogue","emotion","intent"]) and service.has_method("summarize_memories") and service.has_method("generate_long_term_goal") and context == original and not response.has("inventory") and not response.has("relationship_delta")
+	var hostile_context := {"npc_profile":"tampered","mood":{"unexpected":true},"relevant_memories":["not-a-memory",{"importance":4,"description":"保留這段"}],"relationship":"tampered","world_event":"tampered","situation":"x".repeat(1000)}
+	var hostile_response: Dictionary = service.generate_dialogue(hostile_context)
+	var hostile_summary: String = service.summarize_memories(["tampered",{"importance":4,"description":"保留這段"},null])
+	var hostile_goal: String = service.generate_long_term_goal({"npc_profile":"tampered"})
+	return response.has_all(["dialogue","emotion","intent"]) and fallback_response.has_all(["dialogue","emotion","intent"]) and hostile_response.has_all(["dialogue","emotion","intent"]) and hostile_summary.contains("保留這段") and hostile_goal.contains("居民") and service.has_method("summarize_memories") and service.has_method("generate_long_term_goal") and context == original and not response.has("inventory") and not response.has("relationship_delta")
 
 func inventory_safety_contract_test() -> bool:
 	GameManager.new_game()

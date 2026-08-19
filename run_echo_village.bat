@@ -39,13 +39,19 @@ if /I "%~1"=="--test" (
     echo Structural validation failed with exit code !VALIDATION_RESULT!.
     exit /b !VALIDATION_RESULT!
   )
-  powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\tools\security_audit.ps1" -ReportPath "%ROOT%\tests\security_audit_report.json"
+  if not defined ECHO_VILLAGE_SECURITY_REPORT_PATH set "ECHO_VILLAGE_SECURITY_REPORT_PATH=%ROOT%\tests\security_audit_report.json"
+  powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\tools\security_audit.ps1" -ReportPath "!ECHO_VILLAGE_SECURITY_REPORT_PATH!"
   set "SECURITY_RESULT=!ERRORLEVEL!"
   if not "!SECURITY_RESULT!"=="0" (
     echo Security audit failed with exit code !SECURITY_RESULT!.
     exit /b !SECURITY_RESULT!
   )
   set "RUN_TAG=!RANDOM!_!RANDOM!"
+  set "TEST_STORAGE_OWNED=0"
+  if not defined ECHO_VILLAGE_TEST_STORAGE_ROOT (
+    set "ECHO_VILLAGE_TEST_STORAGE_ROOT=%TEMP%\EchoVillage_security_tests_!RUN_TAG!"
+    set "TEST_STORAGE_OWNED=1"
+  )
   set "PREFLIGHT_LOG=%TEMP%\EchoVillage_preflight_output_!RUN_TAG!.log"
   set "PREFLIGHT_ERROR_LOG=%TEMP%\EchoVillage_preflight_error_!RUN_TAG!.log"
   set "PREFLIGHT_ENGINE_LOG=%TEMP%\EchoVillage_preflight_engine_!RUN_TAG!.log"
@@ -78,6 +84,7 @@ if /I "%~1"=="--test" (
   findstr /C:"TEST_RESULT passed=" "!TEST_LOG!" "!TEST_ENGINE_LOG!" >nul || set "RESULT=1"
   findstr /C:"failed=0" "!TEST_LOG!" "!TEST_ENGINE_LOG!" >nul || set "RESULT=1"
   del /q "!TEST_LOG!" "!TEST_ERROR_LOG!" "!TEST_ENGINE_LOG!" >nul 2>nul
+  if "!TEST_STORAGE_OWNED!"=="1" rmdir /s /q "!ECHO_VILLAGE_TEST_STORAGE_ROOT!" >nul 2>nul
   echo.
   echo Test process exit code: !RESULT!.
   exit /b !RESULT!

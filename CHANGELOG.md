@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased — 2026-08-19
+
+- 完成存檔／偏好設定安全 fuzz：4 MiB／64 KiB byte 上限、時間欄位範圍、malformed `Vector2`、深層資料與原子 `deserialize` 驗證。
+- 強化 Optional AI provider boundary：混合型別 context、記憶摘要與對話輸出長度都會安全降級，不會造成 runtime error。
+- 回歸測試改用 Debug-only 隔離儲存目錄，避免安全測試覆寫開發者的真實 `user://` 存檔。
+- repository security audit、Godot runtime error gate 與 portable release smoke test 持續維持全綠；目前為 89 項測試。
+
 ## 1.2.0 — 2026-08-12
 
 - 新增五級村落聲望與六項資料驅動成就。

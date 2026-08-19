@@ -22,7 +22,8 @@ GitHub Actions workflow `.github/workflows/ci.yml` 在乾淨 Windows runner 上�
 - 首次旅程：新遊戲三步驟導覽、下一步／略過／Esc、`onboarding_seen` 偏好與暫停選單 `F1` 重開；同時驗證指南按鈕不與動態開關重疊。
 - 可及性：設定選取狀態文字對比、清楚焦點與完整鍵盤路徑。
 - Navigation：五個實際 Agent、路徑偵錯與停滯復原。
-- 安全邊界：JSON 解析前的 4 MiB 存檔／64 KiB 偏好檔 byte 上限、損壞／竄改／超大集合拒絕、偏好型別白名單、tracked-file secrets／私鑰／release artifact 稽核。
+- 安全邊界：JSON 解析前的 4 MiB 存檔／64 KiB 偏好檔 byte 上限、損壞／竄改／超大集合拒絕、偏好型別白名單、malformed `Vector2`、非法時間欄位、深層巢狀資料與混合型別 Optional AI context fuzz，以及 tracked-file secrets／私鑰／release artifact 稽核；直接 `GameManager.deserialize()` 必須以原子方式拒絕不可信狀態。
+- 測試隔離：Debug 測試透過 `ECHO_VILLAGE_TEST_STORAGE_ROOT` 或 `.test-data/` 儲存存檔／偏好暫存，禁止回歸測試覆寫開發者的真實 `user://` 資料。
 
 ## 視覺 QA
 

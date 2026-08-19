@@ -1,4 +1,5 @@
 .godot/
+.test-data/
 .import/
 *.import
 *.tmp
