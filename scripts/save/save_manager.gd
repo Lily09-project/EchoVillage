@@ -2,6 +2,8 @@ extends Node
 
 const SAVE_PATH := "user://echo_village_save.json"
 const PREFERENCES_PATH := "user://echo_village_preferences.json"
+const MAX_SAVE_BYTES := 4 * 1024 * 1024
+const MAX_PREFERENCES_BYTES := 64 * 1024
 const SaveMigrationService = preload("res://scripts/save/save_migration.gd")
 var preferences := {"autosave":true,"motion":true,"fullscreen":false,"audio":true,"onboarding_seen":false}
 var last_save_kind := ""
@@ -33,8 +35,11 @@ func load_game() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
 		GameManager.add_log("目前還沒有存檔。")
 		return false
-	var file := FileAccess.open(SAVE_PATH,FileAccess.READ)
-	var data = JSON.parse_string(file.get_as_text())
+	var raw := read_limited_text(SAVE_PATH,MAX_SAVE_BYTES)
+	if raw.is_empty():
+		GameManager.add_log("無法安全讀取此存檔。")
+		return false
+	var data = JSON.parse_string(raw)
 	if not (data is Dictionary):
 		GameManager.add_log("無法安全讀取此存檔。")
 		return false
@@ -50,11 +55,15 @@ func load_game() -> bool:
 
 func load_preferences() -> Dictionary:
 	if not FileAccess.file_exists(PREFERENCES_PATH): return preferences.duplicate(true)
-	var file := FileAccess.open(PREFERENCES_PATH,FileAccess.READ)
-	if file == null: return preferences.duplicate(true)
-	var parsed = JSON.parse_string(file.get_as_text())
+	var parsed = JSON.parse_string(read_limited_text(PREFERENCES_PATH,MAX_PREFERENCES_BYTES))
 	preferences = sanitize_preferences(parsed)
 	return preferences.duplicate(true)
+
+func read_limited_text(path: String, max_bytes: int) -> String:
+	if max_bytes < 0 or not FileAccess.file_exists(path): return ""
+	var file := FileAccess.open(path,FileAccess.READ)
+	if file == null or file.get_length() > max_bytes: return ""
+	return file.get_as_text()
 
 func sanitize_preferences(raw: Variant) -> Dictionary:
 	var sanitized: Dictionary = preferences.duplicate(true)

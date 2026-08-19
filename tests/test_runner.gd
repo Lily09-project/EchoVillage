@@ -405,7 +405,15 @@ func save_envelope_validation_test() -> bool:
 	oversized["timeline_events"] = timeline
 	var oversized_result: Dictionary = migration.migrate({"save_version":2,"world_state":oversized})
 	if bool(oversized_result.get("ok",false)): return false
-	return bool(migration.migrate({"save_version":2,"world_state":GameManager.serialize()}).get("ok",false))
+	if not bool(migration.migrate({"save_version":2,"world_state":GameManager.serialize()}).get("ok",false)): return false
+	var temp_path := "user://echo_village_oversized_test.tmp"
+	var temp_file := FileAccess.open(temp_path,FileAccess.WRITE)
+	if temp_file == null: return false
+	temp_file.store_string("x".repeat(SaveManager.MAX_SAVE_BYTES + 1))
+	temp_file.close()
+	var rejected_oversized_file := SaveManager.read_limited_text(temp_path,SaveManager.MAX_SAVE_BYTES).is_empty()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(temp_path))
+	return rejected_oversized_file
 
 func preference_type_safety_test() -> bool:
 	if not SaveManager.has_method("sanitize_preferences"): return false

@@ -328,6 +328,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\validate_project.ps1
 
 - 真實 `.env`、API key、token、password、使用者存檔與本機 cache 不提交至 repository。
 - `tools/security_audit.ps1` 會在 `run_echo_village.bat --test` 中自動執行；也可以單獨執行它產生 `tests/security_audit_report.json`，只輸出規則 ID、路徑與摘要，不輸出匹配內容。
+- `SaveManager` 會在 JSON 解析前限制存檔 4 MiB、偏好檔 64 KiB，並拒絕損壞、型別不符或超過集合上限的內容。
 - Optional AI provider 只透過環境變數設定，參考 `.env.example`。
 - AIService 只輸出結構化文字、記憶摘要與建議目標，不能直接修改 GameManager 的權威狀態。
 - Client-facing UI 不承擔權限或資料驗證責任；交易、製作、任務與存檔都在 domain/service 層重新驗證。
