@@ -26,6 +26,8 @@ var player := {"id":"player","position":Vector2(625,405),"inventory":{"bread":3,
 var economy := {"bread":4,"vegetable":3,"wood":5,"medicine":9}
 var active_event: Dictionary = {}
 var event_log: Array[String] = []
+var timeline_events: Array = []
+var timeline_sequence := 0
 var memory_sequence := 0
 var community := {}
 var current_location := "village_square"
@@ -84,6 +86,8 @@ func new_game() -> void:
 	economy = {"bread":4,"vegetable":3,"wood":5,"medicine":9,"herb":6}
 	active_event.clear()
 	event_log.clear()
+	timeline_events.clear()
+	timeline_sequence = 0
 	community = {"renown":0,"kindness":false,"rumor":false,"crisis":false,"entries":[]}
 	current_location = "village_square"
 	discovered_locations = ["village_square"]
@@ -662,6 +666,8 @@ func serialize() -> Dictionary:
 	state["completed_quests"] = completed_quests.duplicate(true)
 	state["world_flags"] = world_flags.duplicate(true)
 	state["progression"] = progression.duplicate(true)
+	state["timeline_events"] = timeline_events.duplicate(true)
+	state["timeline_sequence"] = timeline_sequence
 	return state
 func deserialize(data: Dictionary) -> bool:
 	if not (data is Dictionary): return false
@@ -680,6 +686,10 @@ func deserialize(data: Dictionary) -> bool:
 	completed_quests = data.get("completed_quests",[]).duplicate(true)
 	world_flags = data.get("world_flags",{}).duplicate(true)
 	progression = data.get("progression",progression_service.default_state()).duplicate(true)
+	timeline_events.clear()
+	for value in data.get("timeline_events",[]):
+		if value is Dictionary: timeline_events.append(value.duplicate(true))
+	timeline_sequence = int(data.get("timeline_sequence",timeline_events.size()))
 	return true
 func encode_value(value):
 	if value is Vector2: return {"__vector2":[value.x,value.y]}
@@ -713,5 +723,59 @@ func read_json(relative: String) -> Dictionary:
 func _append_log(line: String) -> void:
 	event_log.append(line)
 	if event_log.size() > 80: event_log.pop_front()
+
+func classify_timeline_category(message: String) -> String:
+	if message.contains("交易") or message.contains("買入") or message.contains("出售"): return "economy"
+	if message.contains("任務") or message.contains("製作"): return "quest"
+	if message.contains("世界事件") or message.contains("事件開始") or message.contains("危險") or message.contains("受傷"): return "world"
+	if message.contains("聲望") or message.contains("編年") or message.contains("成就"): return "progression"
+	if message.contains("交談") or message.contains("贈") or message.contains("偷") or message.contains("協助") or message.contains("打招呼") or message.contains("記憶") or message.contains("信任"): return "social"
+	if message.begins_with("抵達"): return "location"
+	return "simulation"
+
+func record_timeline_event(message: String) -> void:
+	timeline_sequence += 1
+	var event := {
+		"id":"echo_%d" % timeline_sequence,
+		"day":GameTime.day,
+		"minute":GameTime.minute,
+		"time":GameTime.formatted_time(),
+		"phase":GameTime.day_phase(),
+		"location":current_location,
+		"category":classify_timeline_category(message),
+		"message":message
+	}
+	timeline_events.append(event)
+	if timeline_events.size() > 160: timeline_events.pop_front()
+
+func timeline_snapshot(category: String = "all", target_day: int = -1, limit: int = 12) -> Array:
+	var result: Array = []
+	var safe_limit: int = maxi(1,limit)
+	for index in range(timeline_events.size() - 1,-1,-1):
+		var event: Dictionary = timeline_events[index]
+		if target_day >= 0 and int(event.get("day",0)) != target_day: continue
+		if category != "all" and str(event.get("category","simulation")) != category: continue
+		result.append(event.duplicate(true))
+		if result.size() >= safe_limit: break
+	return result
+
+func daily_summary(target_day: int = -1) -> Dictionary:
+	var day_value: int = GameTime.day if target_day < 0 else target_day
+	var category_counts := {"social":0,"world":0,"quest":0,"economy":0,"progression":0,"location":0,"simulation":0}
+	var highlights: Array = []
+	var total_events := 0
+	for value in timeline_events:
+		var event: Dictionary = value
+		if int(event.get("day",0)) != day_value: continue
+		total_events += 1
+		var category: String = str(event.get("category","simulation"))
+		category_counts[category] = int(category_counts.get(category,0)) + 1
+		if category != "simulation": highlights.append(event.duplicate(true))
+	if highlights.size() > 6:
+		highlights = highlights.slice(highlights.size() - 6)
+	highlights.reverse()
+	return {"day":day_value,"total_events":total_events,"category_counts":category_counts,"highlights":highlights}
+
 func add_log(message: String) -> void:
+	record_timeline_event(message)
 	EventBus.log_event(GameTime.formatted_time(),message)

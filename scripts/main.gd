@@ -39,6 +39,8 @@ var pause_motion_button: Button
 var toast_label: Label
 var journal_panel: Panel
 var journal_label: Label
+var journal_title_label: Label
+var journal_mode := "chronicle"
 var time_panel: Panel
 var time_label: Label
 var renown_label: Label
@@ -169,7 +171,7 @@ func visual_qa_capture_names() -> Array:
 	return ["storybook_intro.png","storybook_explore_dawn.png","storybook_explore_noon.png","storybook_explore_night.png","storybook_event_danger.png","quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","village_progression.png"]
 
 func create_input_map() -> void:
-	var bindings := {"interact":KEY_E,"talk":KEY_C,"give":KEY_G,"steal":KEY_X,"trade":KEY_T,"ask":KEY_Q,"cancel":KEY_ESCAPE,"debug":KEY_F3,"inventory":KEY_I,"journal":KEY_J,"progression":KEY_P,"world_map":KEY_M,"quest_log":KEY_K,"speed_normal":KEY_1,"speed_2x":KEY_2,"speed_5x":KEY_5,"speed_10x":KEY_0,"save_game":KEY_F5,"load_game":KEY_F9,"event_rain":KEY_R,"event_festival":KEY_F,"event_shortage":KEY_H,"event_danger":KEY_B,"event_injury":KEY_N}
+	var bindings := {"interact":KEY_E,"talk":KEY_C,"give":KEY_G,"steal":KEY_X,"trade":KEY_T,"ask":KEY_Q,"cancel":KEY_ESCAPE,"debug":KEY_F3,"inventory":KEY_I,"journal":KEY_J,"daily_summary":KEY_L,"progression":KEY_P,"world_map":KEY_M,"quest_log":KEY_K,"speed_normal":KEY_1,"speed_2x":KEY_2,"speed_5x":KEY_5,"speed_10x":KEY_0,"save_game":KEY_F5,"load_game":KEY_F9,"event_rain":KEY_R,"event_festival":KEY_F,"event_shortage":KEY_H,"event_danger":KEY_B,"event_injury":KEY_N}
 	for action in bindings:
 		if not InputMap.has_action(action):
 			InputMap.add_action(action)
@@ -236,6 +238,10 @@ func handle_shortcuts() -> void:
 	if Input.is_action_just_pressed("inventory"):
 		toggle_modal_panel(inventory_panel)
 	if Input.is_action_just_pressed("journal"):
+		set_journal_mode("chronicle")
+		toggle_modal_panel(journal_panel)
+	if Input.is_action_just_pressed("daily_summary"):
+		set_journal_mode("daily")
 		toggle_modal_panel(journal_panel)
 	if Input.is_action_just_pressed("progression"):
 		if not progression_panel.visible: progression_panel.refresh(GameManager.progression_snapshot())
@@ -295,7 +301,7 @@ func create_ui() -> void:
 	renown_label = make_label(Vector2(900,6), Vector2(320,22), 13, VillageTheme.MOSS_LIGHT)
 	renown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	hint_label = make_label(Vector2(58,610), Vector2(730,28), 14, VillageTheme.PAPER)
-	hint_label.text = "E 查看村民  •  G 贈送  •  T 交易  •  J 編年  •  P 村落手札  •  F3 除錯"
+	hint_label.text = "E 查看村民  •  G 贈送  •  T 交易  •  J 編年  •  L 今日回音  •  P 村落手札  •  F3 除錯"
 	log_label = make_label(Vector2(58,644), Vector2(730,66), 13, VillageTheme.PAPER_DARK)
 	log_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	toast_label = make_label(Vector2(390,566),Vector2(420,26),14,VillageTheme.SUN)
@@ -592,14 +598,23 @@ func create_journal_panel() -> void:
 	canvas.add_child(journal_panel)
 	var eyebrow := make_panel_label(journal_panel,Vector2(18,14),Vector2(270,18),12,VillageTheme.LILAC)
 	eyebrow.text = "每個選擇都會留下回音"
-	var title := make_panel_label(journal_panel,Vector2(18,34),Vector2(270,30),20,VillageTheme.INK)
-	title.text = "村落編年  /  CHRONICLE"
+	journal_title_label = make_panel_label(journal_panel,Vector2(18,34),Vector2(320,30),20,VillageTheme.INK)
+	journal_title_label.text = "村落編年  /  CHRONICLE"
 	journal_label = make_panel_label(journal_panel,Vector2(18,73),Vector2(320,220),13,VillageTheme.INK_SOFT)
 	journal_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var daily_button := Button.new()
+	daily_button.name = "DailySummaryButton"
+	daily_button.text = "今日回音  L"
+	daily_button.position = Vector2(18,299)
+	daily_button.size = Vector2(190,34)
+	daily_button.add_theme_font_size_override("font_size",12)
+	style_action_button(daily_button,VillageTheme.SUN)
+	daily_button.pressed.connect(func(): set_journal_mode("chronicle" if journal_mode == "daily" else "daily"))
+	journal_panel.add_child(daily_button)
 	var close := Button.new()
 	close.text = "關閉  J"
-	close.position = Vector2(225,299)
-	close.size = Vector2(112,34)
+	close.position = Vector2(218,299)
+	close.size = Vector2(124,34)
 	close.add_theme_font_size_override("font_size",12)
 	style_action_button(close,VillageTheme.LILAC)
 	close.pressed.connect(func(): journal_panel.visible = false)
@@ -947,7 +962,7 @@ func refresh_ui() -> void:
 	craft_button.tooltip_text = "消耗月光藥草 ×2，製作藥品 ×1" if not craft_button.disabled else "需在低語森林邊緣並持有 2 株月光藥草"
 	gather_button.disabled = not GameManager.can_gather_location_resource("herb")
 	gather_button.tooltip_text = "森林每輪可採集 3 株月光藥草" if not gather_button.disabled else "需在森林邊緣，或本輪資源已採完"
-	journal_label.text = chronicle_text(progress)
+	refresh_journal_panel(progress)
 	progression_panel.refresh(progression_snapshot)
 	quest_tracker.refresh(GameManager.active_quest_snapshot())
 	world_map_panel.set_locations(GameManager.location_defs,GameManager.current_location,GameManager.discovered_locations)
@@ -968,6 +983,32 @@ func refresh_ui() -> void:
 
 func chronicle_text(progress: Dictionary) -> String:
 	var lines := ["目前聲望：%d" % int(progress["renown"]),"","[%s] 善意留下回音" % ("已解鎖" if bool(progress["kindness"]) else "未解鎖"),"贈送麵包，觀察記憶與信任如何改變。","","[%s] 流言開始擴散" % ("已解鎖" if bool(progress["rumor"]) else "未解鎖"),"偷取食物，觀察負面記憶如何傳播。","","[%s] 危機考驗勇氣" % ("已解鎖" if bool(progress["crisis"]) else "未解鎖"),"按 B 觸發危險，使用 F3 比較 NPC 決策。"]
+	return "\n".join(lines)
+
+func set_journal_mode(mode: String) -> void:
+	journal_mode = "daily" if mode == "daily" else "chronicle"
+	if journal_label != null: refresh_journal_panel(GameManager.community_progress())
+
+func refresh_journal_panel(progress: Dictionary = {}) -> void:
+	if journal_label == null: return
+	var snapshot: Dictionary = progress if not progress.is_empty() else GameManager.community_progress()
+	var is_daily: bool = journal_mode == "daily"
+	journal_title_label.text = "今日回音  /  DAILY ECHOES" if is_daily else "村落編年  /  CHRONICLE"
+	journal_label.text = daily_echoes_text(GameManager.daily_summary()) if is_daily else chronicle_text(snapshot)
+	var toggle_button := journal_panel.get_node_or_null("DailySummaryButton") as Button
+	if toggle_button != null: toggle_button.text = "村落編年  J" if is_daily else "今日回音  L"
+
+func daily_echoes_text(summary: Dictionary) -> String:
+	var counts: Dictionary = summary.get("category_counts",{})
+	var lines := ["第 %d 天 · 共記錄 %d 件事件" % [int(summary.get("day",GameTime.day)),int(summary.get("total_events",0))],"居民 %d  ·  世界 %d  ·  任務 %d" % [int(counts.get("social",0)),int(counts.get("world",0)),int(counts.get("quest",0))],"經濟 %d  ·  地點 %d  ·  進展 %d" % [int(counts.get("economy",0)),int(counts.get("location",0)),int(counts.get("progression",0))],""]
+	var highlights: Array = summary.get("highlights",[])
+	if highlights.is_empty():
+		lines.append("今天還沒有值得記下的回音。")
+	else:
+		lines.append("重要回音")
+		for value in highlights.slice(0,5):
+			var event: Dictionary = value
+			lines.append("• %s  %s" % [str(event.get("phase","")),str(event.get("message",""))])
 	return "\n".join(lines)
 
 func handle_progression_unlock(achievement: Dictionary) -> void:

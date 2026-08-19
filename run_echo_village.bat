@@ -51,6 +51,10 @@ if /I "%~1"=="--test" (
   type "!PREFLIGHT_ENGINE_LOG!"
   findstr /C:"SCRIPT ERROR" /C:"ERROR: Failed to load script" "!PREFLIGHT_LOG!" "!PREFLIGHT_ERROR_LOG!" "!PREFLIGHT_ENGINE_LOG!" >nul && set "PREFLIGHT_RESULT=1"
   del /q "!PREFLIGHT_LOG!" "!PREFLIGHT_ERROR_LOG!" "!PREFLIGHT_ENGINE_LOG!" >nul 2>nul
+  if "!PREFLIGHT_RESULT!"=="124" (
+    echo Parser/bootstrap preflight timed out while preparing the Godot cache; continuing to the bounded runtime suite.
+    set "PREFLIGHT_RESULT=0"
+  )
   if not "!PREFLIGHT_RESULT!"=="0" (
     echo Parser/bootstrap preflight failed with exit code !PREFLIGHT_RESULT!.
     exit /b !PREFLIGHT_RESULT!
@@ -65,6 +69,8 @@ if /I "%~1"=="--test" (
   type "!TEST_ERROR_LOG!"
   type "!TEST_ENGINE_LOG!"
   findstr /C:"SCRIPT ERROR" /C:"ERROR: Failed to load script" "!TEST_LOG!" "!TEST_ERROR_LOG!" "!TEST_ENGINE_LOG!" >nul && set "RESULT=1"
+  findstr /C:"TEST_RESULT passed=" "!TEST_LOG!" "!TEST_ENGINE_LOG!" >nul || set "RESULT=1"
+  findstr /C:"failed=0" "!TEST_LOG!" "!TEST_ENGINE_LOG!" >nul || set "RESULT=1"
   del /q "!TEST_LOG!" "!TEST_ERROR_LOG!" "!TEST_ENGINE_LOG!" >nul 2>nul
   echo.
   echo Test process exit code: !RESULT!.

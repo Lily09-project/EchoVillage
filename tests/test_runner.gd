@@ -26,6 +26,8 @@ func run() -> void:
 	check("展示情境會重現記憶擴散與勇氣決策", showcase_test())
 	check("玩家行動會推進村落編年與聲望", community_progress_test())
 	check("村落編年會隨遊戲狀態序列化還原", community_progress_save_test())
+	check("每日回音時間軸會分類並彙整重要事件", daily_echoes_summary_test())
+	check("每日回音面板提供摘要切換與快捷鍵入口", await daily_echoes_ui_test())
 	check("日夜階段會正確映射遊戲時間", day_phase_test())
 	check("NPC 展示快照會安全提供情緒、需求與關係", npc_showcase_snapshot_test())
 	check("日夜視覺設定會提供可用亮度與標籤", visual_profile_test())
@@ -95,6 +97,7 @@ func run() -> void:
 	check("村落手札具 44px 關閉操作且開啟時暫停模擬", await progression_panel_accessibility_test())
 	check("村落手札具有可重複的 GPU 視覺 QA 情境", await progression_visual_capture_contract_test())
 	write_report()
+	print("TEST_RESULT passed=%d failed=%d" % [passed,failed])
 	print("Echo Village 測試：%d 通過，%d 失敗" % [passed,failed])
 	get_tree().quit(0 if failed == 0 else 1)
 
@@ -217,6 +220,47 @@ func community_progress_save_test() -> bool:
 	GameManager.deserialize(snapshot)
 	var result: Dictionary = GameManager.community_progress()
 	return bool(result["kindness"]) and int(result["renown"]) >= 3 and int(result["unlocked"]) == 1
+
+func daily_echoes_summary_test() -> bool:
+	GameTime.reset_clock()
+	GameManager.new_game()
+	GameManager.add_log("玩家與艾莉絲交談。")
+	GameManager.trigger_world_event("rain")
+	GameManager.add_log("完成任務：「林間回音」。")
+	var summary: Dictionary = GameManager.daily_summary()
+	var timeline: Array = GameManager.timeline_snapshot("all",GameTime.day,20)
+	var snapshot: Dictionary = GameManager.serialize()
+	var categories: Dictionary = summary.get("category_counts",{})
+	var has_required_fields: bool = not timeline.is_empty() and timeline[0].has_all(["id","day","time","phase","category","message"])
+	var classified: bool = int(categories.get("social",0)) > 0 and int(categories.get("world",0)) > 0 and int(categories.get("quest",0)) > 0
+	var has_highlights: bool = summary.get("highlights",[]).size() >= 3
+	GameManager.new_game()
+	var restored: bool = GameManager.deserialize(snapshot)
+	var restored_summary: Dictionary = GameManager.daily_summary(1)
+	return has_required_fields and classified and has_highlights and restored and int(restored_summary.get("total_events",0)) >= 3
+
+func daily_echoes_ui_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	if scene == null: return false
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	instance.main_menu_panel.visible = false
+	instance.set_journal_mode("chronicle")
+	var button := instance.get_node_or_null("CanvasLayer/ChroniclePanel/DailySummaryButton") as Button
+	var has_daily_entry: bool = button != null and button.text.contains("今日回音")
+	instance.set_journal_mode("daily")
+	instance.open_side_panel(instance.journal_panel)
+	instance.refresh_ui()
+	var text := str(instance.journal_label.text)
+	var title := str(instance.journal_title_label.text)
+	var result: bool = has_daily_entry and button != null and button.text.contains("村落編年") and title.contains("今日回音") and text.contains("事件") and InputMap.has_action("daily_summary")
+	if button != null:
+		button.emit_signal("pressed")
+		var toggled_back: bool = instance.journal_mode == "chronicle" and str(instance.journal_title_label.text).contains("村落編年") and button.text.contains("今日回音")
+		result = result and toggled_back
+	instance.queue_free()
+	return result
 
 func day_phase_test() -> bool:
 	return GameTime.phase_for_minute(360) == "黎明" and GameTime.phase_for_minute(780) == "正午" and GameTime.phase_for_minute(1140) == "黃昏" and GameTime.phase_for_minute(60) == "深夜"
