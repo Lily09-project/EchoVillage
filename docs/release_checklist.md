@@ -1,13 +1,13 @@
 # Echo Village v1.4.0 Release Checklist
 
-這份 checklist 用來把已完成的遊戲版本交給審查者或作品集讀者。它不包含公開部署；GitHub Release 與 deployment 是另外的授權步驟。
+這份 checklist 用來把已完成的遊戲版本交給審查者或作品集讀者。v1.4.0 的驗收已完成；下方保留勾選結果作為交付證據。它不包含公開部署；GitHub Release 與 deployment 是另外的授權步驟。
 
 ## Source readiness
 
-- [ ] `project.godot`、README、CHANGELOG、`RELEASE_README.txt` 版本一致為 `1.4.0`。
-- [ ] 新資料、scene、script、UID、測試與文件都在 Git diff 中。
-- [ ] 沒有 `.env`、真實存檔、`.godot`、release 或 engine binary。
-- [ ] `git diff --check` 通過。
+- [x] `project.godot`、README、CHANGELOG、`RELEASE_README.txt` 版本一致為 `1.4.0`。
+- [x] 新資料、scene、script、UID、測試與文件都已納入 v1.4.0 Git commit。
+- [x] 沒有 `.env`、真實存檔、`.godot`、release 或 engine binary。
+- [x] `git diff --check` 通過。
 
 ## Quality gate
 
