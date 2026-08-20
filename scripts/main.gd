@@ -7,6 +7,7 @@ const WorldMapPanelScene = preload("res://scenes/ui/WorldMapPanel.tscn")
 const QuestLogPanelScene = preload("res://scenes/ui/QuestLogPanel.tscn")
 const TradePanelScene = preload("res://scenes/ui/TradePanel.tscn")
 const ProgressionPanelScene = preload("res://scenes/ui/ProgressionPanel.tscn")
+const StoryArcPanelScene = preload("res://scenes/ui/StoryArcPanel.tscn")
 const NavigationCoordinatorScript = preload("res://scripts/navigation/navigation_coordinator.gd")
 
 const WORLD := Rect2(42, 92, 1196, 506)
@@ -85,6 +86,7 @@ var fullscreen_toggle: CheckButton
 var audio_toggle: CheckButton
 var trade_panel
 var progression_panel
+var story_arc_panel
 var craft_button: Button
 var gather_button: Button
 var navigation_coordinator: Node2D
@@ -102,6 +104,9 @@ func _ready() -> void:
 	EventBus.location_changed.connect(func(_location_id: String): refresh_ui())
 	EventBus.save_completed.connect(func(_path: String): refresh_ui())
 	EventBus.progression_unlocked.connect(handle_progression_unlock)
+	EventBus.story_arc_updated.connect(func(_arc_id: String, _stage_id: String, _consequence: Dictionary):
+		if story_arc_panel != null: story_arc_panel.refresh(GameManager.story_snapshot())
+		refresh_ui())
 	motion_enabled = SaveManager.get_preference("motion",true)
 	sync_motion_controls()
 	GameTime.set_simulation_paused(true)
@@ -124,6 +129,7 @@ func capture_visual_qa() -> void:
 		{"file":"consumer_settings.png","minute":780,"intro":false,"scenario":"settings"},
 		{"file":"consumer_trade.png","minute":780,"intro":false,"scenario":"trade"},
 		{"file":"village_progression.png","minute":780,"intro":false,"scenario":"progression"},
+		{"file":"story_arc_active.png","minute":780,"intro":false,"scenario":"story_active"},
 		{"file":"consumer_onboarding.png","minute":780,"intro":false,"scenario":"onboarding"}
 	]
 	for capture in captures:
@@ -136,6 +142,7 @@ func capture_visual_qa() -> void:
 		inventory_panel.visible = false
 		journal_panel.visible = false
 		progression_panel.visible = false
+		story_arc_panel.visible = false
 		world_map_panel.visible = false
 		quest_log_panel.visible = false
 		pause_panel.visible = false
@@ -172,6 +179,12 @@ func capture_visual_qa() -> void:
 			progression_panel.refresh(GameManager.progression_snapshot())
 			progression_panel.visible = true
 			progression_panel.move_to_front()
+		if scenario == "story_active":
+			GameManager.interact("bob","steal_food")
+			selected_id = "bob"
+			info_panel.visible = true
+			dialogue_label.text = GameManager.dialogue(GameManager.npcs[selected_id])
+			open_story_panel()
 		if scenario == "onboarding":
 			show_onboarding(true)
 		if scenario == "danger":
@@ -180,7 +193,7 @@ func capture_visual_qa() -> void:
 			show_interaction_feedback("give","任務完成：黛安娜收下麵包，森林記住了你的善意。")
 		queue_redraw()
 		await get_tree().process_frame
-		if scenario in ["danger","forest_complete","settings","trade","progression","onboarding"]: await get_tree().create_timer(0.24).timeout
+		if scenario in ["danger","forest_complete","settings","trade","progression","story_active","onboarding"]: await get_tree().create_timer(0.24).timeout
 		await RenderingServer.frame_post_draw
 		var image := get_viewport().get_texture().get_image()
 		var result := image.save_png("res://tests/visual_qa/" + file_name)
@@ -192,10 +205,10 @@ func capture_visual_qa() -> void:
 	get_tree().quit(0)
 
 func visual_qa_capture_names() -> Array:
-	return ["storybook_intro.png","storybook_explore_dawn.png","storybook_explore_noon.png","storybook_explore_night.png","storybook_event_danger.png","quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","village_progression.png","consumer_onboarding.png"]
+	return ["storybook_intro.png","storybook_explore_dawn.png","storybook_explore_noon.png","storybook_explore_night.png","storybook_event_danger.png","quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","village_progression.png","story_arc_active.png","consumer_onboarding.png"]
 
 func create_input_map() -> void:
-	var bindings := {"interact":KEY_E,"talk":KEY_C,"give":KEY_G,"steal":KEY_X,"trade":KEY_T,"ask":KEY_Q,"cancel":KEY_ESCAPE,"guide":KEY_F1,"debug":KEY_F3,"inventory":KEY_I,"journal":KEY_J,"daily_summary":KEY_L,"progression":KEY_P,"world_map":KEY_M,"quest_log":KEY_K,"speed_normal":KEY_1,"speed_2x":KEY_2,"speed_5x":KEY_5,"speed_10x":KEY_0,"save_game":KEY_F5,"load_game":KEY_F9,"event_rain":KEY_R,"event_festival":KEY_F,"event_shortage":KEY_H,"event_danger":KEY_B,"event_injury":KEY_N}
+	var bindings := {"interact":KEY_E,"talk":KEY_C,"give":KEY_G,"steal":KEY_X,"trade":KEY_T,"ask":KEY_Q,"cancel":KEY_ESCAPE,"guide":KEY_F1,"debug":KEY_F3,"inventory":KEY_I,"journal":KEY_J,"daily_summary":KEY_L,"story_arcs":KEY_O,"progression":KEY_P,"world_map":KEY_M,"quest_log":KEY_K,"speed_normal":KEY_1,"speed_2x":KEY_2,"speed_5x":KEY_5,"speed_10x":KEY_0,"save_game":KEY_F5,"load_game":KEY_F9,"event_rain":KEY_R,"event_festival":KEY_F,"event_shortage":KEY_H,"event_danger":KEY_B,"event_injury":KEY_N}
 	for action in bindings:
 		if not InputMap.has_action(action):
 			InputMap.add_action(action)
@@ -275,6 +288,8 @@ func handle_shortcuts() -> void:
 	if Input.is_action_just_pressed("progression"):
 		if not progression_panel.visible: progression_panel.refresh(GameManager.progression_snapshot())
 		toggle_modal_panel(progression_panel)
+	if Input.is_action_just_pressed("story_arcs"):
+		open_story_panel()
 	if Input.is_action_just_pressed("world_map"):
 		toggle_modal_panel(world_map_panel)
 	if Input.is_action_just_pressed("quest_log"):
@@ -306,6 +321,8 @@ func handle_shortcuts() -> void:
 			showcase_panel.visible = false
 		elif journal_panel.visible:
 			journal_panel.visible = false
+		elif story_arc_panel.visible:
+			story_arc_panel.visible = false
 		elif onboarding_panel.visible:
 			complete_onboarding()
 		elif progression_panel.visible:
@@ -332,7 +349,7 @@ func create_ui() -> void:
 	renown_label = make_label(Vector2(900,6), Vector2(320,22), 13, VillageTheme.MOSS_LIGHT)
 	renown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	hint_label = make_label(Vector2(58,610), Vector2(730,28), 14, VillageTheme.PAPER)
-	hint_label.text = "E 查看村民  •  G 贈送  •  T 交易  •  J 編年  •  L 今日回音  •  P 村落手札  •  F3 除錯"
+	hint_label.text = "E 查看村民  •  G 贈送  •  T 交易  •  J 編年  •  L 今日回音  •  O 故事線  •  P 村落手札  •  F3 除錯"
 	log_label = make_label(Vector2(58,644), Vector2(730,66), 13, VillageTheme.PAPER_DARK)
 	log_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	toast_label = make_label(Vector2(390,566),Vector2(420,26),14,VillageTheme.SUN)
@@ -558,7 +575,7 @@ func create_onboarding_panel() -> void:
 func show_onboarding(force: bool = false) -> void:
 	if not force and SaveManager.get_preference("onboarding_seen",false): return
 	onboarding_step = 0
-	for panel in [settings_panel,pause_panel,showcase_panel,inventory_panel,journal_panel,progression_panel,world_map_panel,quest_log_panel,trade_panel]:
+	for panel in [settings_panel,pause_panel,showcase_panel,inventory_panel,journal_panel,progression_panel,story_arc_panel,world_map_panel,quest_log_panel,trade_panel]:
 		if panel != null: panel.visible = false
 	if main_menu_panel != null: main_menu_panel.visible = false
 	refresh_onboarding()
@@ -593,7 +610,7 @@ func apply_fullscreen(value: bool) -> void:
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN if value else DisplayServer.WINDOW_MODE_WINDOWED)
 
 func is_blocking_modal_open() -> bool:
-	return main_menu_panel.visible or settings_panel.visible or pause_panel.visible or onboarding_panel.visible or showcase_panel.visible or inventory_panel.visible or journal_panel.visible or progression_panel.visible or world_map_panel.visible or quest_log_panel.visible or trade_panel.visible
+	return main_menu_panel.visible or settings_panel.visible or pause_panel.visible or onboarding_panel.visible or showcase_panel.visible or inventory_panel.visible or journal_panel.visible or progression_panel.visible or story_arc_panel.visible or world_map_panel.visible or quest_log_panel.visible or trade_panel.visible
 
 func sync_simulation_pause() -> void:
 	GameTime.set_simulation_paused(is_blocking_modal_open())
@@ -604,14 +621,33 @@ func create_expansion_ui() -> void:
 	quest_log_panel = QuestLogPanelScene.instantiate()
 	trade_panel = TradePanelScene.instantiate()
 	progression_panel = ProgressionPanelScene.instantiate()
+	story_arc_panel = StoryArcPanelScene.instantiate()
 	canvas.add_child(quest_tracker)
 	canvas.add_child(world_map_panel)
 	canvas.add_child(quest_log_panel)
 	canvas.add_child(trade_panel)
 	canvas.add_child(progression_panel)
+	canvas.add_child(story_arc_panel)
 	world_map_panel.travel_requested.connect(handle_travel_request)
 	trade_panel.buy_requested.connect(handle_buy_request)
 	trade_panel.sell_requested.connect(handle_sell_request)
+	story_arc_panel.choice_requested.connect(handle_story_choice)
+	story_arc_panel.refresh(GameManager.story_snapshot())
+
+func open_story_panel() -> void:
+	story_arc_panel.refresh(GameManager.story_snapshot())
+	close_modal_panels()
+	story_arc_panel.set_visible_with_motion(true,motion_enabled)
+	story_arc_panel.move_to_front()
+	sync_simulation_pause()
+
+func handle_story_choice(arc_id: String, choice_id: String) -> void:
+	var result: Dictionary = GameManager.choose_story_arc(arc_id,choice_id)
+	var response := "故事已推進，新的後果已寫入村落回音。" if bool(result.get("ok",false)) else str(result.get("reason","目前無法做出這個選擇。"))
+	story_arc_panel.show_feedback(response)
+	show_interaction_feedback("story",response)
+	story_arc_panel.refresh(GameManager.story_snapshot())
+	refresh_ui()
 
 func handle_travel_request(location_id: String) -> void:
 	var result: Dictionary = GameManager.travel_to(location_id)
@@ -773,7 +809,7 @@ func create_pause_panel() -> void:
 	var title := make_panel_label(pause_panel,Vector2(18,18),Vector2(310,32),22,VillageTheme.INK)
 	title.text = "暫停選單"
 	pause_label = make_panel_label(pause_panel,Vector2(18,55),Vector2(310,42),14,VillageTheme.INK_SOFT)
-	pause_label.text = "按 Esc 繼續探索\n按 I 開啟背包 · J 查看編年 · F5 儲存"
+	pause_label.text = "按 Esc 繼續探索\n按 I 背包 · J 編年 · O 故事線 · F5 儲存"
 	var resume := Button.new()
 	resume.text = "繼續探索"
 	resume.position = Vector2(18,111)
@@ -1034,6 +1070,7 @@ func close_modal_panels() -> void:
 	inventory_panel.visible = false
 	journal_panel.visible = false
 	progression_panel.visible = false
+	story_arc_panel.visible = false
 	world_map_panel.visible = false
 	quest_log_panel.visible = false
 	trade_panel.visible = false

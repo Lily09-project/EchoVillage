@@ -27,12 +27,15 @@ func run() -> void:
 	check("關係值正確限制在範圍內", relationship_test())
 	check("正向互動會建立記憶", memory_test())
 	check("存檔與讀檔能還原玩家狀態", save_load_test())
+	check("存檔原子寫入與備份復原", save_recovery_test())
 	check("糧食短缺會提高麵包價格", event_price_test())
 	check("七日加速模擬保持健康", simulation_test())
 	check("三十日加速模擬保持健康", long_simulation_stability_test())
 	check("展示情境會重現記憶擴散與勇氣決策", showcase_test())
 	check("玩家行動會推進村落編年與聲望", community_progress_test())
 	check("村落編年會隨遊戲狀態序列化還原", community_progress_save_test())
+	check("Living Stories 會產生可選擇且可存檔的分支後果", living_story_contract_test())
+	check("故事選擇拒絕重複與未知輸入且不污染狀態", story_choice_safety_test())
 	check("每日回音時間軸會分類並彙整重要事件", daily_echoes_summary_test())
 	check("每日回音可依日期與分類查詢且維持邊界", daily_echoes_history_filter_test())
 	check("每日回音面板提供摘要切換與快捷鍵入口", await daily_echoes_ui_test())
@@ -42,6 +45,8 @@ func run() -> void:
 	check("日夜視覺設定會提供可用亮度與標籤", visual_profile_test())
 	check("主介面具備完整展示控制列與編年面板", await ui_structure_test())
 	check("居民互動介面提供情境操作列、靠近提示與結果回饋", await contextual_interaction_ui_test())
+	check("故事線面板提供分支選擇與明確關閉路徑", await story_arc_ui_test())
+	check("故事線模態入口會暫停模擬並能完整關閉", await story_modal_behavior_test())
 	check("關鍵操作具備離散按鍵輸入映射", input_map_test())
 	check("繪本美術系統提供角色與日夜視覺資料", village_art_system_test())
 	check("擴充內容資料契約可載入", expansion_data_contract_test())
@@ -175,6 +180,25 @@ func save_load_test() -> bool:
 	if not SaveManager.load_game(): return false
 	return int(GameManager.player["coin"]) == original
 
+func save_recovery_test() -> bool:
+	GameManager.new_game()
+	GameManager.player["coin"] = 91
+	if not SaveManager.save_game("manual"): return false
+	GameManager.player["coin"] = 123
+	if not SaveManager.save_game("manual"): return false
+	var root := OS.get_environment("ECHO_VILLAGE_TEST_STORAGE_ROOT")
+	if root.is_empty(): root = ProjectSettings.globalize_path("res://.test-data")
+	var primary := root.path_join("echo_village_save.json")
+	var backup := primary + ".bak"
+	if not FileAccess.file_exists(backup): return false
+	var corrupted := FileAccess.open(primary,FileAccess.WRITE)
+	if corrupted == null: return false
+	corrupted.store_string(JSON.stringify({"save_version":2,"world_state":{"player":"tampered","npcs":{}}}))
+	corrupted.close()
+	GameManager.player["coin"] = 777
+	if not SaveManager.load_game(): return false
+	return int(GameManager.player["coin"]) == 91 and FileAccess.file_exists(backup)
+
 func event_price_test() -> bool:
 	GameManager.new_game()
 	var normal := GameManager.trade_price("alice","bread")
@@ -232,6 +256,37 @@ func community_progress_save_test() -> bool:
 	GameManager.deserialize(snapshot)
 	var result: Dictionary = GameManager.community_progress()
 	return bool(result["kindness"]) and int(result["renown"]) >= 3 and int(result["unlocked"]) == 1
+
+func living_story_contract_test() -> bool:
+	if not FileAccess.file_exists("res://data/stories/story_arcs.json"): return false
+	if not GameManager.has_method("story_snapshot") or not GameManager.has_method("choose_story_arc"): return false
+	GameManager.new_game()
+	GameManager.interact("bob","steal_food")
+	var active_snapshot: Dictionary = GameManager.story_snapshot()
+	var rumor: Dictionary = active_snapshot.get("arcs",{}).get("bread_rumor",{})
+	if str(rumor.get("status","")) != "active": return false
+	var choice: Dictionary = GameManager.choose_story_arc("bread_rumor","apologize")
+	if not bool(choice.get("ok",false)): return false
+	var completed: Dictionary = GameManager.story_snapshot().get("arcs",{}).get("bread_rumor",{})
+	if str(completed.get("status","")) != "completed": return false
+	var relationship: Dictionary = GameManager.npcs["bob"]["relationships"].get("player",{})
+	if float(relationship.get("trust",0.0)) <= -25.0: return false
+	var serialized: Dictionary = GameManager.serialize()
+	GameManager.new_game()
+	if not GameManager.deserialize(serialized): return false
+	var restored: Dictionary = GameManager.story_snapshot().get("arcs",{}).get("bread_rumor",{})
+	return str(restored.get("status","")) == "completed" and int(restored.get("choices_made",[]).size()) == 1
+
+func story_choice_safety_test() -> bool:
+	GameManager.new_game()
+	GameManager.interact("bob","steal_food")
+	var before: Dictionary = GameManager.story_snapshot()
+	var unknown: Dictionary = GameManager.choose_story_arc("bread_rumor","not_a_choice")
+	if bool(unknown.get("ok",false)) or GameManager.story_snapshot() != before: return false
+	var chosen: Dictionary = GameManager.choose_story_arc("bread_rumor","deny")
+	if not bool(chosen.get("ok",false)): return false
+	var repeated: Dictionary = GameManager.choose_story_arc("bread_rumor","deny")
+	return not bool(repeated.get("ok",false)) and GameManager.story_available_choices("bread_rumor").is_empty()
 
 func daily_echoes_summary_test() -> bool:
 	GameTime.reset_clock()
@@ -352,7 +407,7 @@ func ui_structure_test() -> bool:
 	return result
 
 func input_map_test() -> bool:
-	for action in ["interact","inventory","journal","cancel","speed_normal","speed_2x","speed_5x","speed_10x","save_game","load_game","event_rain","event_festival","event_shortage","event_danger"]:
+	for action in ["interact","inventory","journal","story_arcs","cancel","speed_normal","speed_2x","speed_5x","speed_10x","save_game","load_game","event_rain","event_festival","event_shortage","event_danger"]:
 		if not InputMap.has_action(action): return false
 	return true
 
@@ -530,12 +585,12 @@ func visual_capture_interface_test() -> bool:
 	var result := instance.has_method("capture_visual_qa") and instance.has_method("visual_qa_capture_names")
 	if result:
 		var names: Array = instance.visual_qa_capture_names()
-		for expected in ["quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","consumer_onboarding.png"]: result = result and expected in names
+		for expected in ["quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","village_progression.png","story_arc_active.png","consumer_onboarding.png"]: result = result and expected in names
 	instance.queue_free()
 	return result
 
 func expansion_visual_capture_test() -> bool:
-	for expected in ["quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","consumer_onboarding.png"]:
+	for expected in ["quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","village_progression.png","story_arc_active.png","consumer_onboarding.png"]:
 		if not FileAccess.file_exists("res://tests/visual_qa/" + expected): return false
 	return true
 
@@ -732,6 +787,37 @@ func trade_modal_layering_test() -> bool:
 	var result: bool = panel != null and panel.get_index() == panel.get_parent().get_child_count() - 1
 	instance.queue_free()
 	return result
+
+func story_arc_ui_test() -> bool:
+	var scene := load("res://scenes/ui/StoryArcPanel.tscn") as PackedScene
+	if scene == null: return false
+	GameManager.new_game()
+	GameManager.interact("bob","steal_food")
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	instance.refresh(GameManager.story_snapshot())
+	var close_button := instance.get_node_or_null("CloseButton") as Button
+	var choices := instance.get_node_or_null("DetailPanel/ChoiceList") as VBoxContainer
+	var result := close_button != null and close_button.text.contains("關閉") and choices != null and choices.get_child_count() == 2 and instance.has_method("set_visible_with_motion")
+	instance.queue_free()
+	return result
+
+func story_modal_behavior_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	if scene == null: return false
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	instance.main_menu_panel.visible = false
+	GameManager.new_game()
+	instance.open_story_panel()
+	var opened: bool = instance.story_arc_panel.visible and bool(GameTime.simulation_paused)
+	instance.story_arc_panel.visible = false
+	instance.sync_simulation_pause()
+	var closed: bool = not instance.story_arc_panel.visible and not bool(GameTime.simulation_paused)
+	instance.queue_free()
+	return opened and closed
 
 func onboarding_experience_test() -> bool:
 	var scene := load("res://scenes/main/Main.tscn") as PackedScene

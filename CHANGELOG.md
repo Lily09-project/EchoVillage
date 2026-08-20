@@ -1,11 +1,21 @@
 # Changelog
 
-## Unreleased — 2026-08-19
+## 1.3.0 — 2026-08-20
+
+- 新增 `StoryArcService` 與三條資料驅動 Living Stories：失竊的麵包、森林的回聲、秋日祭典。
+- 新增 `O` 故事線面板、active／completed／locked 狀態、分支選擇、成功／失敗回饋與模態暫停。
+- 故事後果會寫入居民關係、記憶、村落編年、聲望、物品與世界旗標，並隨 v3 世界狀態序列化。
+- `SaveManager` 改為 `.tmp` 原子寫入與 `.bak` 最後有效版本復原；primary 損壞時可自動回退並提供 recovery status。
+- 新增未知／重複故事選擇拒絕、故事 UI modal、故事序列化與存檔 recovery contract tests。
+- GPU Visual QA 擴充至 13 張 1280×720 證據；正式 GUI runtime 實測故事線 active choice 對比與遮擋。
+- 完整品質閘門驗收為 `94 passed / 0 failed`，security audit `finding_count=0`，無 `SCRIPT ERROR`。
+
+## Unreleased
 
 - 完成存檔／偏好設定安全 fuzz：4 MiB／64 KiB byte 上限、時間欄位範圍、malformed `Vector2`、深層資料與原子 `deserialize` 驗證。
 - 強化 Optional AI provider boundary：混合型別 context、記憶摘要與對話輸出長度都會安全降級，不會造成 runtime error。
 - 回歸測試改用 Debug-only 隔離儲存目錄，避免安全測試覆寫開發者的真實 `user://` 存檔。
-- repository security audit、Godot runtime error gate 與 portable release smoke test 持續維持全綠；目前為 89 項測試。
+- repository security audit、Godot runtime error gate 與 portable release smoke test 持續維持全綠。
 
 ## 1.2.0 — 2026-08-12
 

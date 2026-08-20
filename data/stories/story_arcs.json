@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "arcs": [
+    {
+      "id": "bread_rumor",
+      "title": "失竊的麵包",
+      "summary": "偷走的食物成了村落流言；你要選擇面對鮑伯，還是讓不信任繼續發酵。",
+      "trigger": {"kind": "community_flag", "flag": "rumor"},
+      "stages": [
+        {
+          "id": "reconciliation",
+          "title": "面對流言",
+          "description": "鮑伯知道你偷走了食物，村民也開始議論這件事。",
+          "choices": [
+            {
+              "id": "apologize",
+              "label": "向鮑伯道歉",
+              "description": "承認你的選擇，讓信任有機會重新開始。",
+              "consequences": [
+                {"kind": "relationship", "npc_id": "bob", "target_id": "player", "changes": {"trust": 12.0, "affinity": 6.0}},
+                {"kind": "memory", "npc_id": "bob", "memory_type": "story_apology", "description": "玩家承認偷竊並向我道歉。", "emotional_value": 18.0, "importance": 48},
+                {"kind": "community", "flag": "story_bread_rumor_reconciled", "renown": 2, "title": "道歉止住流言", "description": "你承認錯誤，鮑伯願意給彼此一次重新開始的機會。"}
+              ],
+              "next_stage": ""
+            },
+            {
+              "id": "deny",
+              "label": "否認到底",
+              "description": "你選擇保護自己，卻讓鮑伯更難相信你。",
+              "consequences": [
+                {"kind": "relationship", "npc_id": "bob", "target_id": "player", "changes": {"trust": -8.0, "affinity": -4.0}},
+                {"kind": "memory", "npc_id": "bob", "memory_type": "story_denial", "description": "玩家否認偷竊，卻沒有消除我的疑慮。", "emotional_value": -12.0, "importance": 42},
+                {"kind": "community", "flag": "story_bread_rumor_denied", "renown": -1, "title": "流言留下裂痕", "description": "否認沒有讓流言消失，村民開始更謹慎地看待你。"}
+              ],
+              "next_stage": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "forest_echo_branch",
+      "title": "森林的回聲",
+      "summary": "林間回音任務開始後，你可以決定把有限的時間用在照顧黛安娜，或先完成自己的準備。",
+      "trigger": {"kind": "quest_active", "quest_id": "forest_echo"},
+      "stages": [
+        {
+          "id": "forest_choice",
+          "title": "森林邊境的選擇",
+          "description": "黛安娜需要一份麵包，但你也知道接下來的森林路程需要準備。",
+          "choices": [
+            {
+              "id": "help_diana",
+              "label": "先照顧黛安娜",
+              "description": "把任務的核心從物品交付變成一次真正的互相照顧。",
+              "consequences": [
+                {"kind": "relationship", "npc_id": "diana", "target_id": "player", "changes": {"trust": 8.0, "affinity": 5.0, "respect": 3.0}},
+                {"kind": "memory", "npc_id": "diana", "memory_type": "story_forest_kindness", "description": "玩家在森林邊境先照顧了我的需要。", "emotional_value": 16.0, "importance": 44},
+                {"kind": "community", "flag": "story_forest_kindness", "renown": 2, "title": "森林中的照顧", "description": "你在森林邊境先看見了另一個人的需要。"}
+              ],
+              "next_stage": ""
+            },
+            {
+              "id": "prepare_first",
+              "label": "先完成自己的準備",
+              "description": "你先把步驟安排好，再回頭處理黛安娜的需要。",
+              "consequences": [
+                {"kind": "relationship", "npc_id": "diana", "target_id": "player", "changes": {"respect": 2.0, "affinity": -2.0}},
+                {"kind": "memory", "npc_id": "diana", "memory_type": "story_forest_delay", "description": "玩家先完成自己的準備，稍後才回來找我。", "emotional_value": -4.0, "importance": 28},
+                {"kind": "community", "flag": "story_forest_prepared", "renown": 1, "title": "穩健的準備", "description": "你先把風險整理好，再回到森林完成承諾。"}
+              ],
+              "next_stage": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "harvest_festival",
+      "title": "秋日祭典",
+      "summary": "祭典開始時，村落需要有人投入時間；你的選擇會影響居民對共同生活的信任。",
+      "trigger": {"kind": "active_event", "event_id": "festival"},
+      "stages": [
+        {
+          "id": "festival_choice",
+          "title": "祭典的分工",
+          "description": "音樂已經響起，但攤位與照明還沒有準備好。",
+          "choices": [
+            {
+              "id": "volunteer",
+              "label": "加入準備工作",
+              "description": "你把時間交給村落，讓祭典順利延續。",
+              "consequences": [
+                {"kind": "relationship", "npc_id": "alice", "target_id": "player", "changes": {"trust": 4.0, "respect": 4.0}},
+                {"kind": "memory", "npc_id": "alice", "memory_type": "story_festival_help", "description": "玩家在秋日祭典中主動幫忙。", "emotional_value": 12.0, "importance": 36},
+                {"kind": "community", "flag": "story_festival_volunteer", "renown": 3, "title": "一起點亮祭典", "description": "你把自己的時間交給村落，祭典因此更完整。"}
+              ],
+              "next_stage": ""
+            },
+            {
+              "id": "rest",
+              "label": "保留自己的時間",
+              "description": "你選擇休息，讓居民自己完成祭典的安排。",
+              "consequences": [
+                {"kind": "community", "flag": "story_festival_rest", "renown": 0, "title": "保留自己的步調", "description": "你沒有參與每一件事，但仍保留了自己的生活節奏。"}
+              ],
+              "next_stage": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

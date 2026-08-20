@@ -2,9 +2,9 @@
 
 > AI-Driven NPC Life Simulation RPG｜Godot 4｜繁體中文｜Windows Portable
 
-Echo Village 是一款以「居民會記得、會判斷，也會因玩家行動改變關係」為核心的 2D 繪本風格生活模擬 RPG。玩家在村落廣場與低語森林之間探索、交談、贈禮、交易、採集與解任務；五位居民則依照需求、人格、日程、記憶、關係與世界事件自主生活。
+Echo Village 是一款以「居民會記得、會判斷，也會因玩家行動改變關係」為核心的 2D 繪本風格生活模擬 RPG。玩家在村落廣場與低語森林之間探索、交談、贈禮、交易、採集、解任務並做出故事選擇；五位居民則依照需求、人格、日程、記憶、關係與世界事件自主生活。
 
-本專案同時是一個可遊玩的獨立作品，以及一個可持續擴充的產品工程案例。它展示資料驅動內容、可解釋 Utility AI、NPC State Machine、事件與存檔相容性、繁體中文 UX、可攜式 Windows 發行，以及可重複執行的自動化品質流程。
+本專案同時是一個可遊玩的獨立作品，以及一個可持續擴充的產品工程案例。它展示資料驅動內容、可解釋 Utility AI、NPC State Machine、分支式 Living Stories、crash-tolerant 存檔、事件與存檔相容性、繁體中文 UX、可攜式 Windows 發行，以及可重複執行的自動化品質流程。
 
 ![Echo Village 主選單](tests/visual_qa/consumer_main_menu.png)
 
@@ -34,7 +34,7 @@ Echo Village 是一款以「居民會記得、會判斷，也會因玩家行動�
 
 | 項目 | 狀態 |
 | --- | --- |
-| 遊戲版本 | `1.2.0` |
+| 遊戲版本 | `1.3.0` |
 | 驗證引擎 | Godot `4.5.2-stable` |
 | 最低開發引擎 | Godot `4.2+` |
 | 目標平台 | Windows 10/11 64-bit |
@@ -42,8 +42,8 @@ Echo Village 是一款以「居民會記得、會判斷，也會因玩家行動�
 | 渲染路徑 | Godot Compatibility / OpenGL 相容模式 |
 | 內容語言 | 繁體中文 |
 | 世界狀態 schema | `v3`；存檔 envelope 為 `v2`，並提供舊版遷移 |
-| 目前內容 | 5 位居民、10 種 NPC Action、2 個主要區域、1 條多階段任務鏈 |
-| 自動測試 | `89 passed / 0 failed` |
+| 目前內容 | 5 位居民、10 種 NPC Action、2 個主要區域、1 條多階段任務鏈、3 條 Living Stories |
+| 自動測試 | `94 passed / 0 failed` |
 | 長時間穩定性 | 30 日加速模擬通過 |
 | 發行驗證 | Windows portable export 與獨立 smoke test 通過 |
 
@@ -80,6 +80,12 @@ Echo Village 是一款以「居民會記得、會判斷，也會因玩家行動�
 ![林間回音任務完成](tests/visual_qa/forest_echo_complete.png)
 
 任務流程會跨越詢問、探索、採集、製作與交付；完成後會更新玩家物品、聲望、記憶、任務旗標與成就，而不是只切換一個 UI 標籤。
+
+### Living Stories 分支選擇
+
+![故事線面板](tests/visual_qa/story_arc_active.png)
+
+故事線面板把玩家行動轉成可以理解的後果：偷竊會形成流言，任務開始會帶來新的抉擇，祭典事件則會邀請玩家決定要投入多少時間。每條故事都由 JSON 定義，選擇會寫入居民記憶、關係、村落聲望與時間軸，並可隨存檔還原。按 `O` 開啟，按 `Esc` 或面板上的關閉按鈕離開。
 
 ### 其他視覺 QA 證據
 
@@ -154,6 +160,7 @@ Action 分數會受到需求、人格、日程、Mood、世界事件、物品可
 | `I` / `J` / `M` / `K` | 背包／任務日誌／世界地圖／地點旅行 |
 | `L` | 今日回音：當日事件時間軸與重要摘要 |
 | `P` | 村落手札、聲望與成就 |
+| `O` | 故事線：查看 active／completed 分支並做出選擇 |
 | `1` / `2` / `5` / `0` | 模擬速度 1×／2×／5×／10× |
 | `F5` / `F9` | 手動存檔／讀檔 |
 | `F3` | 開發診斷面板 |
@@ -166,7 +173,7 @@ Action 分數會受到需求、人格、日程、Mood、世界事件、物品可
 
 ### 一般玩家：Windows Portable
 
-1. 從 release 取得 `EchoVillage_1.2.0_Windows.zip`。
+1. 從 release 取得 `EchoVillage_1.3.0_Windows.zip`。
 2. 解壓縮後，確認 `EchoVillage.exe` 與 `EchoVillage.pck` 位於同一個資料夾。
 3. 雙擊 `EchoVillage.exe` 開始遊玩。
 
@@ -229,7 +236,7 @@ run_echo_village.bat --test
 
 CI workflow：`.github/workflows/ci.yml`。本機與 CI 共用同一個批次品質閘門，避免兩套測試規則逐漸分歧。
 
-目前測試涵蓋：
+目前測試涵蓋（驗收快照：94 項）：
 
 - 結構與 JSON cross-reference 驗證。
 - GDScript parser/bootstrap preflight。
@@ -238,6 +245,8 @@ CI workflow：`.github/workflows/ci.yml`。本機與 CI 共用同一個批次品
 - Utility AI、10 種 Action、State Machine、Navigation 與卡住復原。
 - 記憶衰減、資訊傳播、NPC 對 NPC 關係與世界事件生命週期。
 - 存檔 round-trip、舊版遷移、偏好設定與安全預設值。
+- 原子存檔寫入、`.bak` 最後有效版本復原，以及損壞 primary 的安全回退。
+- 三條資料驅動 Living Stories 的觸發、分支後果、完成冪等性、非法輸入拒絕與序列化還原。
 - 交易、製作、任務獎勵的原子性與冪等性。
 - 結構化事件時間軸、每日分類摘要、歷史日期回看、分類篩選、存檔還原與「今日回音」UI 入口。
 - UI shell、模態互斥、交易層級、任務文案、村落手札與設定同步。
@@ -246,16 +255,17 @@ CI workflow：`.github/workflows/ci.yml`。本機與 CI 共用同一個批次品
 - repository security audit：只掃描 Git tracked 檔案，拒絕 secrets、私鑰、使用者存檔、`.godot`／release artifacts，報告不輸出敏感內容。
 - 安全 fuzz：malformed `Vector2`、非法時間欄位、混合型別 Optional AI context、深層巢狀資料與直接 `GameManager.deserialize()` 的原子拒絕路徑。
 
-測試結果會寫入 `tests/simulation_test_report.json`。目前驗收快照為 `89 passed / 0 failed`，包含首次旅程導覽、暫停選單重開、按鈕版面防重疊，以及損壞／超大存檔與偏好型別驗證。
+測試結果會寫入 `tests/simulation_test_report.json`。目前驗收快照為 `94 passed / 0 failed`，包含首次旅程導覽、故事線模態入口、暫停選單重開、按鈕版面防重疊，以及損壞／超大存檔與偏好型別驗證。
 
 安全測試會在 Debug 模式使用隔離儲存目錄；可透過 `ECHO_VILLAGE_TEST_STORAGE_ROOT` 指定 CI 的暫存路徑，未設定時使用專案內的 `.test-data/`。正式遊戲不會啟用這個測試導向。
 
 ### Visual QA
 
-Visual QA 截圖位於 `tests/visual_qa/`，涵蓋主選單、設定、交易、村落手札、首次旅程導覽、開場、黎明、正午、夜晚、危險事件、任務進行與森林任務完成，共 12 張 1280×720 GPU 證據。
+Visual QA 截圖位於 `tests/visual_qa/`，涵蓋主選單、設定、交易、村落手札、故事線、首次旅程導覽、開場、黎明、正午、夜晚、危險事件、任務進行與森林任務完成，共 13 張 1280×720 GPU 證據。
 
 ```bat
-tools\godot\Godot_v4.5.2-stable_win64_console.exe --path . -- --visual-qa
+set ECHO_VILLAGE_VISUAL_QA=1
+tools\godot\Godot_v4.5.2-stable_win64.exe --path .
 ```
 
 檢查重點包括文字截斷、模態層級、顏色對比、按鈕可見性、狀態更新、面板遮擋、互動回饋，以及 1280×720 以外尺寸的可讀性。
@@ -284,6 +294,9 @@ flowchart TD
     EVENTS <--> UI[Main UI and modal panels]
     GM --> SAVE[SaveManager + migration]
     GM --> PROG[ProgressionService]
+    GM --> STORIES[StoryArcService]
+    STORIES --> CONSEQ[Memory / Relationship / Community consequences]
+    STORIES --> SAVE
     OPTIONAL[Optional AIService] -. text only .-> UI
 ```
 
@@ -293,7 +306,7 @@ flowchart TD
 | NPC runtime | 需求、人格、決策、行動、狀態與移動 | `scripts/ai/`、`scripts/actions/`、`scripts/npc/` |
 | Domain services | 背包、需求、關係、經濟、任務、地點、進展 | `scripts/inventory/`、`scripts/needs/`、`scripts/relationship/`、`scripts/services/`、`scripts/progression/` |
 | Events | 將狀態變更傳遞給 UI 與其他模組 | `scripts/core/event_bus.gd` |
-| Presentation | HUD、交易、地圖、任務、手札、Debug 與繪本視覺 | `scripts/main.gd`、`scripts/ui/`、`scenes/ui/` |
+| Presentation | HUD、交易、地圖、任務、手札、故事線、Debug 與繪本視覺 | `scripts/main.gd`、`scripts/ui/`、`scenes/ui/` |
 | Persistence | 存檔、偏好、遷移與 portable runtime | `scripts/save/`、`run_echo_village.bat`、`build_release.bat` |
 
 `GameManager` 是對外相容入口；服務層接收明確資料並回傳結構化結果，不直接依賴 UI 節點。更多設計決策請參考 [技術架構](docs/architecture.md)。
@@ -312,6 +325,7 @@ flowchart TD
 | `data/items/items.json` | 物品名稱、分類與基礎定義 | 物品 ID 與交易／配方一致 |
 | `data/items/recipes.json` | 素材、輸出與所需地點 | 素材、輸出物與地點存在 |
 | `data/progression/achievements.json` | 聲望與成就條件 | 未知條件安全失敗 |
+| `data/stories/story_arcs.json` | Living Stories 觸發、階段、選擇與後果 | ID、cross-reference、數量與文字長度上限 |
 
 新增資料後，先執行：
 
@@ -325,7 +339,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\validate_project.ps1
 
 ### 存檔相容性
 
-目前世界狀態 schema 為 `v3`，包含玩家與 NPC runtime、背包、關係、記憶、世界事件、事件紀錄、地點探索、任務、世界旗標、村落進展與遊戲時間。舊版存檔會先經過遷移與預設值補全，再驗證資料格式，最後才套用到目前世界；載入失敗不會覆蓋有效狀態。
+目前世界狀態 schema 為 `v3`，包含玩家與 NPC runtime、背包、關係、記憶、世界事件、事件紀錄、地點探索、任務、世界旗標、村落進展、Living Stories 與遊戲時間。舊版存檔會先經過遷移與預設值補全，再驗證資料格式，最後才套用到目前世界；載入失敗不會覆蓋有效狀態。
+
+`SaveManager` 會先將 JSON 寫入 `.tmp`，完成 flush 後再替換 primary，並在下一次寫入前保留 `echo_village_save.json.bak`。若 primary 損壞或無法通過 schema 驗證，會自動嘗試最後一份有效 backup、回寫 primary，並透過 `get_save_recovery_status()` 提供診斷資訊。這個流程保留既有存檔路徑與 envelope，不要求玩家手動搬檔。
 
 ### 安全邊界
 
@@ -342,7 +358,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\validate_project.ps1
 ```text
 EchoVillage/
 ├─ assets/                  # 封面、品牌與繪本視覺資產
-├─ data/                    # NPC、對話、事件、物品、任務、地點、成就 JSON
+├─ data/                    # NPC、對話、事件、物品、任務、地點、成就、故事 JSON
 ├─ scenes/                  # 主場景與可重用 UI 場景
 ├─ scripts/                 # Actions、AI、核心、NPC、服務、存檔與 UI
 ├─ tests/                   # headless runner、報告與 visual QA
@@ -385,12 +401,13 @@ run_echo_village.bat --test
 
 ## Roadmap
 
-目前作品已完成可遊玩的村落與森林垂直切片；下一階段可沿著既有服務邊界擴充：
+目前作品已完成可遊玩的村落與森林垂直切片，以及第一版可持久化分支故事；下一階段可沿著既有服務邊界擴充：
 
 - 季節循環、天氣與地圖事件鏈。
 - 居民友誼、衝突與家庭事件。
 - 職業供應鏈、商店經濟與村落建設。
 - 更多可探索地圖、任務分支與長期聲望目標。
+- 故事線章節鏈、選擇回顧與跨日 NPC 關係事件。
 - 控制器支援、更多語系與觸控友善 UI。
 - 正式 AI provider adapter，但維持權威狀態隔離與離線 fallback。
 
@@ -404,6 +421,10 @@ run_echo_village.bat --test
 - [UI/UX 設計理由](docs/ui_ux_rationale.md)
 - [視覺方向](docs/visual_direction.md)
 - [作品集 Case Study](docs/portfolio_case_study.md)
+- [Living Stories 系統](docs/story_system.md)
+- [Release Checklist](docs/release_checklist.md)
+- [Contributing](CONTRIBUTING.md)
+- [Security Policy](SECURITY.md)
 - [展示腳本](docs/showcase_script.md)
 - [版本紀錄](CHANGELOG.md)
 - [第三方授權](THIRD_PARTY_NOTICES.txt)
@@ -414,4 +435,4 @@ run_echo_village.bat --test
 
 ---
 
-Echo Village 1.2.0｜Godot 4.5.2 runtime｜Windows 10/11 64-bit
+Echo Village 1.3.0｜Godot 4.5.2 runtime｜Windows 10/11 64-bit

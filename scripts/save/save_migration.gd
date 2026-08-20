@@ -6,6 +6,7 @@ const MAX_NPCS := 64
 const MAX_TIMELINE_EVENTS := 512
 const MAX_EVENT_LOG_ENTRIES := 512
 const MAX_MEMORIES_PER_NPC := 128
+const MAX_STORY_ARCS := 32
 const MAX_SAVE_DAY := 1000000
 
 static func migrate(envelope: Dictionary) -> Dictionary:
@@ -57,6 +58,9 @@ static func _valid_world_state(value: Variant) -> bool:
 	if state.has("active_quests") and not (state.get("active_quests") is Dictionary): return false
 	if state.has("world_flags") and not (state.get("world_flags") is Dictionary): return false
 	if state.has("progression") and not (state.get("progression") is Dictionary): return false
+	if state.has("story_progression"):
+		var story = state.get("story_progression")
+		if not (story is Dictionary) or not (story.get("arcs",{}) is Dictionary) or story.get("arcs",{}).size() > MAX_STORY_ARCS: return false
 	return true
 
 static func _valid_time(value: Variant) -> bool:

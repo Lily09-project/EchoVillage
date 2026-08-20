@@ -1,6 +1,6 @@
 {
 	"failed": 0,
-	"passed": 89,
+	"passed": 94,
 	"project": "Echo Village",
 	"results": [
 		{
@@ -36,6 +36,10 @@
 			"passed": true
 		},
 		{
+			"name": "存檔原子寫入與備份復原",
+			"passed": true
+		},
+		{
 			"name": "糧食短缺會提高麵包價格",
 			"passed": true
 		},
@@ -57,6 +61,14 @@
 		},
 		{
 			"name": "村落編年會隨遊戲狀態序列化還原",
+			"passed": true
+		},
+		{
+			"name": "Living Stories 會產生可選擇且可存檔的分支後果",
+			"passed": true
+		},
+		{
+			"name": "故事選擇拒絕重複與未知輸入且不污染狀態",
 			"passed": true
 		},
 		{
@@ -93,6 +105,14 @@
 		},
 		{
 			"name": "居民互動介面提供情境操作列、靠近提示與結果回饋",
+			"passed": true
+		},
+		{
+			"name": "故事線面板提供分支選擇與明確關閉路徑",
+			"passed": true
+		},
+		{
+			"name": "故事線模態入口會暫停模擬並能完整關閉",
 			"passed": true
 		},
 		{
@@ -361,5 +381,5 @@
 		}
 	],
 	"simulated_game_days": 30,
-	"timestamp": "2026-08-19T19:41:06"
+	"timestamp": "2026-08-20T19:33:18"
 }

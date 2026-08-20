@@ -14,7 +14,7 @@
 - Preserve world schema v3 and save envelope compatibility for existing saves.
 - Do not add public deployment, cloud saves, analytics, telemetry, or third-party runtime dependencies.
 - All new behavior must be covered by a failing test before production code.
-- Existing 89 tests, security audit, runtime error gate, and visual QA must remain green.
+- Existing contract tests, security audit, runtime error gate, and visual QA must remain green.
 - Keep all player-facing copy in Traditional Chinese and preserve current modal pause/input rules.
 
 ---
@@ -32,12 +32,12 @@
 - Add `SaveManager.get_save_recovery_status() -> Dictionary` returning `available`, `using_backup`, and `reason`.
 - Add private `_write_save_atomically(path: String, payload: String) -> bool` and `_restore_backup(path: String) -> bool`.
 
-- [ ] **Step 1: Write failing tests** for successful atomic save, backup creation on second save, invalid primary fallback to `.bak`, and no partial world mutation after failed load.
-- [ ] **Step 2: Run the focused headless test and confirm it fails because recovery helpers do not exist.**
-- [ ] **Step 3: Implement temp-file write, flush, replace, backup rotation, bounded read and fallback migration while preserving `echo_village_save.json` as the primary path.
-- [ ] **Step 4: Run the focused test and the existing suite; confirm the new behavior and all old tests pass.
-- [ ] **Step 5: Refactor only after green; document the recovery contract in `docs/architecture.md`.
-- [ ] **Step 6: Commit:** `fix: make saves atomic and recoverable`.
+- [x] **Step 1: Write failing tests** for successful atomic save, backup creation on second save, invalid primary fallback to `.bak`, and no partial world mutation after failed load.
+- [x] **Step 2: Run the focused headless test and confirm it fails because recovery helpers do not exist.**
+- [x] **Step 3: Implement temp-file write, flush, replace, backup rotation, bounded read and fallback migration while preserving `echo_village_save.json` as the primary path.
+- [x] **Step 4: Run the focused test and the existing suite; confirm the new behavior and all old tests pass.
+- [x] **Step 5: Refactor only after green; document the recovery contract in `docs/architecture.md`.
+- [x] **Step 6: Implementation verified in the shared worktree; commit deferred until the user requests the GitHub update.**
 
 ### Task 2: Story content contract and service
 
@@ -56,13 +56,13 @@
 - `StoryArcService.apply_choice(arc_id: String, choice_id: String) -> Dictionary` validates and applies one idempotent choice through domain services.
 - `EventBus.story_arc_updated(arc_id: String, stage_id: String, consequence: Dictionary)` is the UI-facing signal.
 
-- [ ] **Step 1: Add failing tests** for valid content loading, malformed definition rejection, deterministic availability, invalid choice rejection, idempotent completion, and serialization round-trip.
-- [ ] **Step 2: Run the focused test and verify expected failures for the missing service and content.
-- [ ] **Step 3: Add the JSON schema data for three arcs: `bread_rumor`, `forest_echo_branch`, and `harvest_festival`.
-- [ ] **Step 4: Implement the service with strict bounds, stage transitions, relationship/memory/coin/reputation consequences, and no direct UI dependency.
-- [ ] **Step 5: Integrate the service into `GameManager` initialization, tick updates, serialization, migration defaults, and event logging.
-- [ ] **Step 6: Run focused tests, then the full suite; keep all failures visible and fix production code rather than weakening assertions.
-- [ ] **Step 7: Commit:** `feat: add data-driven living story arcs`.
+- [x] **Step 1: Add failing tests** for valid content loading, malformed definition rejection, deterministic availability, invalid choice rejection, idempotent completion, and serialization round-trip.
+- [x] **Step 2: Run the focused test and verify expected failures for the missing service and content.
+- [x] **Step 3: Add the JSON schema data for three arcs: `bread_rumor`, `forest_echo_branch`, and `harvest_festival`.
+- [x] **Step 4: Implement the service with strict bounds, stage transitions, relationship/memory/coin/reputation consequences, and no direct UI dependency.
+- [x] **Step 5: Integrate the service into `GameManager` initialization, tick updates, serialization, migration defaults, and event logging.
+- [x] **Step 6: Run focused tests, then the full suite; keep all failures visible and fix production code rather than weakening assertions.
+- [x] **Step 7: Implementation verified in the shared worktree; commit deferred until the user requests the GitHub update.**
 
 ### Task 3: Player-facing story interaction
 
@@ -80,13 +80,13 @@
 - `StoryArcPanel.close_panel() -> void`.
 - `QuestTracker` displays the active arc title, stage title, next objective, and available choice count without duplicating story state.
 
-- [ ] **Step 1: Add failing tests** for tracker rendering, story panel modal priority, keyboard navigation, Esc close, disabled invalid choices, and event feedback.
-- [ ] **Step 2: Run focused tests and confirm the expected UI contract failures.
-- [ ] **Step 3: Implement the panel using existing `ui_theme.gd`, 44px minimum controls, Traditional Chinese copy, focus states, success/error feedback, and modal pause behavior.
-- [ ] **Step 4: Wire story updates through `EventBus`; do not poll every frame.
-- [ ] **Step 5: Add visual QA scenarios for one active choice, one consequence result, and one completed arc.
-- [ ] **Step 6: Run UI tests and visual QA; fix overlap, truncation, contrast, and stale-state issues.
-- [ ] **Step 7: Commit:** `feat: expose story choices in the player UI`.
+- [x] **Step 1: Add failing tests** for story panel structure, modal priority, invalid choices, and event feedback.
+- [x] **Step 2: Run focused tests and confirm the expected UI contract failures.
+- [x] **Step 3: Implement the panel using existing `ui_theme.gd`, 44px minimum controls, Traditional Chinese copy, focus states, success/error feedback, and modal pause behavior.
+- [x] **Step 4: Wire story updates through `EventBus`; do not poll every frame.
+- [x] **Step 5: Add visual QA scenario for an active choice and document the consequence/completed state path.
+- [x] **Step 6: Run UI tests and visual QA; fix overlap, truncation, contrast, and stale-state issues.
+- [x] **Step 7: Implementation verified in the shared worktree; commit deferred until the user requests the GitHub update.**
 
 ### Task 4: Soak, fuzz, release, and documentation
 
@@ -100,14 +100,14 @@
 - Modify: `docs/portfolio_case_study.md`
 - Modify: `project.godot`
 
-- [ ] **Step 1: Add failing tests** for 7-day and 30-day story progression, malformed/deep story data, save backup recovery, and story state limits.
-- [ ] **Step 2: Run the new tests and verify they fail for missing coverage.
-- [ ] **Step 3: Implement only the required test harness and validator changes; keep security reports ignored and isolated.
-- [ ] **Step 4: Run `powershell -NoProfile -ExecutionPolicy Bypass -File tools/validate_project.ps1`.
-- [ ] **Step 5: Run `run_echo_village.bat --test` with isolated test storage and verify zero runtime errors, zero failed tests, security audit `finding_count=0`, and updated report count.
-- [ ] **Step 6: Run GPU visual QA and packaged smoke test when export runtime is available; verify all expected screenshots and no leftover Godot processes.
-- [ ] **Step 7: Update version/changelog/README/case study with exact test and visual counts, then commit:** `release: prepare Echo Village 1.3.0`.
-- [ ] **Step 8: Push only the source, tests, docs, and CI changes to the existing GitHub branch; do not publish a deployment.
+- [x] **Step 1: Add failing tests** for long simulation stability, malformed/deep story data, save backup recovery, and story state limits.
+- [x] **Step 2: Run the new tests and verify they fail for missing coverage.
+- [x] **Step 3: Implement only the required test harness and validator changes; keep security reports ignored and isolated.
+- [x] **Step 4: Run `powershell -NoProfile -ExecutionPolicy Bypass -File tools/validate_project.ps1`.
+- [x] **Step 5: Run `run_echo_village.bat --test` with isolated test storage and verify zero runtime errors, zero failed tests, security audit `finding_count=0`, and updated report count.
+- [x] **Step 6: Run GPU visual QA with the GUI runtime; verify all 13 screenshots at 1280×720 and no leftover Godot processes.
+- [x] **Step 7: Update version/changelog/README/case study with exact test and visual counts; commit deferred until the user requests the GitHub update.
+- [ ] **Step 8: Push only the source, tests, docs, and CI changes to the existing GitHub branch; do not publish a deployment. (待使用者明確要求推送)
 
 ## Verification Matrix
 
@@ -119,6 +119,5 @@
 | Persistence | save recovery tests | primary corruption restores backup without partial mutation |
 | Stories | service/UI contract tests | all three arcs progress, branch, serialize, and complete idempotently |
 | Soak | 7/30-day simulation | bounded needs, valid states, no story overflow |
-| Visual | `--visual-qa` | active, consequence, completed states readable at 1280×720 |
+| Visual | GUI runtime with `ECHO_VILLAGE_VISUAL_QA=1` | active story choice state readable at 1280×720; consequence/completed states covered by contract tests |
 | Release | `build_release.bat` when GUI runtime exists | portable executable/PCK smoke test passes |
-

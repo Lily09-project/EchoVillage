@@ -14,6 +14,7 @@ const InventoryServiceScript = preload("res://scripts/inventory/inventory_servic
 const NeedsServiceScript = preload("res://scripts/needs/needs_service.gd")
 const RelationshipServiceScript = preload("res://scripts/relationship/relationship_service.gd")
 const ProgressionServiceScript = preload("res://scripts/progression/progression_service.gd")
+const StoryArcServiceScript = preload("res://scripts/story/story_arc_service.gd")
 var npc_profiles: Dictionary = {}
 var dialogues: Dictionary = {}
 var event_defs: Dictionary = {}
@@ -36,6 +37,7 @@ var discovered_locations: Array = ["village_square"]
 var active_quests := {}
 var completed_quests: Array = []
 var world_flags := {}
+var story_progression := {"schema_version":1,"arcs":{}}
 var progression := {}
 var location_service
 var quest_service
@@ -47,6 +49,7 @@ var inventory_service = InventoryServiceScript.new()
 var needs_service = NeedsServiceScript.new()
 var relationship_service = RelationshipServiceScript.new()
 var progression_service = ProgressionServiceScript.new()
+var story_service = StoryArcServiceScript.new()
 
 func _ready() -> void:
 	load_data()
@@ -69,6 +72,8 @@ func load_data() -> void:
 	location_service = LocationServiceScript.new(location_defs)
 	quest_service = QuestServiceScript.new(quest_defs)
 	economy_service = EconomyServiceScript.new(recipe_defs)
+	if not story_service.configure(self,read_json("stories/story_arcs.json")):
+		push_error("Story arc data failed validation.")
 
 func index_by_id(entries: Array) -> Dictionary:
 	var result := {}
@@ -95,6 +100,8 @@ func new_game() -> void:
 	active_quests = {}
 	completed_quests = []
 	world_flags = {}
+	story_service.reset()
+	story_progression = story_service.serialize()
 	progression = progression_service.default_state()
 	for raw in npc_profiles.get("npcs", []):
 		var npc: Dictionary = raw.duplicate(true)
@@ -126,6 +133,7 @@ func new_game() -> void:
 			if target_id != npc_id and not npc["relationships"].has(target_id):
 				npc["relationships"][target_id] = {"affinity":0.0,"trust":0.0,"fear":0.0,"respect":0.0}
 	add_log("村落模擬已啟動，共有 %d 位自主村民。" % npcs.size())
+	story_service.refresh()
 
 func _on_minute(_minute: int, _hour: int) -> void:
 	if not active_event.is_empty():
@@ -425,6 +433,7 @@ func trigger_world_event(event_id: String) -> void:
 		create_memory("eric","npc_injury","我在林場意外受傷，必須暫時放慢腳步。",-22,72,"world","eric",{"event_id":"npc_injury"})
 	add_log("世界事件開始：" + str(active_event["display_name"]))
 	EventBus.world_event_changed.emit(event_id)
+	story_service.refresh()
 
 func resolve_danger_actions() -> bool:
 	if active_event.get("id","") != "minor_danger": return false
@@ -498,6 +507,7 @@ func record_community(flag: String, renown_change: int, title: String, descripti
 	EventBus.community_progressed.emit(entry)
 	add_log("村落編年解鎖：「%s」" % title)
 	evaluate_progression()
+	story_service.refresh()
 
 func community_progress() -> Dictionary:
 	var result: Dictionary = community.duplicate(true)
@@ -505,6 +515,19 @@ func community_progress() -> Dictionary:
 	for flag in ["kindness","rumor","crisis"]:
 		if bool(result.get(flag,false)): unlocked += 1
 	result["unlocked"] = unlocked
+	return result
+
+func story_snapshot() -> Dictionary:
+	return story_service.snapshot()
+
+func story_available_choices(arc_id: String) -> Array:
+	return story_service.available_choices(arc_id)
+
+func choose_story_arc(arc_id: String, choice_id: String) -> Dictionary:
+	var result: Dictionary = story_service.apply_choice(arc_id,choice_id)
+	if bool(result.get("ok",false)):
+		story_progression = story_service.serialize()
+		evaluate_progression()
 	return result
 
 func chronicle_entries() -> Array:
@@ -557,6 +580,7 @@ func accept_quest(quest_id: String) -> Dictionary:
 	if bool(result.get("ok",false)):
 		add_log("接受任務：「%s」" % str(quest_defs[quest_id].get("title",quest_id)))
 		EventBus.quest_changed.emit(active_quest_snapshot())
+		story_service.refresh()
 	return result
 
 func travel_to(location_id: String) -> Dictionary:
@@ -667,6 +691,7 @@ func serialize() -> Dictionary:
 	state["completed_quests"] = completed_quests.duplicate(true)
 	state["world_flags"] = world_flags.duplicate(true)
 	state["progression"] = progression.duplicate(true)
+	state["story_progression"] = story_service.serialize()
 	state["timeline_events"] = timeline_events.duplicate(true)
 	state["timeline_sequence"] = timeline_sequence
 	return state
@@ -687,6 +712,7 @@ func deserialize(data: Dictionary) -> bool:
 	var candidate_completed = data.get("completed_quests",[])
 	var candidate_flags = data.get("world_flags",{})
 	var candidate_progression = data.get("progression",progression_service.default_state())
+	var candidate_story = data.get("story_progression",story_service.default_state())
 	var candidate_timeline = data.get("timeline_events",[])
 	var candidate_timeline_sequence = data.get("timeline_sequence",candidate_timeline.size() if candidate_timeline is Array else 0)
 	if not _valid_numeric_map(candidate_economy) or not (candidate_event is Dictionary): return false
@@ -696,6 +722,7 @@ func deserialize(data: Dictionary) -> bool:
 	if not (candidate_discovered is Array) or candidate_discovered.size() > 512: return false
 	if not (candidate_active_quests is Dictionary) or not (candidate_completed is Array) or candidate_completed.size() > 512: return false
 	if not (candidate_flags is Dictionary) or not (candidate_progression is Dictionary): return false
+	if not story_service.validate_state(candidate_story): return false
 	if not (candidate_timeline is Array) or candidate_timeline.size() > 512: return false
 	for value in candidate_timeline:
 		if not (value is Dictionary): return false
@@ -714,6 +741,8 @@ func deserialize(data: Dictionary) -> bool:
 	completed_quests = candidate_completed.duplicate(true)
 	world_flags = candidate_flags.duplicate(true)
 	progression = candidate_progression.duplicate(true)
+	if not story_service.load_state(candidate_story): return false
+	story_progression = story_service.serialize()
 	timeline_events.clear()
 	for value in candidate_timeline: timeline_events.append(value.duplicate(true))
 	timeline_sequence = int(candidate_timeline_sequence)

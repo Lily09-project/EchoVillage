@@ -62,11 +62,12 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          $expectedPassed = 94
           $reportPath = Join-Path $env:GITHUB_WORKSPACE 'tests\simulation_test_report.json'
           if (-not (Test-Path -LiteralPath $reportPath -PathType Leaf)) { throw "Test report was not generated: $reportPath" }
           $report = Get-Content -Raw -Encoding UTF8 -LiteralPath $reportPath | ConvertFrom-Json
           if ([int]$report.failed -ne 0) { throw "The generated report contains $($report.failed) failed tests." }
-          if ([int]$report.passed -lt 89) { throw "The generated report contains only $($report.passed) passing tests." }
+          if ([int]$report.passed -ne $expectedPassed) { throw "Expected exactly $expectedPassed passing tests, received $($report.passed). Update the release contract intentionally when adding coverage." }
           Write-Output "CI report: passed=$($report.passed) failed=$($report.failed)"
 
           $securityPath = Join-Path $env:GITHUB_WORKSPACE 'tests\security_audit_report.json'
@@ -74,6 +75,36 @@ jobs:
           $security = Get-Content -Raw -Encoding UTF8 -LiteralPath $securityPath | ConvertFrom-Json
           if (-not [bool]$security.passed -or [int]$security.finding_count -ne 0) { throw "Security audit reported $($security.finding_count) finding(s)." }
           Write-Output "Security audit: tracked_files=$($security.tracked_files) finding_count=$($security.finding_count)"
+
+      - name: Validate visual QA evidence
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Add-Type -AssemblyName System.Drawing
+          $expected = @(
+            'consumer_main_menu.png', 'consumer_onboarding.png', 'consumer_settings.png',
+            'consumer_trade.png', 'forest_echo_complete.png', 'quest_in_progress.png',
+            'story_arc_active.png', 'storybook_event_danger.png', 'storybook_explore_dawn.png',
+            'storybook_explore_night.png', 'storybook_explore_noon.png', 'storybook_intro.png',
+            'village_progression.png'
+          )
+          $root = Join-Path $env:GITHUB_WORKSPACE 'tests\visual_qa'
+          foreach ($name in $expected) {
+            $path = Join-Path $root $name
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Missing visual QA evidence: $name" }
+            $image = [System.Drawing.Image]::FromFile($path)
+            try {
+              if ($image.Width -ne 1280 -or $image.Height -ne 720) { throw "Visual QA image has invalid dimensions: $name ($($image.Width)x$($image.Height))" }
+            } finally { $image.Dispose() }
+          }
+          Write-Output "Visual QA evidence: $($expected.Count) images at 1280x720"
+
+      - name: Check repository whitespace
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & git diff --check
+          if ($LASTEXITCODE -ne 0) { throw 'Repository whitespace check failed.' }
 
       - name: Upload test report
         if: always()

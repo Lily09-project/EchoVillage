@@ -2,7 +2,7 @@
 
 ## 設計目標
 
-架構以「內容可擴充、模擬可測試、失敗可復原」為核心。NPC、事件、任務、配方與地點由 JSON 驅動；決策、狀態、導航、經濟、任務與存檔各自有清楚責任。
+架構以「內容可擴充、模擬可測試、失敗可復原」為核心。NPC、事件、任務、配方、地點與 Living Stories 由 JSON 驅動；決策、狀態、導航、經濟、任務、故事與存檔各自有清楚責任。
 
 ## 執行流程
 
@@ -12,6 +12,7 @@
 4. 最高分 Action 啟動，`NPCStateMachine` 設定移動或執行狀態。
 5. `NavigationCoordinator` 使用 `NavigationRegion2D` 與每位居民的 `NavigationAgent2D` 移動；停滯四秒會安全復原。
 6. 狀態、記憶、關係與世界變更透過 `EventBus` 讓 UI 更新。
+7. 觸發條件成立時，`StoryArcService` 建立 active arc；玩家選擇後以既有 domain service 套用後果，再將結果寫入時間軸與存檔。
 
 ## 核心模組
 
@@ -30,13 +31,23 @@
 | `EconomyService` | 配方驗證與原子製作 |
 | `LocationService` | 地點切換、發現與區域內容 |
 | `ProgressionService` | 五級聲望、資料驅動成就、一次性解鎖與安全條件評估 |
-| `SaveManager` | v3 世界狀態、自動存檔、偏好與舊版遷移 |
+| `StoryArcService` | 驗證故事定義、評估觸發、分支選擇、後果套用與序列化狀態 |
+| `SaveManager` | v3 世界狀態、自動存檔、偏好、舊版遷移與 `.bak` recovery |
 | `SaveMigration` | 在載入前驗證 envelope／world state 型別、陣列數量上限與版本相容性，拒絕損壞或竄改資料 |
 | `Main` onboarding UI | 首次旅程三步驟、模態暫停、Esc／略過、F1 重開；只保存 `onboarding_seen` 偏好，不寫入世界狀態 |
 | `SoundManager` | 可關閉的程式化 UI／互動提示音 |
 | `AIService`（Optional） | 結構化文本、記憶摘要、建議目標與模板 fallback；不改權威狀態 |
 
 `GameManager.timeline_events` 會將重要 log 轉成結構化「回音事件」，保存遊戲日、分鐘、日夜階段、地點、分類與玩家可讀訊息。`timeline_snapshot()` 提供依日期、分類與數量上限的唯讀查詢，`daily_summary()` 則聚合居民、世界、任務、經濟、地點與進展分類，供村落編年面板的「今日回音」模式使用。主介面只保存歷史日期／分類篩選等暫時 UI 狀態，不污染存檔資料。時間軸隨世界狀態一起序列化，舊版存檔缺少此欄位時安全使用空集合。
+`StoryArcService` 同樣只保存可序列化的 `story_progression`，UI 透過 `story_snapshot()` 取得唯讀投影；`EventBus.story_arc_updated` 讓故事面板以事件更新，不需要逐幀輪詢。
+
+### Living Stories 邊界
+
+故事內容位於 `data/stories/story_arcs.json`，每條 arc 具備 trigger、stages、choices 與有限的 consequences。服務層在載入時檢查 ID 唯一性、文字／集合上限、trigger kind、stage cross-reference 與 consequence shape；`apply_choice()` 會先完成全部驗證，才依序呼叫 `change_relationship()`、`create_memory()`、`record_community()` 等既有 domain API。未知 arc、未知 choice、重複 choice 或不合法後果都只回傳失敗結果，不會污染世界。
+
+### 存檔 recovery
+
+`SaveManager.save_game()` 將 payload 先寫入 `echo_village_save.json.tmp` 並 flush／close，然後把目前 primary 複製為 `.bak`，最後替換 primary。`load_game()` 先驗證 primary；若 JSON、envelope 或 world state 不合法，會嘗試 `.bak`，成功後把最後有效資料重新提升為 primary，並以 `get_save_recovery_status()` 暴露 `available`、`using_backup` 與 `reason`。載入候選資料前不會呼叫 `GameManager.deserialize()`，因此損壞檔案不會造成部分 runtime 套用。
 
 ### 首次旅程導覽狀態
 
@@ -53,6 +64,7 @@
 - 新行動：建立 Action 策略並註冊到 `ActionRegistry`；狀態映射加入 State Machine。
 - 新任務／地點／配方：只需擴充對應 JSON，服務層會驗證資料。
 - 新成就：加入 `achievements.json` 的條件定義；ProgressionService 只讀權威快照並回傳解鎖結果。
+- 新故事：在 `data/stories/story_arcs.json` 加入 trigger、stage、choice 與 consequences，補上 service contract test 與必要的 visual QA；不要在 UI 硬編碼故事規則。
 
 ## 防故障策略
 
@@ -60,3 +72,4 @@
 - 世界事件以剩餘分鐘管理，能正確跨越午夜。
 - Action 有 90 分鐘狀態逾時；導航另有四秒停滯復原。
 - 測試 BAT 同時檢查退出碼與 Godot runtime 錯誤字串。
+- 故事選擇、存檔復原與 UI modal 都有獨立 contract test；GPU visual QA 驗證 active story panel 的層級與對比。
