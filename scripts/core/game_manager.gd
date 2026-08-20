@@ -15,6 +15,7 @@ const NeedsServiceScript = preload("res://scripts/needs/needs_service.gd")
 const RelationshipServiceScript = preload("res://scripts/relationship/relationship_service.gd")
 const ProgressionServiceScript = preload("res://scripts/progression/progression_service.gd")
 const StoryArcServiceScript = preload("res://scripts/story/story_arc_service.gd")
+const CausalityHistoryServiceScript = preload("res://scripts/history/causality_history_service.gd")
 var npc_profiles: Dictionary = {}
 var dialogues: Dictionary = {}
 var event_defs: Dictionary = {}
@@ -50,6 +51,7 @@ var needs_service = NeedsServiceScript.new()
 var relationship_service = RelationshipServiceScript.new()
 var progression_service = ProgressionServiceScript.new()
 var story_service = StoryArcServiceScript.new()
+var causality_history_service = CausalityHistoryServiceScript.new()
 
 func _ready() -> void:
 	load_data()
@@ -263,7 +265,11 @@ func create_memory(npc_id: String, kind: String, description: String, emotion: f
 	npcs[npc_id]["memories"].append(memory)
 	trim_memories(npcs[npc_id])
 	EventBus.memory_created.emit(npc_id, memory)
-	add_log("%s 建立了記憶：%s" % [npcs[npc_id]["display_name"],kind])
+	add_log("%s 建立了記憶：%s" % [npcs[npc_id]["display_name"],kind],{
+		"effect_kind":"memory",
+		"actors":[npc_id,subject_id,object_id],
+		"effect":{"memory_id":memory["id"],"npc_id":npc_id,"memory_type":kind,"subject_id":subject_id,"object_id":object_id,"importance":importance,"emotional_value":emotion}
+	})
 
 func decay_memories(npc: Dictionary, elapsed_days: int = 1) -> void:
 	var retained: Array = []
@@ -527,6 +533,11 @@ func choose_story_arc(arc_id: String, choice_id: String) -> Dictionary:
 	var result: Dictionary = story_service.apply_choice(arc_id,choice_id)
 	if bool(result.get("ok",false)):
 		story_progression = story_service.serialize()
+		record_timeline_event("故事選擇：「%s」→ %s" % [str(result.get("arc_title",arc_id)),str(result.get("choice_label",choice_id))],{
+			"effect_kind":"story",
+			"actors":result.get("actors",["player"]),
+			"effect":{"arc_id":arc_id,"arc_title":str(result.get("arc_title",arc_id)),"choice_id":choice_id,"choice_label":str(result.get("choice_label",choice_id)),"completed":bool(result.get("completed",false))}
+		})
 		evaluate_progression()
 	return result
 
@@ -534,7 +545,20 @@ func chronicle_entries() -> Array:
 	return community.get("entries",[]).duplicate(true)
 
 func change_relationship(npc: Dictionary, target: String, changes: Dictionary) -> void:
-	relationship_service.apply_change(npc,target,changes)
+	var npc_id := str(npc.get("id",""))
+	var before: Dictionary = npc.get("relationships",{}).get(target,{"affinity":0.0,"trust":0.0,"fear":0.0,"respect":0.0}).duplicate(true)
+	var after: Dictionary = relationship_service.apply_change(npc,target,changes)
+	var actual_changes: Dictionary = {}
+	for key in ["trust","affinity","fear","respect"]:
+		var delta := float(after.get(key,0.0)) - float(before.get(key,0.0))
+		if not is_zero_approx(delta): actual_changes[key] = delta
+	if not actual_changes.is_empty():
+		var npc_name := str(npc.get("display_name",npc_id))
+		var target_name := "玩家" if target == "player" else str(npcs.get(target,{}).get("display_name",target))
+		record_timeline_event("%s 對 %s：%s" % [npc_name,target_name,causality_history_service.relationship_delta_text(actual_changes)],{
+			"effect_kind":"relationship","actors":[npc_id,target],
+			"effect":{"npc_id":npc_id,"target_id":target,"changes":actual_changes,"before":before,"after":after}
+		})
 	EventBus.relationship_changed.emit(str(npc["id"]),target,changes)
 
 func update_mood(npc: Dictionary) -> void:
@@ -725,7 +749,7 @@ func deserialize(data: Dictionary) -> bool:
 	if not story_service.validate_state(candidate_story): return false
 	if not (candidate_timeline is Array) or candidate_timeline.size() > 512: return false
 	for value in candidate_timeline:
-		if not (value is Dictionary): return false
+		if not causality_history_service.validate_event(value): return false
 	if not _valid_integer(candidate_timeline_sequence,0,1000000000): return false
 	player = candidate_player
 	npcs = candidate_npcs
@@ -744,7 +768,8 @@ func deserialize(data: Dictionary) -> bool:
 	if not story_service.load_state(candidate_story): return false
 	story_progression = story_service.serialize()
 	timeline_events.clear()
-	for value in candidate_timeline: timeline_events.append(value.duplicate(true))
+	var first_timeline_index := maxi(0,candidate_timeline.size() - 160)
+	for index in range(first_timeline_index,candidate_timeline.size()): timeline_events.append(candidate_timeline[index].duplicate(true))
 	timeline_sequence = int(candidate_timeline_sequence)
 	return true
 
@@ -837,7 +862,7 @@ func classify_timeline_category(message: String) -> String:
 	if message.begins_with("抵達"): return "location"
 	return "simulation"
 
-func record_timeline_event(message: String) -> void:
+func record_timeline_event(message: String, details: Dictionary = {}) -> void:
 	timeline_sequence += 1
 	var event := {
 		"id":"echo_%d" % timeline_sequence,
@@ -849,6 +874,7 @@ func record_timeline_event(message: String) -> void:
 		"category":classify_timeline_category(message),
 		"message":message
 	}
+	event.merge(causality_history_service.normalize_details(details),true)
 	timeline_events.append(event)
 	if timeline_events.size() > 160: timeline_events.pop_front()
 
@@ -862,6 +888,15 @@ func timeline_snapshot(category: String = "all", target_day: int = -1, limit: in
 		result.append(event.duplicate(true))
 		if result.size() >= safe_limit: break
 	return result
+
+func causality_snapshot(actor_id: String = "", effect_kind: String = "all", limit: int = 20) -> Array:
+	return causality_history_service.query(timeline_events,actor_id,effect_kind,limit)
+
+func causality_event_text(event: Dictionary) -> String:
+	var actor_names := {"player":"玩家"}
+	for npc_id in npcs:
+		actor_names[str(npc_id)] = str(npcs[npc_id].get("display_name",npc_id))
+	return causality_history_service.format_event(event,actor_names)
 
 func daily_summary(target_day: int = -1, category: String = "all") -> Dictionary:
 	var day_value: int = GameTime.day if target_day < 0 else target_day
@@ -881,6 +916,6 @@ func daily_summary(target_day: int = -1, category: String = "all") -> Dictionary
 	highlights.reverse()
 	return {"day":day_value,"total_events":total_events,"category_counts":category_counts,"highlights":highlights}
 
-func add_log(message: String) -> void:
-	record_timeline_event(message)
+func add_log(message: String, details: Dictionary = {}) -> void:
+	record_timeline_event(message,details)
 	EventBus.log_event(GameTime.formatted_time(),message)

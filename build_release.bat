@@ -9,6 +9,10 @@ if not defined GODOT for %%G in ("%ROOT%tools\godot\Godot*_console.exe") do if e
 if not defined GODOT for %%G in (Godot4.exe Godot.exe godot.exe) do (
   for /f "delims=" %%P in ('where %%G 2^>nul') do if not defined GODOT set "GODOT=%%P"
 )
+rem A bundled GUI runtime can still run Godot headless/export commands. This
+rem fallback keeps the one-click release flow usable when only the portable
+rem runtime is present; CI can still inject the smaller console build.
+if not defined GODOT if exist "%ROOT%tools\godot\Godot_v4.5.2-stable_win64.exe" set "GODOT=%ROOT%tools\godot\Godot_v4.5.2-stable_win64.exe"
 if not defined GODOT (
   echo RELEASE FAILED: Godot 4.2+ executable not found.
   echo Set GODOT_EXECUTABLE or place a console build in tools\godot\.
@@ -29,7 +33,7 @@ if not exist "%RUNTIME%" (
 )
 
 echo ============================================================
-echo   Echo Village 1.3.0 - Windows Portable Release Builder
+echo   Echo Village 1.4.0 - Windows Portable Release Builder
 echo ============================================================
 echo [1/4] Running the complete automated test suite...
 call run_echo_village.bat --test
