@@ -46,6 +46,12 @@ var daily_echo_day := 1
 var daily_echo_category := "all"
 const DAILY_ECHO_CATEGORIES := ["all","social","world","quest","economy","location","progression"]
 const DAILY_ECHO_CATEGORY_LABELS := {"all":"全部","social":"居民","world":"世界","quest":"任務","economy":"經濟","location":"地點","progression":"進展"}
+var causality_actor := ""
+var causality_kind := "all"
+const CAUSALITY_ACTORS := ["","alice","bob","charlie","diana","eric"]
+const CAUSALITY_ACTOR_LABELS := {"":"全部居民","alice":"艾莉絲","bob":"鮑伯","charlie":"查理","diana":"黛安娜","eric":"艾瑞克"}
+const CAUSALITY_KINDS := ["all","relationship","memory","story"]
+const CAUSALITY_KIND_LABELS := {"all":"全部","relationship":"關係","memory":"記憶","story":"故事"}
 var onboarding_panel: Panel
 var onboarding_backdrop: ColorRect
 var onboarding_title_label: Label
@@ -56,7 +62,7 @@ var onboarding_step := 0
 const ONBOARDING_STEPS := [
 	{"title":"先看見村落的節奏","body":"用 WASD 或方向鍵移動。時間會自己前進，居民會依需求、個性與日程做出選擇。\n\n先觀察，不急著改變任何人。"},
 	{"title":"靠近一個真實的居民","body":"走近居民後按 E 查看資料。\n\n按 C 交談，或按 Q 詢問近況；每次互動都可能留下記憶，影響下一次相遇。"},
-	{"title":"讓你的選擇留下回音","body":"按 G 贈禮、T 交易，或前往森林推進任務。\n\n按 J 查看村落編年，按 L 回看每日回音，追蹤你的選擇如何改變村莊。"}
+	{"title":"讓你的選擇留下回音","body":"按 G 贈禮、T 交易，或前往森林推進任務。\n\n按 J 查看村落編年、L 回看每日回音、Y 追溯關係歷程，理解選擇如何改變村莊。"}
 ]
 var time_panel: Panel
 var time_label: Label
@@ -130,6 +136,7 @@ func capture_visual_qa() -> void:
 		{"file":"consumer_trade.png","minute":780,"intro":false,"scenario":"trade"},
 		{"file":"village_progression.png","minute":780,"intro":false,"scenario":"progression"},
 		{"file":"story_arc_active.png","minute":780,"intro":false,"scenario":"story_active"},
+		{"file":"relationship_history.png","minute":780,"intro":false,"scenario":"relationship_history"},
 		{"file":"consumer_onboarding.png","minute":780,"intro":false,"scenario":"onboarding"}
 	]
 	for capture in captures:
@@ -162,6 +169,7 @@ func capture_visual_qa() -> void:
 		if scenario == "progression":
 			GameManager.interact("alice","talk")
 			GameManager.interact("alice","give_bread")
+		if scenario == "relationship_history": GameManager.interact("alice","give_bread")
 		if scenario == "trade": GameManager.player["position"] = GameManager.npcs["alice"]["position"] + Vector2(-38,0)
 		showcase_panel.visible = bool(capture["intro"])
 		selected_id = "" if bool(capture["intro"]) or scenario in ["main_menu","settings"] else ("bob" if scenario == "danger" else ("diana" if scenario == "forest_complete" else "alice"))
@@ -185,6 +193,13 @@ func capture_visual_qa() -> void:
 			info_panel.visible = true
 			dialogue_label.text = GameManager.dialogue(GameManager.npcs[selected_id])
 			open_story_panel()
+		if scenario == "relationship_history":
+			selected_id = "alice"
+			info_panel.visible = true
+			set_journal_mode("causality")
+			set_causality_actor("alice")
+			set_causality_kind("all")
+			open_side_panel(journal_panel)
 		if scenario == "onboarding":
 			show_onboarding(true)
 		if scenario == "danger":
@@ -193,7 +208,7 @@ func capture_visual_qa() -> void:
 			show_interaction_feedback("give","任務完成：黛安娜收下麵包，森林記住了你的善意。")
 		queue_redraw()
 		await get_tree().process_frame
-		if scenario in ["danger","forest_complete","settings","trade","progression","story_active","onboarding"]: await get_tree().create_timer(0.24).timeout
+		if scenario in ["danger","forest_complete","settings","trade","progression","story_active","relationship_history","onboarding"]: await get_tree().create_timer(0.24).timeout
 		await RenderingServer.frame_post_draw
 		var image := get_viewport().get_texture().get_image()
 		var result := image.save_png("res://tests/visual_qa/" + file_name)
@@ -205,10 +220,10 @@ func capture_visual_qa() -> void:
 	get_tree().quit(0)
 
 func visual_qa_capture_names() -> Array:
-	return ["storybook_intro.png","storybook_explore_dawn.png","storybook_explore_noon.png","storybook_explore_night.png","storybook_event_danger.png","quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","village_progression.png","story_arc_active.png","consumer_onboarding.png"]
+	return ["storybook_intro.png","storybook_explore_dawn.png","storybook_explore_noon.png","storybook_explore_night.png","storybook_event_danger.png","quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","village_progression.png","story_arc_active.png","relationship_history.png","consumer_onboarding.png"]
 
 func create_input_map() -> void:
-	var bindings := {"interact":KEY_E,"talk":KEY_C,"give":KEY_G,"steal":KEY_X,"trade":KEY_T,"ask":KEY_Q,"cancel":KEY_ESCAPE,"guide":KEY_F1,"debug":KEY_F3,"inventory":KEY_I,"journal":KEY_J,"daily_summary":KEY_L,"story_arcs":KEY_O,"progression":KEY_P,"world_map":KEY_M,"quest_log":KEY_K,"speed_normal":KEY_1,"speed_2x":KEY_2,"speed_5x":KEY_5,"speed_10x":KEY_0,"save_game":KEY_F5,"load_game":KEY_F9,"event_rain":KEY_R,"event_festival":KEY_F,"event_shortage":KEY_H,"event_danger":KEY_B,"event_injury":KEY_N}
+	var bindings := {"interact":KEY_E,"talk":KEY_C,"give":KEY_G,"steal":KEY_X,"trade":KEY_T,"ask":KEY_Q,"cancel":KEY_ESCAPE,"guide":KEY_F1,"debug":KEY_F3,"inventory":KEY_I,"journal":KEY_J,"daily_summary":KEY_L,"relationship_history":KEY_Y,"story_arcs":KEY_O,"progression":KEY_P,"world_map":KEY_M,"quest_log":KEY_K,"speed_normal":KEY_1,"speed_2x":KEY_2,"speed_5x":KEY_5,"speed_10x":KEY_0,"save_game":KEY_F5,"load_game":KEY_F9,"event_rain":KEY_R,"event_festival":KEY_F,"event_shortage":KEY_H,"event_danger":KEY_B,"event_injury":KEY_N}
 	for action in bindings:
 		if not InputMap.has_action(action):
 			InputMap.add_action(action)
@@ -285,6 +300,9 @@ func handle_shortcuts() -> void:
 	if Input.is_action_just_pressed("daily_summary"):
 		set_journal_mode("daily")
 		toggle_modal_panel(journal_panel)
+	if Input.is_action_just_pressed("relationship_history"):
+		set_journal_mode("causality")
+		toggle_modal_panel(journal_panel)
 	if Input.is_action_just_pressed("progression"):
 		if not progression_panel.visible: progression_panel.refresh(GameManager.progression_snapshot())
 		toggle_modal_panel(progression_panel)
@@ -349,7 +367,7 @@ func create_ui() -> void:
 	renown_label = make_label(Vector2(900,6), Vector2(320,22), 13, VillageTheme.MOSS_LIGHT)
 	renown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	hint_label = make_label(Vector2(58,610), Vector2(730,28), 14, VillageTheme.PAPER)
-	hint_label.text = "E 查看村民  •  G 贈送  •  T 交易  •  J 編年  •  L 今日回音  •  O 故事線  •  P 村落手札  •  F3 除錯"
+	hint_label.text = "E 查看村民  •  G 贈送  •  T 交易  •  J 編年  •  L 回音  •  Y 關係  •  O 故事線  •  P 村落手札  •  F3 除錯"
 	log_label = make_label(Vector2(58,644), Vector2(730,66), 13, VillageTheme.PAPER_DARK)
 	log_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	toast_label = make_label(Vector2(390,566),Vector2(420,26),14,VillageTheme.SUN)
@@ -740,59 +758,69 @@ func create_inventory_panel() -> void:
 func create_journal_panel() -> void:
 	journal_panel = Panel.new()
 	journal_panel.name = "ChroniclePanel"
-	journal_panel.position = Vector2(860,108)
-	journal_panel.size = Vector2(360,390)
+	journal_panel.position = Vector2(830,88)
+	journal_panel.size = Vector2(390,438)
 	journal_panel.add_theme_stylebox_override("panel",VillageTheme.card_style(VillageTheme.CREAM,VillageTheme.LILAC))
 	canvas.add_child(journal_panel)
 	var eyebrow := make_panel_label(journal_panel,Vector2(18,14),Vector2(270,18),12,VillageTheme.LILAC)
 	eyebrow.text = "每個選擇都會留下回音"
-	journal_title_label = make_panel_label(journal_panel,Vector2(18,34),Vector2(320,30),20,VillageTheme.INK)
+	journal_title_label = make_panel_label(journal_panel,Vector2(18,34),Vector2(354,30),20,VillageTheme.INK)
 	journal_title_label.text = "村落編年  /  CHRONICLE"
-	journal_label = make_panel_label(journal_panel,Vector2(18,73),Vector2(320,177),13,VillageTheme.INK_SOFT)
+	journal_label = make_panel_label(journal_panel,Vector2(18,73),Vector2(354,190),13,VillageTheme.INK_SOFT)
 	journal_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var previous_button := Button.new()
 	previous_button.name = "DailyPrevButton"
 	previous_button.text = "‹ 上一日"
-	previous_button.position = Vector2(18,258)
-	previous_button.size = Vector2(96,34)
+	previous_button.position = Vector2(18,272)
+	previous_button.size = Vector2(104,44)
 	previous_button.add_theme_font_size_override("font_size",12)
 	previous_button.tooltip_text = "回看前一天的事件"
 	style_action_button(previous_button,VillageTheme.TEAL)
-	previous_button.pressed.connect(func(): set_daily_echo_day(daily_echo_day - 1))
+	previous_button.pressed.connect(handle_journal_previous)
 	journal_panel.add_child(previous_button)
 	var next_button := Button.new()
 	next_button.name = "DailyNextButton"
 	next_button.text = "下一日 ›"
-	next_button.position = Vector2(120,258)
-	next_button.size = Vector2(96,34)
+	next_button.position = Vector2(128,272)
+	next_button.size = Vector2(104,44)
 	next_button.add_theme_font_size_override("font_size",12)
 	next_button.tooltip_text = "回看後一天的事件"
 	style_action_button(next_button,VillageTheme.TEAL)
-	next_button.pressed.connect(func(): set_daily_echo_day(daily_echo_day + 1))
+	next_button.pressed.connect(handle_journal_next)
 	journal_panel.add_child(next_button)
 	var filter_button := Button.new()
 	filter_button.name = "DailyFilterButton"
 	filter_button.text = "分類：全部"
-	filter_button.position = Vector2(222,258)
-	filter_button.size = Vector2(120,34)
+	filter_button.position = Vector2(238,272)
+	filter_button.size = Vector2(134,44)
 	filter_button.add_theme_font_size_override("font_size",12)
 	filter_button.tooltip_text = "切換居民、世界、任務、經濟、地點與進展事件"
 	style_action_button(filter_button,VillageTheme.SUN)
-	filter_button.pressed.connect(cycle_daily_echo_category)
+	filter_button.pressed.connect(cycle_journal_filter)
 	journal_panel.add_child(filter_button)
 	var daily_button := Button.new()
 	daily_button.name = "DailySummaryButton"
 	daily_button.text = "今日回音  L"
-	daily_button.position = Vector2(18,342)
-	daily_button.size = Vector2(190,34)
+	daily_button.position = Vector2(18,326)
+	daily_button.size = Vector2(166,44)
 	daily_button.add_theme_font_size_override("font_size",12)
 	style_action_button(daily_button,VillageTheme.SUN)
 	daily_button.pressed.connect(func(): set_journal_mode("chronicle" if journal_mode == "daily" else "daily"))
 	journal_panel.add_child(daily_button)
+	var causality_button := Button.new()
+	causality_button.name = "CausalityButton"
+	causality_button.text = "關係歷程  Y"
+	causality_button.position = Vector2(190,326)
+	causality_button.size = Vector2(182,44)
+	causality_button.add_theme_font_size_override("font_size",12)
+	causality_button.tooltip_text = "追溯互動如何改變關係、記憶與故事分支"
+	style_action_button(causality_button,VillageTheme.TEAL)
+	causality_button.pressed.connect(func(): set_journal_mode("chronicle" if journal_mode == "causality" else "causality"))
+	journal_panel.add_child(causality_button)
 	var close := Button.new()
 	close.text = "關閉  J"
-	close.position = Vector2(218,342)
-	close.size = Vector2(124,34)
+	close.position = Vector2(248,382)
+	close.size = Vector2(124,44)
 	close.add_theme_font_size_override("font_size",12)
 	style_action_button(close,VillageTheme.LILAC)
 	close.pressed.connect(func(): journal_panel.visible = false)
@@ -1175,33 +1203,80 @@ func chronicle_text(progress: Dictionary) -> String:
 	return "\n".join(lines)
 
 func set_journal_mode(mode: String) -> void:
+	var previous_mode := journal_mode
 	var was_daily := journal_mode == "daily"
-	journal_mode = "daily" if mode == "daily" else "chronicle"
+	journal_mode = mode if mode in ["chronicle","daily","causality"] else "chronicle"
 	if journal_mode == "daily" and not was_daily:
 		daily_echo_day = GameTime.day
 		daily_echo_category = "all"
+	if journal_mode == "causality" and previous_mode != "causality":
+		causality_actor = selected_id if selected_id in CAUSALITY_ACTORS else ""
+		causality_kind = "all"
 	if journal_label != null: refresh_journal_panel(GameManager.community_progress())
 
 func refresh_journal_panel(progress: Dictionary = {}) -> void:
 	if journal_label == null: return
 	var snapshot: Dictionary = progress if not progress.is_empty() else GameManager.community_progress()
 	var is_daily: bool = journal_mode == "daily"
-	journal_title_label.text = "今日回音  /  DAILY ECHOES" if is_daily else "村落編年  /  CHRONICLE"
+	var is_causality: bool = journal_mode == "causality"
+	journal_title_label.text = "今日回音  /  DAILY ECHOES" if is_daily else ("關係歷程  /  CAUSALITY" if is_causality else "村落編年  /  CHRONICLE")
+	var previous_button := journal_panel.get_node_or_null("DailyPrevButton") as Button
+	var next_button := journal_panel.get_node_or_null("DailyNextButton") as Button
+	var filter_button := journal_panel.get_node_or_null("DailyFilterButton") as Button
+	for control in [previous_button,next_button,filter_button]:
+		if control != null: control.visible = is_daily or is_causality
 	if is_daily:
 		daily_echo_day = clampi(daily_echo_day,1,maxi(1,GameTime.day))
 		journal_label.text = daily_echoes_text(GameManager.daily_summary(daily_echo_day,daily_echo_category),daily_echo_category)
-		var previous_button := journal_panel.get_node_or_null("DailyPrevButton") as Button
-		var next_button := journal_panel.get_node_or_null("DailyNextButton") as Button
-		var filter_button := journal_panel.get_node_or_null("DailyFilterButton") as Button
 		if previous_button != null:
+			previous_button.text = "‹ 上一日"
 			previous_button.disabled = daily_echo_day <= 1
 			previous_button.tooltip_text = "已經是最早保留日期" if previous_button.disabled else "回看前一天的事件"
 		if next_button != null:
+			next_button.text = "下一日 ›"
 			next_button.disabled = daily_echo_day >= GameTime.day
 			next_button.tooltip_text = "目前沒有更晚的日期" if next_button.disabled else "回看後一天的事件"
-		if filter_button != null: filter_button.text = "分類：%s" % str(DAILY_ECHO_CATEGORY_LABELS.get(daily_echo_category,"全部"))
+		if filter_button != null:
+			filter_button.text = "分類：%s" % str(DAILY_ECHO_CATEGORY_LABELS.get(daily_echo_category,"全部"))
+			filter_button.tooltip_text = "切換居民、世界、任務、經濟、地點與進展事件"
+	elif is_causality:
+		journal_label.text = causality_history_text()
+		var actor_index := CAUSALITY_ACTORS.find(causality_actor)
+		if previous_button != null:
+			previous_button.text = "‹ 上一位"
+			previous_button.disabled = actor_index <= 0
+			previous_button.tooltip_text = "已經是全部居民" if previous_button.disabled else "查看上一位居民的歷程"
+		if next_button != null:
+			next_button.text = "下一位 ›"
+			next_button.disabled = actor_index >= CAUSALITY_ACTORS.size() - 1
+			next_button.tooltip_text = "已經是最後一位居民" if next_button.disabled else "查看下一位居民的歷程"
+		if filter_button != null:
+			filter_button.text = "類型：%s" % str(CAUSALITY_KIND_LABELS.get(causality_kind,"全部"))
+			filter_button.tooltip_text = "切換全部、關係、記憶與故事選擇"
+	else:
+		journal_label.text = chronicle_text(snapshot)
 	var toggle_button := journal_panel.get_node_or_null("DailySummaryButton") as Button
 	if toggle_button != null: toggle_button.text = "村落編年  J" if is_daily else "今日回音  L"
+	var causality_button := journal_panel.get_node_or_null("CausalityButton") as Button
+	if causality_button != null: causality_button.text = "村落編年  J" if is_causality else "關係歷程  Y"
+
+func handle_journal_previous() -> void:
+	if journal_mode == "daily":
+		set_daily_echo_day(daily_echo_day - 1)
+	elif journal_mode == "causality":
+		var index := CAUSALITY_ACTORS.find(causality_actor)
+		set_causality_actor(str(CAUSALITY_ACTORS[maxi(0,index - 1)]))
+
+func handle_journal_next() -> void:
+	if journal_mode == "daily":
+		set_daily_echo_day(daily_echo_day + 1)
+	elif journal_mode == "causality":
+		var index := CAUSALITY_ACTORS.find(causality_actor)
+		set_causality_actor(str(CAUSALITY_ACTORS[mini(CAUSALITY_ACTORS.size() - 1,index + 1)]))
+
+func cycle_journal_filter() -> void:
+	if journal_mode == "daily": cycle_daily_echo_category()
+	elif journal_mode == "causality": cycle_causality_kind()
 
 func set_daily_echo_day(value: int) -> void:
 	daily_echo_day = clampi(value,1,maxi(1,GameTime.day))
@@ -1214,6 +1289,31 @@ func set_daily_echo_category(value: String) -> void:
 func cycle_daily_echo_category() -> void:
 	var index := DAILY_ECHO_CATEGORIES.find(daily_echo_category)
 	set_daily_echo_category(str(DAILY_ECHO_CATEGORIES[(index + 1) % DAILY_ECHO_CATEGORIES.size()]))
+
+func set_causality_actor(value: String) -> void:
+	causality_actor = value if value in CAUSALITY_ACTORS else ""
+	if journal_mode == "causality" and journal_label != null: refresh_journal_panel(GameManager.community_progress())
+
+func set_causality_kind(value: String) -> void:
+	causality_kind = value if value in CAUSALITY_KINDS else "all"
+	if journal_mode == "causality" and journal_label != null: refresh_journal_panel(GameManager.community_progress())
+
+func cycle_causality_kind() -> void:
+	var index := CAUSALITY_KINDS.find(causality_kind)
+	set_causality_kind(str(CAUSALITY_KINDS[(index + 1) % CAUSALITY_KINDS.size()]))
+
+func causality_history_text() -> String:
+	var actor_label := str(CAUSALITY_ACTOR_LABELS.get(causality_actor,"全部居民"))
+	var kind_label := str(CAUSALITY_KIND_LABELS.get(causality_kind,"全部"))
+	var events: Array = GameManager.causality_snapshot(causality_actor,causality_kind,6)
+	var lines := ["居民：%s  ·  類型：%s" % [actor_label,kind_label],"共找到 %d 段可追溯回音" % events.size(),""]
+	if events.is_empty():
+		lines.append("目前沒有符合條件的歷程。")
+		lines.append("與居民交談、贈禮，或完成故事選擇後再回來查看。")
+	else:
+		for value in events:
+			lines.append("• " + GameManager.causality_event_text(value))
+	return "\n".join(lines)
 
 func daily_echoes_text(summary: Dictionary, category: String = "all") -> String:
 	var counts: Dictionary = summary.get("category_counts",{})

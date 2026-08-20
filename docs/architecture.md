@@ -13,6 +13,7 @@
 5. `NavigationCoordinator` 使用 `NavigationRegion2D` 與每位居民的 `NavigationAgent2D` 移動；停滯四秒會安全復原。
 6. 狀態、記憶、關係與世界變更透過 `EventBus` 讓 UI 更新。
 7. 觸發條件成立時，`StoryArcService` 建立 active arc；玩家選擇後以既有 domain service 套用後果，再將結果寫入時間軸與存檔。
+8. `CausalityHistoryService` 將關係、記憶與故事結果正規化為 bounded metadata，供 UI 依居民與類型查詢。
 
 ## 核心模組
 
@@ -32,13 +33,14 @@
 | `LocationService` | 地點切換、發現與區域內容 |
 | `ProgressionService` | 五級聲望、資料驅動成就、一次性解鎖與安全條件評估 |
 | `StoryArcService` | 驗證故事定義、評估觸發、分支選擇、後果套用與序列化狀態 |
+| `CausalityHistoryService` | 因果事件 metadata 正規化、存檔驗證、居民／類型查詢、中文摘要與深拷貝邊界 |
 | `SaveManager` | v3 世界狀態、自動存檔、偏好、舊版遷移與 `.bak` recovery |
 | `SaveMigration` | 在載入前驗證 envelope／world state 型別、陣列數量上限與版本相容性，拒絕損壞或竄改資料 |
 | `Main` onboarding UI | 首次旅程三步驟、模態暫停、Esc／略過、F1 重開；只保存 `onboarding_seen` 偏好，不寫入世界狀態 |
 | `SoundManager` | 可關閉的程式化 UI／互動提示音 |
 | `AIService`（Optional） | 結構化文本、記憶摘要、建議目標與模板 fallback；不改權威狀態 |
 
-`GameManager.timeline_events` 會將重要 log 轉成結構化「回音事件」，保存遊戲日、分鐘、日夜階段、地點、分類與玩家可讀訊息。`timeline_snapshot()` 提供依日期、分類與數量上限的唯讀查詢，`daily_summary()` 則聚合居民、世界、任務、經濟、地點與進展分類，供村落編年面板的「今日回音」模式使用。主介面只保存歷史日期／分類篩選等暫時 UI 狀態，不污染存檔資料。時間軸隨世界狀態一起序列化，舊版存檔缺少此欄位時安全使用空集合。
+`GameManager.timeline_events` 會將重要 log 轉成結構化「回音事件」，保存遊戲日、分鐘、日夜階段、地點、分類與玩家可讀訊息。`timeline_snapshot()` 提供依日期、分類與數量上限的唯讀查詢，`daily_summary()` 聚合居民、世界、任務、經濟、地點與進展分類。v1.4 的可選 `effect_kind`、`actors` 與 `effect` 由 `CausalityHistoryService` 驗證；`causality_snapshot()` 可依居民與效果類型取得最近 1–50 筆深拷貝。runtime 最多保留 160 筆，actors 最多 4 位、effect 最多 16 鍵且限制遞迴深度。舊版純文字事件仍可載入，但不會被誤認成可追溯因果資料。
 `StoryArcService` 同樣只保存可序列化的 `story_progression`，UI 透過 `story_snapshot()` 取得唯讀投影；`EventBus.story_arc_updated` 讓故事面板以事件更新，不需要逐幀輪詢。
 
 ### Living Stories 邊界

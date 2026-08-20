@@ -130,7 +130,14 @@ func apply_choice(arc_id: String, choice_id: String) -> Dictionary:
 	var message := "故事線完成：「%s」" % str(definition.get("title",arc_id)) if completed else "故事線推進：「%s」" % str(definition.get("title",arc_id))
 	owner.add_log(message)
 	EventBus.story_arc_updated.emit(arc_id, next_stage, {"kind":"completed" if completed else "advanced","choice_id":choice_id})
-	return {"ok":true,"arc_id":arc_id,"choice_id":choice_id,"completed":completed,"snapshot":snapshot().get("arcs",{}).get(arc_id,{})}
+	return {"ok":true,"arc_id":arc_id,"arc_title":str(definition.get("title",arc_id)),"choice_id":choice_id,"choice_label":str(choice.get("label",choice_id)),"actors":_choice_actors(choice),"completed":completed,"snapshot":snapshot().get("arcs",{}).get(arc_id,{})}
+
+func _choice_actors(choice: Dictionary) -> Array:
+	var actors: Array[String] = ["player"]
+	for consequence in choice.get("consequences",[]):
+		var npc_id := str(consequence.get("npc_id",""))
+		if not npc_id.is_empty() and npc_id not in actors: actors.append(npc_id)
+	return actors
 
 func _timestamp() -> String:
 	return GameTime.formatted_time()

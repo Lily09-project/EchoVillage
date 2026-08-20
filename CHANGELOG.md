@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.0 — 2026-08-20
+
+- 新增 `CausalityHistoryService`，把關係、記憶與故事選擇寫成具演員、類型、前後值與來源 ID 的結構化因果事件。
+- 村落編年擴充為三模式：`J` 村落編年、`L` 今日回音、`Y` 關係歷程；可依五位居民與關係／記憶／故事類型篩選。
+- 關係變更會保存實際套用後的 delta 與 before／after 快照；故事選擇會保存 arc、choice、顯示名稱與完成狀態。
+- 舊版純文字時間軸維持可載入；新增 actors、effect、深度、集合、字串與有限數值安全邊界，runtime 僅保留最近 160 筆。
+- 新增關係歷程 GPU 視覺證據；Visual QA 擴充至 14 張 1280×720 實機截圖。
+- 完整品質閘門驗收為 `98 passed / 0 failed`，security audit `finding_count=0`，無 `SCRIPT ERROR`。
+
 ## 1.3.0 — 2026-08-20
 
 - 新增 `StoryArcService` 與三條資料驅動 Living Stories：失竊的麵包、森林的回聲、秋日祭典。
@@ -9,13 +18,6 @@
 - 新增未知／重複故事選擇拒絕、故事 UI modal、故事序列化與存檔 recovery contract tests。
 - GPU Visual QA 擴充至 13 張 1280×720 證據；正式 GUI runtime 實測故事線 active choice 對比與遮擋。
 - 完整品質閘門驗收為 `94 passed / 0 failed`，security audit `finding_count=0`，無 `SCRIPT ERROR`。
-
-## Unreleased
-
-- 完成存檔／偏好設定安全 fuzz：4 MiB／64 KiB byte 上限、時間欄位範圍、malformed `Vector2`、深層資料與原子 `deserialize` 驗證。
-- 強化 Optional AI provider boundary：混合型別 context、記憶摘要與對話輸出長度都會安全降級，不會造成 runtime error。
-- 回歸測試改用 Debug-only 隔離儲存目錄，避免安全測試覆寫開發者的真實 `user://` 存檔。
-- repository security audit、Godot runtime error gate 與 portable release smoke test 持續維持全綠。
 
 ## 1.2.0 — 2026-08-12
 

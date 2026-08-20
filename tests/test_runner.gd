@@ -40,6 +40,10 @@ func run() -> void:
 	check("每日回音可依日期與分類查詢且維持邊界", daily_echoes_history_filter_test())
 	check("每日回音面板提供摘要切換與快捷鍵入口", await daily_echoes_ui_test())
 	check("每日回音面板提供歷史日期與分類控制", await daily_echoes_history_ui_test())
+	check("關係與記憶會留下結構化因果歷程", causality_relationship_memory_test())
+	check("因果歷程可依居民與類型篩選且回傳深拷貝", causality_filter_and_copy_test())
+	check("故事選擇因果歷程可安全存檔並相容舊事件", causality_story_save_compatibility_test())
+	check("關係歷程面板提供三模式、篩選與快捷鍵入口", await causality_history_ui_test())
 	check("日夜階段會正確映射遊戲時間", day_phase_test())
 	check("NPC 展示快照會安全提供情緒、需求與關係", npc_showcase_snapshot_test())
 	check("日夜視覺設定會提供可用亮度與標籤", visual_profile_test())
@@ -375,6 +379,107 @@ func daily_echoes_history_ui_test() -> bool:
 	instance.queue_free()
 	return result
 
+func causality_relationship_memory_test() -> bool:
+	if not GameManager.has_method("causality_snapshot"): return false
+	GameTime.reset_clock()
+	GameManager.new_game()
+	var before: Dictionary = GameManager.npcs["alice"]["relationships"]["player"].duplicate(true)
+	GameManager.interact("alice","give_bread")
+	var relationship_events: Array = GameManager.causality_snapshot("alice","relationship",20)
+	var memory_events: Array = GameManager.causality_snapshot("alice","memory",20)
+	if relationship_events.is_empty() or memory_events.is_empty(): return false
+	var relationship_event: Dictionary = relationship_events[0]
+	var effect: Dictionary = relationship_event.get("effect",{})
+	var after: Dictionary = GameManager.npcs["alice"]["relationships"]["player"]
+	var memory_effect: Dictionary = memory_events[0].get("effect",{})
+	return str(relationship_event.get("effect_kind","")) == "relationship" \
+		and "alice" in relationship_event.get("actors",[]) \
+		and effect.get("before",{}) == before \
+		and effect.get("after",{}) == after \
+		and str(memory_events[0].get("effect_kind","")) == "memory" \
+		and str(memory_effect.get("npc_id","")) == "alice" \
+		and int(memory_effect.get("importance",0)) > 0
+
+func causality_filter_and_copy_test() -> bool:
+	if not GameManager.has_method("causality_snapshot"): return false
+	GameTime.reset_clock()
+	GameManager.new_game()
+	GameManager.interact("alice","talk")
+	GameManager.interact("bob","talk")
+	var alice_events: Array = GameManager.causality_snapshot("alice","all",50)
+	var memory_events: Array = GameManager.causality_snapshot("","memory",50)
+	var bounded: Array = GameManager.causality_snapshot("","all",1)
+	if alice_events.is_empty() or memory_events.size() < 2 or bounded.size() != 1: return false
+	for value in alice_events:
+		if "alice" not in value.get("actors",[]): return false
+	for value in memory_events:
+		if str(value.get("effect_kind","")) != "memory": return false
+	var original_message: String = str(GameManager.timeline_events.back().get("message",""))
+	alice_events[0]["message"] = "mutated"
+	return str(GameManager.timeline_events.back().get("message","")) == original_message \
+		and GameManager.causality_snapshot("","unknown",0).size() == 1
+
+func causality_story_save_compatibility_test() -> bool:
+	if not GameManager.has_method("causality_snapshot"): return false
+	GameTime.reset_clock()
+	GameManager.new_game()
+	GameManager.interact("bob","steal_food")
+	var choice: Dictionary = GameManager.choose_story_arc("bread_rumor","apologize")
+	if not bool(choice.get("ok",false)): return false
+	var story_events: Array = GameManager.causality_snapshot("bob","story",20)
+	if story_events.is_empty(): return false
+	var effect: Dictionary = story_events[0].get("effect",{})
+	if str(effect.get("arc_id","")) != "bread_rumor" or str(effect.get("choice_id","")) != "apologize": return false
+	var saved: Dictionary = GameManager.serialize()
+	GameManager.new_game()
+	if not GameManager.deserialize(saved) or GameManager.causality_snapshot("bob","story",20).size() != 1: return false
+	var malicious: Dictionary = saved.duplicate(true)
+	malicious["timeline_events"][-1]["actors"] = ["x".repeat(65)]
+	GameManager.new_game()
+	if GameManager.deserialize(malicious): return false
+	var legacy: Dictionary = saved.duplicate(true)
+	for value in legacy.get("timeline_events",[]):
+		value.erase("effect_kind")
+		value.erase("actors")
+		value.erase("effect")
+	GameManager.new_game()
+	return GameManager.deserialize(legacy) and GameManager.causality_snapshot("","all",20).is_empty()
+
+func causality_history_ui_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	if scene == null: return false
+	GameTime.reset_clock()
+	GameManager.new_game()
+	GameManager.interact("alice","give_bread")
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	instance.main_menu_panel.visible = false
+	if not instance.has_method("set_causality_actor") or not instance.has_method("set_causality_kind"):
+		instance.queue_free()
+		return false
+	instance.set_journal_mode("causality")
+	instance.open_side_panel(instance.journal_panel)
+	instance.set_causality_actor("alice")
+	instance.set_causality_kind("relationship")
+	instance.refresh_ui()
+	var mode_button := instance.get_node_or_null("CanvasLayer/ChroniclePanel/CausalityButton") as Button
+	var previous := instance.get_node_or_null("CanvasLayer/ChroniclePanel/DailyPrevButton") as Button
+	var filter := instance.get_node_or_null("CanvasLayer/ChroniclePanel/DailyFilterButton") as Button
+	var title := str(instance.journal_title_label.text)
+	var text := str(instance.journal_label.text)
+	var result: bool = InputMap.has_action("relationship_history") \
+		and instance.journal_mode == "causality" \
+		and mode_button != null and mode_button.size.y >= 44.0 \
+		and previous != null and previous.text.contains("上一位") \
+		and filter != null and filter.text.contains("關係") \
+		and title.contains("關係歷程") and text.contains("艾莉絲") and text.contains("信任")
+	if filter != null:
+		filter.emit_signal("pressed")
+		result = result and instance.causality_kind == "memory" and filter.text.contains("記憶")
+	instance.queue_free()
+	return result
+
 func day_phase_test() -> bool:
 	return GameTime.phase_for_minute(360) == "黎明" and GameTime.phase_for_minute(780) == "正午" and GameTime.phase_for_minute(1140) == "黃昏" and GameTime.phase_for_minute(60) == "深夜"
 
@@ -585,12 +690,12 @@ func visual_capture_interface_test() -> bool:
 	var result := instance.has_method("capture_visual_qa") and instance.has_method("visual_qa_capture_names")
 	if result:
 		var names: Array = instance.visual_qa_capture_names()
-		for expected in ["quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","village_progression.png","story_arc_active.png","consumer_onboarding.png"]: result = result and expected in names
+		for expected in ["quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","village_progression.png","story_arc_active.png","relationship_history.png","consumer_onboarding.png"]: result = result and expected in names
 	instance.queue_free()
 	return result
 
 func expansion_visual_capture_test() -> bool:
-	for expected in ["quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","village_progression.png","story_arc_active.png","consumer_onboarding.png"]:
+	for expected in ["quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","village_progression.png","story_arc_active.png","relationship_history.png","consumer_onboarding.png"]:
 		if not FileAccess.file_exists("res://tests/visual_qa/" + expected): return false
 	return true
 

@@ -62,7 +62,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $expectedPassed = 94
+          $expectedPassed = 98
           $reportPath = Join-Path $env:GITHUB_WORKSPACE 'tests\simulation_test_report.json'
           if (-not (Test-Path -LiteralPath $reportPath -PathType Leaf)) { throw "Test report was not generated: $reportPath" }
           $report = Get-Content -Raw -Encoding UTF8 -LiteralPath $reportPath | ConvertFrom-Json
@@ -84,7 +84,7 @@ jobs:
           $expected = @(
             'consumer_main_menu.png', 'consumer_onboarding.png', 'consumer_settings.png',
             'consumer_trade.png', 'forest_echo_complete.png', 'quest_in_progress.png',
-            'story_arc_active.png', 'storybook_event_danger.png', 'storybook_explore_dawn.png',
+            'relationship_history.png', 'story_arc_active.png', 'storybook_event_danger.png', 'storybook_explore_dawn.png',
             'storybook_explore_night.png', 'storybook_explore_noon.png', 'storybook_intro.png',
             'village_progression.png'
           )

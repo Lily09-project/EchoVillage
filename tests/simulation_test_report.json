@@ -1,6 +1,6 @@
 {
 	"failed": 0,
-	"passed": 94,
+	"passed": 98,
 	"project": "Echo Village",
 	"results": [
 		{
@@ -85,6 +85,22 @@
 		},
 		{
 			"name": "每日回音面板提供歷史日期與分類控制",
+			"passed": true
+		},
+		{
+			"name": "關係與記憶會留下結構化因果歷程",
+			"passed": true
+		},
+		{
+			"name": "因果歷程可依居民與類型篩選且回傳深拷貝",
+			"passed": true
+		},
+		{
+			"name": "故事選擇因果歷程可安全存檔並相容舊事件",
+			"passed": true
+		},
+		{
+			"name": "關係歷程面板提供三模式、篩選與快捷鍵入口",
 			"passed": true
 		},
 		{
@@ -381,5 +397,5 @@
 		}
 	],
 	"simulated_game_days": 30,
-	"timestamp": "2026-08-20T19:33:18"
+	"timestamp": "2026-08-20T23:36:42"
 }

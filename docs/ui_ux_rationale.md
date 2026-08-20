@@ -16,3 +16,5 @@
 `tests/test_runner.gd` 會驗證 `ActionDock`、`InteractionPrompt`、`ImpactFeedback` 與 `cancel` 輸入映射皆存在；真實 Godot 視覺 QA 的危險情境會保留一張顯示結果回饋的截圖。
 
 故事線則額外驗證 active／completed／locked 文案、非法或重複 choice 的失敗回饋、模態暫停與關閉路徑；`tests/visual_qa/story_arc_active.png` 提供 1280×720 實機證據，檢查面板層級、文字截斷與按鈕對比。
+
+關係歷程不另建第四個模態，而是與村落編年、今日回音共用同一面板。`J`、`L`、`Y` 對應三種清楚檢視；相同控制列在每日模式切換日期，在因果模式切換居民，並以文字標籤與 disabled 狀態說明目前邊界。`tests/visual_qa/relationship_history.png` 驗證三模式按鈕、44px 操作尺寸、長中文事件與右側 HUD 共存時仍可讀。

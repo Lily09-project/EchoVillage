@@ -1,10 +1,10 @@
-# Echo Village v1.3.0 Release Checklist
+# Echo Village v1.4.0 Release Checklist
 
 這份 checklist 用來把已完成的遊戲版本交給審查者或作品集讀者。它不包含公開部署；GitHub Release 與 deployment 是另外的授權步驟。
 
 ## Source readiness
 
-- [ ] `project.godot`、README、CHANGELOG、`RELEASE_README.txt` 版本一致為 `1.3.0`。
+- [ ] `project.godot`、README、CHANGELOG、`RELEASE_README.txt` 版本一致為 `1.4.0`。
 - [ ] 新資料、scene、script、UID、測試與文件都在 Git diff 中。
 - [ ] 沒有 `.env`、真實存檔、`.godot`、release 或 engine binary。
 - [ ] `git diff --check` 通過。
@@ -16,7 +16,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\validate_project.ps1
 .\run_echo_village.bat --test
 ```
 
-驗收門檻：94 tests、0 failures、security audit 0 findings、無 `SCRIPT ERROR`。
+驗收門檻：98 tests、0 failures、security audit 0 findings、無 `SCRIPT ERROR`。
 
 ## User-facing QA
 
@@ -25,7 +25,7 @@ set ECHO_VILLAGE_VISUAL_QA=1
 tools\godot\Godot_v4.5.2-stable_win64.exe --path .
 ```
 
-檢查主選單、首次導覽、探索、交易、村落手札、故事線、任務、危險事件與設定；13 張圖片必須為 1280×720，且沒有重疊、截斷或低對比文字。
+檢查主選單、首次導覽、探索、交易、村落手札、故事線、關係歷程、任務、危險事件與設定；14 張圖片必須為 1280×720，且沒有重疊、截斷或低對比文字。
 
 ## Portable QA
 
