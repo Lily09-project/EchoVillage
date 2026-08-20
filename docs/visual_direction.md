@@ -23,7 +23,7 @@
 
 ## 視覺 QA
 
-以實際 Godot 視窗執行 `-- --visual-qa` 時，主場景會自動輸出下列 1280×720 圖片至 `tests/visual_qa/`：
+設定 `ECHO_VILLAGE_VISUAL_QA=1` 並以正式 Godot GUI runtime 啟動時，主場景會自動輸出下列 1280×720 圖片至 `tests/visual_qa/`：
 
 - `storybook_intro.png`：開場展示面板
 - `storybook_explore_dawn.png`：黎明探索畫面
@@ -32,3 +32,9 @@
 - `storybook_event_danger.png`：危險事件、警示環與 NPC 決策
 - `quest_in_progress.png`：林間回音進行中、目前目標與 M／K 操作提示
 - `forest_echo_complete.png`：森林邊緣、草藥營地、黛安娜與任務完成回饋
+- `consumer_main_menu.png`：消費者主選單與繼續／設定入口
+- `consumer_settings.png`：設定、動態、音效與全螢幕控制
+- `consumer_trade.png`：交易選品、買入／出售與錯誤回饋
+- `village_progression.png`：村落聲望、稱號與成就進度
+- `story_arc_active.png`：Living Stories active stage、分支選擇與模態層級
+- `consumer_onboarding.png`：首次旅程三步驟導覽、略過與操作提示

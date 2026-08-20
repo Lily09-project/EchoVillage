@@ -4,6 +4,7 @@ const DATA_PATH := "res://data/"
 const DECISION_INTERVAL := 10
 const ACTION_SWITCH_COOLDOWN := 15
 const MAX_MEMORIES_PER_NPC := 32
+const MAX_DECODE_DEPTH := 64
 const LocationServiceScript = preload("res://scripts/services/location_service.gd")
 const QuestServiceScript = preload("res://scripts/services/quest_service.gd")
 const EconomyServiceScript = preload("res://scripts/services/economy_service.gd")
@@ -13,6 +14,7 @@ const InventoryServiceScript = preload("res://scripts/inventory/inventory_servic
 const NeedsServiceScript = preload("res://scripts/needs/needs_service.gd")
 const RelationshipServiceScript = preload("res://scripts/relationship/relationship_service.gd")
 const ProgressionServiceScript = preload("res://scripts/progression/progression_service.gd")
+const StoryArcServiceScript = preload("res://scripts/story/story_arc_service.gd")
 var npc_profiles: Dictionary = {}
 var dialogues: Dictionary = {}
 var event_defs: Dictionary = {}
@@ -26,6 +28,8 @@ var player := {"id":"player","position":Vector2(625,405),"inventory":{"bread":3,
 var economy := {"bread":4,"vegetable":3,"wood":5,"medicine":9}
 var active_event: Dictionary = {}
 var event_log: Array[String] = []
+var timeline_events: Array = []
+var timeline_sequence := 0
 var memory_sequence := 0
 var community := {}
 var current_location := "village_square"
@@ -33,6 +37,7 @@ var discovered_locations: Array = ["village_square"]
 var active_quests := {}
 var completed_quests: Array = []
 var world_flags := {}
+var story_progression := {"schema_version":1,"arcs":{}}
 var progression := {}
 var location_service
 var quest_service
@@ -44,6 +49,7 @@ var inventory_service = InventoryServiceScript.new()
 var needs_service = NeedsServiceScript.new()
 var relationship_service = RelationshipServiceScript.new()
 var progression_service = ProgressionServiceScript.new()
+var story_service = StoryArcServiceScript.new()
 
 func _ready() -> void:
 	load_data()
@@ -66,6 +72,8 @@ func load_data() -> void:
 	location_service = LocationServiceScript.new(location_defs)
 	quest_service = QuestServiceScript.new(quest_defs)
 	economy_service = EconomyServiceScript.new(recipe_defs)
+	if not story_service.configure(self,read_json("stories/story_arcs.json")):
+		push_error("Story arc data failed validation.")
 
 func index_by_id(entries: Array) -> Dictionary:
 	var result := {}
@@ -84,12 +92,16 @@ func new_game() -> void:
 	economy = {"bread":4,"vegetable":3,"wood":5,"medicine":9,"herb":6}
 	active_event.clear()
 	event_log.clear()
+	timeline_events.clear()
+	timeline_sequence = 0
 	community = {"renown":0,"kindness":false,"rumor":false,"crisis":false,"entries":[]}
 	current_location = "village_square"
 	discovered_locations = ["village_square"]
 	active_quests = {}
 	completed_quests = []
 	world_flags = {}
+	story_service.reset()
+	story_progression = story_service.serialize()
 	progression = progression_service.default_state()
 	for raw in npc_profiles.get("npcs", []):
 		var npc: Dictionary = raw.duplicate(true)
@@ -121,6 +133,7 @@ func new_game() -> void:
 			if target_id != npc_id and not npc["relationships"].has(target_id):
 				npc["relationships"][target_id] = {"affinity":0.0,"trust":0.0,"fear":0.0,"respect":0.0}
 	add_log("村落模擬已啟動，共有 %d 位自主村民。" % npcs.size())
+	story_service.refresh()
 
 func _on_minute(_minute: int, _hour: int) -> void:
 	if not active_event.is_empty():
@@ -420,6 +433,7 @@ func trigger_world_event(event_id: String) -> void:
 		create_memory("eric","npc_injury","我在林場意外受傷，必須暫時放慢腳步。",-22,72,"world","eric",{"event_id":"npc_injury"})
 	add_log("世界事件開始：" + str(active_event["display_name"]))
 	EventBus.world_event_changed.emit(event_id)
+	story_service.refresh()
 
 func resolve_danger_actions() -> bool:
 	if active_event.get("id","") != "minor_danger": return false
@@ -493,6 +507,7 @@ func record_community(flag: String, renown_change: int, title: String, descripti
 	EventBus.community_progressed.emit(entry)
 	add_log("村落編年解鎖：「%s」" % title)
 	evaluate_progression()
+	story_service.refresh()
 
 func community_progress() -> Dictionary:
 	var result: Dictionary = community.duplicate(true)
@@ -500,6 +515,19 @@ func community_progress() -> Dictionary:
 	for flag in ["kindness","rumor","crisis"]:
 		if bool(result.get(flag,false)): unlocked += 1
 	result["unlocked"] = unlocked
+	return result
+
+func story_snapshot() -> Dictionary:
+	return story_service.snapshot()
+
+func story_available_choices(arc_id: String) -> Array:
+	return story_service.available_choices(arc_id)
+
+func choose_story_arc(arc_id: String, choice_id: String) -> Dictionary:
+	var result: Dictionary = story_service.apply_choice(arc_id,choice_id)
+	if bool(result.get("ok",false)):
+		story_progression = story_service.serialize()
+		evaluate_progression()
 	return result
 
 func chronicle_entries() -> Array:
@@ -552,6 +580,7 @@ func accept_quest(quest_id: String) -> Dictionary:
 	if bool(result.get("ok",false)):
 		add_log("接受任務：「%s」" % str(quest_defs[quest_id].get("title",quest_id)))
 		EventBus.quest_changed.emit(active_quest_snapshot())
+		story_service.refresh()
 	return result
 
 func travel_to(location_id: String) -> Dictionary:
@@ -662,25 +691,99 @@ func serialize() -> Dictionary:
 	state["completed_quests"] = completed_quests.duplicate(true)
 	state["world_flags"] = world_flags.duplicate(true)
 	state["progression"] = progression.duplicate(true)
+	state["story_progression"] = story_service.serialize()
+	state["timeline_events"] = timeline_events.duplicate(true)
+	state["timeline_sequence"] = timeline_sequence
 	return state
 func deserialize(data: Dictionary) -> bool:
 	if not (data is Dictionary): return false
-	player = decode_value(data.get("player",player))
-	npcs = decode_value(data.get("npcs",npcs))
-	economy = data.get("economy",economy)
-	active_event = data.get("active_event",{})
+	var candidate_player = decode_value(data.get("player",player))
+	var candidate_npcs = decode_value(data.get("npcs",npcs))
+	if not _valid_player_state(candidate_player): return false
+	if not _valid_npc_state(candidate_npcs): return false
+	var candidate_economy = data.get("economy",economy)
+	var candidate_event = data.get("active_event",{})
+	var candidate_event_log = data.get("event_log",[])
+	var candidate_memory_sequence = data.get("memory_sequence",0)
+	var candidate_community = data.get("community",{"renown":0,"kindness":false,"rumor":false,"crisis":false,"entries":[]})
+	var candidate_location = data.get("current_location","village_square")
+	var candidate_discovered = data.get("discovered_locations",["village_square"])
+	var candidate_active_quests = data.get("active_quests",{})
+	var candidate_completed = data.get("completed_quests",[])
+	var candidate_flags = data.get("world_flags",{})
+	var candidate_progression = data.get("progression",progression_service.default_state())
+	var candidate_story = data.get("story_progression",story_service.default_state())
+	var candidate_timeline = data.get("timeline_events",[])
+	var candidate_timeline_sequence = data.get("timeline_sequence",candidate_timeline.size() if candidate_timeline is Array else 0)
+	if not _valid_numeric_map(candidate_economy) or not (candidate_event is Dictionary): return false
+	if not (candidate_event_log is Array) or candidate_event_log.size() > 512: return false
+	if not _valid_integer(candidate_memory_sequence,0,1000000000): return false
+	if not (candidate_community is Dictionary) or not (candidate_location is String): return false
+	if not (candidate_discovered is Array) or candidate_discovered.size() > 512: return false
+	if not (candidate_active_quests is Dictionary) or not (candidate_completed is Array) or candidate_completed.size() > 512: return false
+	if not (candidate_flags is Dictionary) or not (candidate_progression is Dictionary): return false
+	if not story_service.validate_state(candidate_story): return false
+	if not (candidate_timeline is Array) or candidate_timeline.size() > 512: return false
+	for value in candidate_timeline:
+		if not (value is Dictionary): return false
+	if not _valid_integer(candidate_timeline_sequence,0,1000000000): return false
+	player = candidate_player
+	npcs = candidate_npcs
+	economy = candidate_economy.duplicate(true)
+	active_event = candidate_event.duplicate(true)
 	event_log.clear()
-	for entry in data.get("event_log",[]):
-		event_log.append(str(entry))
-	memory_sequence = int(data.get("memory_sequence",0))
-	community = data.get("community",{"renown":0,"kindness":false,"rumor":false,"crisis":false,"entries":[]}).duplicate(true)
-	current_location = str(data.get("current_location","village_square"))
-	discovered_locations = data.get("discovered_locations",["village_square"]).duplicate(true)
-	active_quests = data.get("active_quests",{}).duplicate(true)
-	completed_quests = data.get("completed_quests",[]).duplicate(true)
-	world_flags = data.get("world_flags",{}).duplicate(true)
-	progression = data.get("progression",progression_service.default_state()).duplicate(true)
+	for entry in candidate_event_log: event_log.append(str(entry))
+	memory_sequence = int(candidate_memory_sequence)
+	community = candidate_community.duplicate(true)
+	current_location = candidate_location
+	discovered_locations = candidate_discovered.duplicate(true)
+	active_quests = candidate_active_quests.duplicate(true)
+	completed_quests = candidate_completed.duplicate(true)
+	world_flags = candidate_flags.duplicate(true)
+	progression = candidate_progression.duplicate(true)
+	if not story_service.load_state(candidate_story): return false
+	story_progression = story_service.serialize()
+	timeline_events.clear()
+	for value in candidate_timeline: timeline_events.append(value.duplicate(true))
+	timeline_sequence = int(candidate_timeline_sequence)
 	return true
+
+func _valid_player_state(value: Variant) -> bool:
+	if not (value is Dictionary): return false
+	var state: Dictionary = value
+	if not state.has("inventory") or not _valid_numeric_map(state.get("inventory")): return false
+	for key in ["position","target"]:
+		if state.has(key) and not (state[key] is Vector2): return false
+	if state.has("coin") and not _valid_number(state.get("coin"),0.0,1000000000.0): return false
+	return true
+
+func _valid_npc_state(value: Variant) -> bool:
+	if not (value is Dictionary) or value.size() > 64: return false
+	for npc_value in value.values():
+		if not (npc_value is Dictionary): return false
+		var npc: Dictionary = npc_value
+		if npc.has("inventory") and not _valid_numeric_map(npc.get("inventory")): return false
+		if npc.has("relationships") and not (npc.get("relationships") is Dictionary): return false
+		if npc.has("memories") and (not (npc.get("memories") is Array) or npc.get("memories").size() > MAX_MEMORIES_PER_NPC): return false
+		for key in ["position","target","current_target"]:
+			if npc.has(key) and not (npc[key] is Vector2): return false
+	return true
+
+func _valid_numeric_map(value: Variant) -> bool:
+	if not (value is Dictionary): return false
+	for entry in value.values():
+		if not _valid_number(entry,0.0,1000000000.0): return false
+	return true
+
+func _valid_number(value: Variant, minimum: float, maximum: float) -> bool:
+	if not (value is int or value is float): return false
+	var number := float(value)
+	return number >= minimum and number <= maximum
+
+func _valid_integer(value: Variant, minimum: int, maximum: int) -> bool:
+	if not (value is int or value is float): return false
+	var number := float(value)
+	return number == floor(number) and number >= float(minimum) and number <= float(maximum)
 func encode_value(value):
 	if value is Vector2: return {"__vector2":[value.x,value.y]}
 	if value is Dictionary:
@@ -692,15 +795,26 @@ func encode_value(value):
 		for item in value: result.append(encode_value(item))
 		return result
 	return value
-func decode_value(value):
+func decode_value(value, depth: int = 0):
+	if depth > MAX_DECODE_DEPTH: return null
 	if value is Dictionary:
-		if value.has("__vector2"): return Vector2(float(value["__vector2"][0]),float(value["__vector2"][1]))
+		if value.has("__vector2"):
+			var encoded = value["__vector2"]
+			if encoded is Array and encoded.size() == 2 and (encoded[0] is int or encoded[0] is float) and (encoded[1] is int or encoded[1] is float):
+				var x := float(encoded[0])
+				var y := float(encoded[1])
+				if x > -100000.0 and x < 100000.0 and y > -100000.0 and y < 100000.0:
+					return Vector2(x,y)
+			# Invalid vector markers are untrusted save data. Drop only the marker
+			# and continue decoding the remaining dictionary fields safely.
 		var result := {}
-		for key in value: result[key] = decode_value(value[key])
+		for key in value:
+			if str(key) == "__vector2": continue
+			result[key] = decode_value(value[key],depth + 1)
 		return result
 	if value is Array:
 		var result: Array = []
-		for item in value: result.append(decode_value(item))
+		for item in value: result.append(decode_value(item,depth + 1))
 		return result
 	return value
 func read_json(relative: String) -> Dictionary:
@@ -713,5 +827,60 @@ func read_json(relative: String) -> Dictionary:
 func _append_log(line: String) -> void:
 	event_log.append(line)
 	if event_log.size() > 80: event_log.pop_front()
+
+func classify_timeline_category(message: String) -> String:
+	if message.contains("交易") or message.contains("買入") or message.contains("出售"): return "economy"
+	if message.contains("任務") or message.contains("製作"): return "quest"
+	if message.contains("世界事件") or message.contains("事件開始") or message.contains("危險") or message.contains("受傷"): return "world"
+	if message.contains("聲望") or message.contains("編年") or message.contains("成就"): return "progression"
+	if message.contains("交談") or message.contains("贈") or message.contains("偷") or message.contains("協助") or message.contains("打招呼") or message.contains("記憶") or message.contains("信任"): return "social"
+	if message.begins_with("抵達"): return "location"
+	return "simulation"
+
+func record_timeline_event(message: String) -> void:
+	timeline_sequence += 1
+	var event := {
+		"id":"echo_%d" % timeline_sequence,
+		"day":GameTime.day,
+		"minute":GameTime.minute,
+		"time":GameTime.formatted_time(),
+		"phase":GameTime.day_phase(),
+		"location":current_location,
+		"category":classify_timeline_category(message),
+		"message":message
+	}
+	timeline_events.append(event)
+	if timeline_events.size() > 160: timeline_events.pop_front()
+
+func timeline_snapshot(category: String = "all", target_day: int = -1, limit: int = 12) -> Array:
+	var result: Array = []
+	var safe_limit: int = maxi(1,limit)
+	for index in range(timeline_events.size() - 1,-1,-1):
+		var event: Dictionary = timeline_events[index]
+		if target_day >= 0 and int(event.get("day",0)) != target_day: continue
+		if category != "all" and str(event.get("category","simulation")) != category: continue
+		result.append(event.duplicate(true))
+		if result.size() >= safe_limit: break
+	return result
+
+func daily_summary(target_day: int = -1, category: String = "all") -> Dictionary:
+	var day_value: int = GameTime.day if target_day < 0 else target_day
+	var category_counts := {"social":0,"world":0,"quest":0,"economy":0,"progression":0,"location":0,"simulation":0}
+	var highlights: Array = []
+	var total_events := 0
+	for value in timeline_events:
+		var event: Dictionary = value
+		if int(event.get("day",0)) != day_value: continue
+		if category != "all" and str(event.get("category","simulation")) != category: continue
+		total_events += 1
+		var event_category: String = str(event.get("category","simulation"))
+		category_counts[event_category] = int(category_counts.get(event_category,0)) + 1
+		if event_category != "simulation": highlights.append(event.duplicate(true))
+	if highlights.size() > 6:
+		highlights = highlights.slice(highlights.size() - 6)
+	highlights.reverse()
+	return {"day":day_value,"total_events":total_events,"category_counts":category_counts,"highlights":highlights}
+
 func add_log(message: String) -> void:
+	record_timeline_event(message)
 	EventBus.log_event(GameTime.formatted_time(),message)
