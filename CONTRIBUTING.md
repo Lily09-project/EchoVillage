@@ -34,10 +34,10 @@ $env:ECHO_VILLAGE_TEST_STORAGE_ROOT = "C:\temp\EchoVillage_tests"
 
 目前 release contract 要求：
 
-- `94 passed / 0 failed`
+- `98 passed / 0 failed`
 - security audit `finding_count=0`
 - console 不含 `SCRIPT ERROR` 或 script load failure
-- 13 張 Visual QA 圖片皆為 `1280×720`
+- 14 張 Visual QA 圖片皆為 `1280×720`
 
 若更新測試數量，請同步更新 `.github/workflows/ci.yml`、README、`docs/test_plan.md`、CHANGELOG 與 PR 說明。
 
