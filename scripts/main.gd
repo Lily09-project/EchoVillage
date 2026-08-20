@@ -7,6 +7,7 @@ const WorldMapPanelScene = preload("res://scenes/ui/WorldMapPanel.tscn")
 const QuestLogPanelScene = preload("res://scenes/ui/QuestLogPanel.tscn")
 const TradePanelScene = preload("res://scenes/ui/TradePanel.tscn")
 const ProgressionPanelScene = preload("res://scenes/ui/ProgressionPanel.tscn")
+const StoryArcPanelScene = preload("res://scenes/ui/StoryArcPanel.tscn")
 const NavigationCoordinatorScript = preload("res://scripts/navigation/navigation_coordinator.gd")
 
 const WORLD := Rect2(42, 92, 1196, 506)
@@ -35,9 +36,28 @@ var inventory_panel: Panel
 var inventory_label: Label
 var pause_panel: Panel
 var pause_label: Label
+var pause_motion_button: Button
 var toast_label: Label
 var journal_panel: Panel
 var journal_label: Label
+var journal_title_label: Label
+var journal_mode := "chronicle"
+var daily_echo_day := 1
+var daily_echo_category := "all"
+const DAILY_ECHO_CATEGORIES := ["all","social","world","quest","economy","location","progression"]
+const DAILY_ECHO_CATEGORY_LABELS := {"all":"全部","social":"居民","world":"世界","quest":"任務","economy":"經濟","location":"地點","progression":"進展"}
+var onboarding_panel: Panel
+var onboarding_backdrop: ColorRect
+var onboarding_title_label: Label
+var onboarding_body_label: Label
+var onboarding_step_label: Label
+var onboarding_next_button: Button
+var onboarding_step := 0
+const ONBOARDING_STEPS := [
+	{"title":"先看見村落的節奏","body":"用 WASD 或方向鍵移動。時間會自己前進，居民會依需求、個性與日程做出選擇。\n\n先觀察，不急著改變任何人。"},
+	{"title":"靠近一個真實的居民","body":"走近居民後按 E 查看資料。\n\n按 C 交談，或按 Q 詢問近況；每次互動都可能留下記憶，影響下一次相遇。"},
+	{"title":"讓你的選擇留下回音","body":"按 G 贈禮、T 交易，或前往森林推進任務。\n\n按 J 查看村落編年，按 L 回看每日回音，追蹤你的選擇如何改變村莊。"}
+]
 var time_panel: Panel
 var time_label: Label
 var renown_label: Label
@@ -66,6 +86,7 @@ var fullscreen_toggle: CheckButton
 var audio_toggle: CheckButton
 var trade_panel
 var progression_panel
+var story_arc_panel
 var craft_button: Button
 var gather_button: Button
 var navigation_coordinator: Node2D
@@ -83,10 +104,17 @@ func _ready() -> void:
 	EventBus.location_changed.connect(func(_location_id: String): refresh_ui())
 	EventBus.save_completed.connect(func(_path: String): refresh_ui())
 	EventBus.progression_unlocked.connect(handle_progression_unlock)
+	EventBus.story_arc_updated.connect(func(_arc_id: String, _stage_id: String, _consequence: Dictionary):
+		if story_arc_panel != null: story_arc_panel.refresh(GameManager.story_snapshot())
+		refresh_ui())
 	motion_enabled = SaveManager.get_preference("motion",true)
+	sync_motion_controls()
 	GameTime.set_simulation_paused(true)
 	queue_redraw()
-	if "--visual-qa" in OS.get_cmdline_user_args(): call_deferred("capture_visual_qa")
+	if is_visual_qa_requested(): call_deferred("capture_visual_qa")
+
+func is_visual_qa_requested() -> bool:
+	return "--visual-qa" in OS.get_cmdline_user_args() or "--visual-qa" in OS.get_cmdline_args() or OS.get_environment("ECHO_VILLAGE_VISUAL_QA") == "1"
 
 func capture_visual_qa() -> void:
 	var captures := [
@@ -100,7 +128,9 @@ func capture_visual_qa() -> void:
 		{"file":"consumer_main_menu.png","minute":780,"intro":false,"scenario":"main_menu"},
 		{"file":"consumer_settings.png","minute":780,"intro":false,"scenario":"settings"},
 		{"file":"consumer_trade.png","minute":780,"intro":false,"scenario":"trade"},
-		{"file":"village_progression.png","minute":780,"intro":false,"scenario":"progression"}
+		{"file":"village_progression.png","minute":780,"intro":false,"scenario":"progression"},
+		{"file":"story_arc_active.png","minute":780,"intro":false,"scenario":"story_active"},
+		{"file":"consumer_onboarding.png","minute":780,"intro":false,"scenario":"onboarding"}
 	]
 	for capture in captures:
 		var file_name := str(capture["file"])
@@ -112,9 +142,12 @@ func capture_visual_qa() -> void:
 		inventory_panel.visible = false
 		journal_panel.visible = false
 		progression_panel.visible = false
+		story_arc_panel.visible = false
 		world_map_panel.visible = false
 		quest_log_panel.visible = false
 		pause_panel.visible = false
+		onboarding_panel.visible = false
+		onboarding_backdrop.visible = false
 		impact_feedback.visible = false
 		GameTime.set_simulation_paused(false)
 		if scenario == "danger":
@@ -146,13 +179,21 @@ func capture_visual_qa() -> void:
 			progression_panel.refresh(GameManager.progression_snapshot())
 			progression_panel.visible = true
 			progression_panel.move_to_front()
+		if scenario == "story_active":
+			GameManager.interact("bob","steal_food")
+			selected_id = "bob"
+			info_panel.visible = true
+			dialogue_label.text = GameManager.dialogue(GameManager.npcs[selected_id])
+			open_story_panel()
+		if scenario == "onboarding":
+			show_onboarding(true)
 		if scenario == "danger":
 			show_interaction_feedback("ask","危險來襲時，村民的協助與逃離選擇都會留下可追溯的記憶。")
 		if scenario == "forest_complete":
 			show_interaction_feedback("give","任務完成：黛安娜收下麵包，森林記住了你的善意。")
 		queue_redraw()
 		await get_tree().process_frame
-		if scenario in ["danger","forest_complete","settings","trade","progression"]: await get_tree().create_timer(0.24).timeout
+		if scenario in ["danger","forest_complete","settings","trade","progression","story_active","onboarding"]: await get_tree().create_timer(0.24).timeout
 		await RenderingServer.frame_post_draw
 		var image := get_viewport().get_texture().get_image()
 		var result := image.save_png("res://tests/visual_qa/" + file_name)
@@ -164,10 +205,10 @@ func capture_visual_qa() -> void:
 	get_tree().quit(0)
 
 func visual_qa_capture_names() -> Array:
-	return ["storybook_intro.png","storybook_explore_dawn.png","storybook_explore_noon.png","storybook_explore_night.png","storybook_event_danger.png","quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","village_progression.png"]
+	return ["storybook_intro.png","storybook_explore_dawn.png","storybook_explore_noon.png","storybook_explore_night.png","storybook_event_danger.png","quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","village_progression.png","story_arc_active.png","consumer_onboarding.png"]
 
 func create_input_map() -> void:
-	var bindings := {"interact":KEY_E,"talk":KEY_C,"give":KEY_G,"steal":KEY_X,"trade":KEY_T,"ask":KEY_Q,"cancel":KEY_ESCAPE,"debug":KEY_F3,"inventory":KEY_I,"journal":KEY_J,"progression":KEY_P,"world_map":KEY_M,"quest_log":KEY_K,"speed_normal":KEY_1,"speed_2x":KEY_2,"speed_5x":KEY_5,"speed_10x":KEY_0,"save_game":KEY_F5,"load_game":KEY_F9,"event_rain":KEY_R,"event_festival":KEY_F,"event_shortage":KEY_H,"event_danger":KEY_B,"event_injury":KEY_N}
+	var bindings := {"interact":KEY_E,"talk":KEY_C,"give":KEY_G,"steal":KEY_X,"trade":KEY_T,"ask":KEY_Q,"cancel":KEY_ESCAPE,"guide":KEY_F1,"debug":KEY_F3,"inventory":KEY_I,"journal":KEY_J,"daily_summary":KEY_L,"story_arcs":KEY_O,"progression":KEY_P,"world_map":KEY_M,"quest_log":KEY_K,"speed_normal":KEY_1,"speed_2x":KEY_2,"speed_5x":KEY_5,"speed_10x":KEY_0,"save_game":KEY_F5,"load_game":KEY_F9,"event_rain":KEY_R,"event_festival":KEY_F,"event_shortage":KEY_H,"event_danger":KEY_B,"event_injury":KEY_N}
 	for action in bindings:
 		if not InputMap.has_action(action):
 			InputMap.add_action(action)
@@ -226,26 +267,33 @@ func handle_shortcuts() -> void:
 	if settings_panel.visible:
 		if Input.is_action_just_pressed("cancel"): close_settings()
 		return
+	if onboarding_panel.visible:
+		if Input.is_action_just_pressed("cancel"): complete_onboarding()
+		return
 	if main_menu_panel.visible: return
 	if Input.is_action_just_pressed("interact"): select_nearest()
 	if Input.is_action_just_pressed("debug"):
 		debug_visible = not debug_visible
 		debug_panel.visible = debug_visible
+	if Input.is_action_just_pressed("guide"):
+		show_onboarding(true)
 	if Input.is_action_just_pressed("inventory"):
-		open_side_panel(inventory_panel)
+		toggle_modal_panel(inventory_panel)
 	if Input.is_action_just_pressed("journal"):
-		open_side_panel(journal_panel)
+		set_journal_mode("chronicle")
+		toggle_modal_panel(journal_panel)
+	if Input.is_action_just_pressed("daily_summary"):
+		set_journal_mode("daily")
+		toggle_modal_panel(journal_panel)
 	if Input.is_action_just_pressed("progression"):
-		var opening: bool = not progression_panel.visible
-		progression_panel.refresh(GameManager.progression_snapshot())
-		progression_panel.set_visible_with_motion(opening,motion_enabled)
-		if opening: progression_panel.move_to_front()
+		if not progression_panel.visible: progression_panel.refresh(GameManager.progression_snapshot())
+		toggle_modal_panel(progression_panel)
+	if Input.is_action_just_pressed("story_arcs"):
+		open_story_panel()
 	if Input.is_action_just_pressed("world_map"):
-		world_map_panel.set_visible_with_motion(not world_map_panel.visible,motion_enabled)
-		quest_log_panel.visible = false
+		toggle_modal_panel(world_map_panel)
 	if Input.is_action_just_pressed("quest_log"):
-		quest_log_panel.set_visible_with_motion(not quest_log_panel.visible,motion_enabled)
-		world_map_panel.visible = false
+		toggle_modal_panel(quest_log_panel)
 	if Input.is_action_just_pressed("give"): perform("give_bread")
 	if Input.is_action_just_pressed("talk"): perform("talk")
 	if Input.is_action_just_pressed("steal"): perform("steal_food")
@@ -273,6 +321,10 @@ func handle_shortcuts() -> void:
 			showcase_panel.visible = false
 		elif journal_panel.visible:
 			journal_panel.visible = false
+		elif story_arc_panel.visible:
+			story_arc_panel.visible = false
+		elif onboarding_panel.visible:
+			complete_onboarding()
 		elif progression_panel.visible:
 			progression_panel.visible = false
 		elif inventory_panel.visible:
@@ -297,7 +349,7 @@ func create_ui() -> void:
 	renown_label = make_label(Vector2(900,6), Vector2(320,22), 13, VillageTheme.MOSS_LIGHT)
 	renown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	hint_label = make_label(Vector2(58,610), Vector2(730,28), 14, VillageTheme.PAPER)
-	hint_label.text = "E 查看村民  •  G 贈送  •  T 交易  •  J 編年  •  P 村落手札  •  F3 除錯"
+	hint_label.text = "E 查看村民  •  G 贈送  •  T 交易  •  J 編年  •  L 今日回音  •  O 故事線  •  P 村落手札  •  F3 除錯"
 	log_label = make_label(Vector2(58,644), Vector2(730,66), 13, VillageTheme.PAPER_DARK)
 	log_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	toast_label = make_label(Vector2(390,566),Vector2(420,26),14,VillageTheme.SUN)
@@ -341,6 +393,7 @@ func create_ui() -> void:
 	create_showcase_panel()
 	create_main_menu()
 	create_settings_panel()
+	create_onboarding_panel()
 
 func create_main_menu() -> void:
 	main_menu_panel = Panel.new()
@@ -399,6 +452,7 @@ func start_new_game() -> void:
 	SaveManager.autosave_game()
 	sync_simulation_pause()
 	show_interaction_feedback("start","新旅程已開始。靠近居民按 E 交談，向艾莉絲詢問第一份委託。")
+	show_onboarding()
 
 func continue_game() -> void:
 	if not SaveManager.load_game():
@@ -429,7 +483,7 @@ func create_settings_panel() -> void:
 	fullscreen_toggle = make_settings_toggle("FullscreenToggle",Vector2(24,238),"全螢幕顯示")
 	audio_toggle = make_settings_toggle("AudioToggle",Vector2(24,296),"介面與互動提示音效")
 	autosave_toggle.toggled.connect(func(value: bool): SaveManager.set_preference("autosave",value))
-	motion_toggle.toggled.connect(func(value: bool): motion_enabled = value; SaveManager.set_preference("motion",value))
+	motion_toggle.toggled.connect(func(value: bool): set_motion_enabled(value))
 	fullscreen_toggle.toggled.connect(apply_fullscreen)
 	audio_toggle.toggled.connect(func(value: bool): SoundManager.set_enabled(value))
 	var close := Button.new()
@@ -459,7 +513,8 @@ func make_settings_toggle(node_name: String, at: Vector2, label: String) -> Chec
 
 func open_settings() -> void:
 	autosave_toggle.button_pressed = SaveManager.get_preference("autosave",true)
-	motion_toggle.button_pressed = SaveManager.get_preference("motion",true)
+	motion_enabled = SaveManager.get_preference("motion",true)
+	sync_motion_controls()
 	fullscreen_toggle.button_pressed = SaveManager.get_preference("fullscreen",false)
 	audio_toggle.button_pressed = SaveManager.get_preference("audio",true)
 	SoundManager.play_ui()
@@ -471,12 +526,91 @@ func close_settings() -> void:
 	settings_panel.visible = false
 	sync_simulation_pause()
 
+func create_onboarding_panel() -> void:
+	onboarding_backdrop = ColorRect.new()
+	onboarding_backdrop.name = "OnboardingBackdrop"
+	onboarding_backdrop.position = Vector2.ZERO
+	onboarding_backdrop.size = Vector2(1280,720)
+	onboarding_backdrop.color = Color(0.03,0.08,0.12,0.72)
+	onboarding_backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	canvas.add_child(onboarding_backdrop)
+	onboarding_panel = Panel.new()
+	onboarding_panel.name = "OnboardingPanel"
+	onboarding_panel.position = Vector2(345,145)
+	onboarding_panel.size = Vector2(590,430)
+	onboarding_panel.add_theme_stylebox_override("panel",VillageTheme.card_style(VillageTheme.CREAM,VillageTheme.SUN))
+	canvas.add_child(onboarding_panel)
+	var eyebrow := make_panel_label(onboarding_panel,Vector2(28,22),Vector2(530,20),12,VillageTheme.LILAC)
+	eyebrow.text = "第一次來到 Echo Village？"
+	onboarding_title_label = make_panel_label(onboarding_panel,Vector2(28,52),Vector2(530,38),25,VillageTheme.INK)
+	onboarding_body_label = make_panel_label(onboarding_panel,Vector2(28,108),Vector2(534,180),15,VillageTheme.INK_SOFT)
+	onboarding_body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	onboarding_step_label = make_panel_label(onboarding_panel,Vector2(28,302),Vector2(170,24),13,VillageTheme.LILAC)
+	onboarding_step_label.name = "StepLabel"
+	onboarding_step_label.text = "第 1 / 3 步"
+	var hint := make_panel_label(onboarding_panel,Vector2(28,328),Vector2(534,22),12,VillageTheme.INK_SOFT)
+	hint.text = "可以隨時按 Esc 離開，之後也能從暫停選單重看。"
+	var skip := Button.new()
+	skip.name = "SkipButton"
+	skip.position = Vector2(28,365)
+	skip.size = Vector2(190,48)
+	skip.text = "略過導覽"
+	skip.tooltip_text = "直接開始探索，不會改變世界狀態"
+	skip.add_theme_font_size_override("font_size",13)
+	style_action_button(skip,VillageTheme.LILAC)
+	skip.pressed.connect(complete_onboarding)
+	onboarding_panel.add_child(skip)
+	onboarding_next_button = Button.new()
+	onboarding_next_button.name = "NextButton"
+	onboarding_next_button.position = Vector2(354,365)
+	onboarding_next_button.size = Vector2(208,48)
+	onboarding_next_button.add_theme_font_size_override("font_size",14)
+	style_action_button(onboarding_next_button,VillageTheme.MOSS)
+	onboarding_next_button.pressed.connect(advance_onboarding)
+	onboarding_panel.add_child(onboarding_next_button)
+	onboarding_backdrop.visible = false
+	onboarding_panel.visible = false
+	refresh_onboarding()
+
+func show_onboarding(force: bool = false) -> void:
+	if not force and SaveManager.get_preference("onboarding_seen",false): return
+	onboarding_step = 0
+	for panel in [settings_panel,pause_panel,showcase_panel,inventory_panel,journal_panel,progression_panel,story_arc_panel,world_map_panel,quest_log_panel,trade_panel]:
+		if panel != null: panel.visible = false
+	if main_menu_panel != null: main_menu_panel.visible = false
+	refresh_onboarding()
+	onboarding_backdrop.visible = true
+	onboarding_panel.visible = true
+	onboarding_panel.move_to_front()
+	sync_simulation_pause()
+
+func refresh_onboarding() -> void:
+	if onboarding_panel == null: return
+	var step: Dictionary = ONBOARDING_STEPS[clampi(onboarding_step,0,ONBOARDING_STEPS.size() - 1)]
+	onboarding_title_label.text = str(step.get("title","開始探索"))
+	onboarding_body_label.text = str(step.get("body",""))
+	onboarding_step_label.text = "第 %d / %d 步" % [onboarding_step + 1,ONBOARDING_STEPS.size()]
+	onboarding_next_button.text = "開始探索" if onboarding_step >= ONBOARDING_STEPS.size() - 1 else "下一步"
+
+func advance_onboarding() -> void:
+	if onboarding_step >= ONBOARDING_STEPS.size() - 1:
+		complete_onboarding()
+		return
+	onboarding_step += 1
+	refresh_onboarding()
+
+func complete_onboarding() -> void:
+	SaveManager.set_preference("onboarding_seen",true)
+	onboarding_backdrop.visible = false
+	onboarding_panel.visible = false
+	sync_simulation_pause()
+
 func apply_fullscreen(value: bool) -> void:
 	SaveManager.set_preference("fullscreen",value)
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN if value else DisplayServer.WINDOW_MODE_WINDOWED)
 
 func is_blocking_modal_open() -> bool:
-	return main_menu_panel.visible or settings_panel.visible or pause_panel.visible or showcase_panel.visible or inventory_panel.visible or journal_panel.visible or progression_panel.visible or world_map_panel.visible or quest_log_panel.visible or trade_panel.visible
+	return main_menu_panel.visible or settings_panel.visible or pause_panel.visible or onboarding_panel.visible or showcase_panel.visible or inventory_panel.visible or journal_panel.visible or progression_panel.visible or story_arc_panel.visible or world_map_panel.visible or quest_log_panel.visible or trade_panel.visible
 
 func sync_simulation_pause() -> void:
 	GameTime.set_simulation_paused(is_blocking_modal_open())
@@ -487,14 +621,33 @@ func create_expansion_ui() -> void:
 	quest_log_panel = QuestLogPanelScene.instantiate()
 	trade_panel = TradePanelScene.instantiate()
 	progression_panel = ProgressionPanelScene.instantiate()
+	story_arc_panel = StoryArcPanelScene.instantiate()
 	canvas.add_child(quest_tracker)
 	canvas.add_child(world_map_panel)
 	canvas.add_child(quest_log_panel)
 	canvas.add_child(trade_panel)
 	canvas.add_child(progression_panel)
+	canvas.add_child(story_arc_panel)
 	world_map_panel.travel_requested.connect(handle_travel_request)
 	trade_panel.buy_requested.connect(handle_buy_request)
 	trade_panel.sell_requested.connect(handle_sell_request)
+	story_arc_panel.choice_requested.connect(handle_story_choice)
+	story_arc_panel.refresh(GameManager.story_snapshot())
+
+func open_story_panel() -> void:
+	story_arc_panel.refresh(GameManager.story_snapshot())
+	close_modal_panels()
+	story_arc_panel.set_visible_with_motion(true,motion_enabled)
+	story_arc_panel.move_to_front()
+	sync_simulation_pause()
+
+func handle_story_choice(arc_id: String, choice_id: String) -> void:
+	var result: Dictionary = GameManager.choose_story_arc(arc_id,choice_id)
+	var response := "故事已推進，新的後果已寫入村落回音。" if bool(result.get("ok",false)) else str(result.get("reason","目前無法做出這個選擇。"))
+	story_arc_panel.show_feedback(response)
+	show_interaction_feedback("story",response)
+	story_arc_panel.refresh(GameManager.story_snapshot())
+	refresh_ui()
 
 func handle_travel_request(location_id: String) -> void:
 	var result: Dictionary = GameManager.travel_to(location_id)
@@ -588,19 +741,58 @@ func create_journal_panel() -> void:
 	journal_panel = Panel.new()
 	journal_panel.name = "ChroniclePanel"
 	journal_panel.position = Vector2(860,108)
-	journal_panel.size = Vector2(360,350)
+	journal_panel.size = Vector2(360,390)
 	journal_panel.add_theme_stylebox_override("panel",VillageTheme.card_style(VillageTheme.CREAM,VillageTheme.LILAC))
 	canvas.add_child(journal_panel)
 	var eyebrow := make_panel_label(journal_panel,Vector2(18,14),Vector2(270,18),12,VillageTheme.LILAC)
 	eyebrow.text = "每個選擇都會留下回音"
-	var title := make_panel_label(journal_panel,Vector2(18,34),Vector2(270,30),20,VillageTheme.INK)
-	title.text = "村落編年  /  CHRONICLE"
-	journal_label = make_panel_label(journal_panel,Vector2(18,73),Vector2(320,220),13,VillageTheme.INK_SOFT)
+	journal_title_label = make_panel_label(journal_panel,Vector2(18,34),Vector2(320,30),20,VillageTheme.INK)
+	journal_title_label.text = "村落編年  /  CHRONICLE"
+	journal_label = make_panel_label(journal_panel,Vector2(18,73),Vector2(320,177),13,VillageTheme.INK_SOFT)
 	journal_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var previous_button := Button.new()
+	previous_button.name = "DailyPrevButton"
+	previous_button.text = "‹ 上一日"
+	previous_button.position = Vector2(18,258)
+	previous_button.size = Vector2(96,34)
+	previous_button.add_theme_font_size_override("font_size",12)
+	previous_button.tooltip_text = "回看前一天的事件"
+	style_action_button(previous_button,VillageTheme.TEAL)
+	previous_button.pressed.connect(func(): set_daily_echo_day(daily_echo_day - 1))
+	journal_panel.add_child(previous_button)
+	var next_button := Button.new()
+	next_button.name = "DailyNextButton"
+	next_button.text = "下一日 ›"
+	next_button.position = Vector2(120,258)
+	next_button.size = Vector2(96,34)
+	next_button.add_theme_font_size_override("font_size",12)
+	next_button.tooltip_text = "回看後一天的事件"
+	style_action_button(next_button,VillageTheme.TEAL)
+	next_button.pressed.connect(func(): set_daily_echo_day(daily_echo_day + 1))
+	journal_panel.add_child(next_button)
+	var filter_button := Button.new()
+	filter_button.name = "DailyFilterButton"
+	filter_button.text = "分類：全部"
+	filter_button.position = Vector2(222,258)
+	filter_button.size = Vector2(120,34)
+	filter_button.add_theme_font_size_override("font_size",12)
+	filter_button.tooltip_text = "切換居民、世界、任務、經濟、地點與進展事件"
+	style_action_button(filter_button,VillageTheme.SUN)
+	filter_button.pressed.connect(cycle_daily_echo_category)
+	journal_panel.add_child(filter_button)
+	var daily_button := Button.new()
+	daily_button.name = "DailySummaryButton"
+	daily_button.text = "今日回音  L"
+	daily_button.position = Vector2(18,342)
+	daily_button.size = Vector2(190,34)
+	daily_button.add_theme_font_size_override("font_size",12)
+	style_action_button(daily_button,VillageTheme.SUN)
+	daily_button.pressed.connect(func(): set_journal_mode("chronicle" if journal_mode == "daily" else "daily"))
+	journal_panel.add_child(daily_button)
 	var close := Button.new()
 	close.text = "關閉  J"
-	close.position = Vector2(225,299)
-	close.size = Vector2(112,34)
+	close.position = Vector2(218,342)
+	close.size = Vector2(124,34)
 	close.add_theme_font_size_override("font_size",12)
 	style_action_button(close,VillageTheme.LILAC)
 	close.pressed.connect(func(): journal_panel.visible = false)
@@ -611,35 +803,47 @@ func create_pause_panel() -> void:
 	pause_panel = Panel.new()
 	pause_panel.name = "PausePanel"
 	pause_panel.position = Vector2(465,250)
-	pause_panel.size = Vector2(350,208)
+	pause_panel.size = Vector2(350,260)
 	pause_panel.add_theme_stylebox_override("panel",VillageTheme.card_style(VillageTheme.PAPER,VillageTheme.LILAC))
 	canvas.add_child(pause_panel)
 	var title := make_panel_label(pause_panel,Vector2(18,18),Vector2(310,32),22,VillageTheme.INK)
 	title.text = "暫停選單"
 	pause_label = make_panel_label(pause_panel,Vector2(18,55),Vector2(310,42),14,VillageTheme.INK_SOFT)
-	pause_label.text = "按 Esc 繼續探索\n按 I 開啟背包 · J 查看編年 · F5 儲存"
+	pause_label.text = "按 Esc 繼續探索\n按 I 背包 · J 編年 · O 故事線 · F5 儲存"
 	var resume := Button.new()
 	resume.text = "繼續探索"
 	resume.position = Vector2(18,111)
-	resume.size = Vector2(145,38)
+	resume.size = Vector2(145,42)
 	resume.pressed.connect(func(): pause_panel.visible = false)
 	style_action_button(resume,VillageTheme.MOSS)
 	pause_panel.add_child(resume)
 	var menu := Button.new()
 	menu.text = "展示選單"
 	menu.position = Vector2(187,111)
-	menu.size = Vector2(145,38)
+	menu.size = Vector2(145,42)
 	menu.pressed.connect(func(): pause_panel.visible = false; showcase_panel.visible = true)
 	style_action_button(menu,VillageTheme.SUN)
 	pause_panel.add_child(menu)
+	var guide := Button.new()
+	guide.name = "GuideButton"
+	guide.text = "操作指南  F1"
+	guide.position = Vector2(18,164)
+	guide.size = Vector2(314,42)
+	guide.tooltip_text = "重新查看三步驟首次旅程導覽"
+	guide.add_theme_font_size_override("font_size",13)
+	style_action_button(guide,VillageTheme.TEAL)
+	guide.pressed.connect(func(): pause_panel.visible = false; show_onboarding(true))
+	pause_panel.add_child(guide)
 	var motion := Button.new()
+	pause_motion_button = motion
 	motion.text = "動態效果：開"
-	motion.position = Vector2(18,159)
+	motion.position = Vector2(18,212)
 	motion.size = Vector2(314,34)
 	motion.add_theme_font_size_override("font_size",12)
 	style_action_button(motion,VillageTheme.TEAL)
-	motion.pressed.connect(func(): motion_enabled = not motion_enabled; motion.text = "動態效果：開" if motion_enabled else "動態效果：關")
+	motion.pressed.connect(func(): set_motion_enabled(not motion_enabled))
 	pause_panel.add_child(motion)
+	sync_motion_controls()
 	pause_panel.visible = false
 
 func make_label(position_value: Vector2, size_value: Vector2, font_size: int, color: Color) -> Label:
@@ -860,11 +1064,41 @@ func launch_showcase(scenario: String) -> void:
 	showcase_panel.visible = false
 
 func open_side_panel(panel: Panel) -> void:
-	var should_open := not panel.visible
+	toggle_modal_panel(panel)
+
+func close_modal_panels() -> void:
 	inventory_panel.visible = false
 	journal_panel.visible = false
-	panel.visible = should_open
-	if should_open: animate_panel_in(panel)
+	progression_panel.visible = false
+	story_arc_panel.visible = false
+	world_map_panel.visible = false
+	quest_log_panel.visible = false
+	trade_panel.visible = false
+	pause_panel.visible = false
+	showcase_panel.visible = false
+
+func toggle_modal_panel(panel: Control) -> void:
+	var should_open := not panel.visible
+	close_modal_panels()
+	if should_open:
+		if panel.has_method("set_visible_with_motion"):
+			panel.set_visible_with_motion(true,motion_enabled)
+		else:
+			panel.visible = true
+			animate_panel_in(panel)
+		panel.move_to_front()
+	sync_simulation_pause()
+
+func set_motion_enabled(value: bool) -> void:
+	motion_enabled = value
+	SaveManager.set_preference("motion",value)
+	sync_motion_controls()
+
+func sync_motion_controls() -> void:
+	if motion_toggle != null:
+		motion_toggle.set_pressed_no_signal(motion_enabled)
+	if pause_motion_button != null:
+		pause_motion_button.text = "動態效果：開" if motion_enabled else "動態效果：關"
 
 func animate_panel_in(panel: Control) -> void:
 	if not motion_enabled: return
@@ -917,7 +1151,7 @@ func refresh_ui() -> void:
 	craft_button.tooltip_text = "消耗月光藥草 ×2，製作藥品 ×1" if not craft_button.disabled else "需在低語森林邊緣並持有 2 株月光藥草"
 	gather_button.disabled = not GameManager.can_gather_location_resource("herb")
 	gather_button.tooltip_text = "森林每輪可採集 3 株月光藥草" if not gather_button.disabled else "需在森林邊緣，或本輪資源已採完"
-	journal_label.text = chronicle_text(progress)
+	refresh_journal_panel(progress)
 	progression_panel.refresh(progression_snapshot)
 	quest_tracker.refresh(GameManager.active_quest_snapshot())
 	world_map_panel.set_locations(GameManager.location_defs,GameManager.current_location,GameManager.discovered_locations)
@@ -938,6 +1172,61 @@ func refresh_ui() -> void:
 
 func chronicle_text(progress: Dictionary) -> String:
 	var lines := ["目前聲望：%d" % int(progress["renown"]),"","[%s] 善意留下回音" % ("已解鎖" if bool(progress["kindness"]) else "未解鎖"),"贈送麵包，觀察記憶與信任如何改變。","","[%s] 流言開始擴散" % ("已解鎖" if bool(progress["rumor"]) else "未解鎖"),"偷取食物，觀察負面記憶如何傳播。","","[%s] 危機考驗勇氣" % ("已解鎖" if bool(progress["crisis"]) else "未解鎖"),"按 B 觸發危險，使用 F3 比較 NPC 決策。"]
+	return "\n".join(lines)
+
+func set_journal_mode(mode: String) -> void:
+	var was_daily := journal_mode == "daily"
+	journal_mode = "daily" if mode == "daily" else "chronicle"
+	if journal_mode == "daily" and not was_daily:
+		daily_echo_day = GameTime.day
+		daily_echo_category = "all"
+	if journal_label != null: refresh_journal_panel(GameManager.community_progress())
+
+func refresh_journal_panel(progress: Dictionary = {}) -> void:
+	if journal_label == null: return
+	var snapshot: Dictionary = progress if not progress.is_empty() else GameManager.community_progress()
+	var is_daily: bool = journal_mode == "daily"
+	journal_title_label.text = "今日回音  /  DAILY ECHOES" if is_daily else "村落編年  /  CHRONICLE"
+	if is_daily:
+		daily_echo_day = clampi(daily_echo_day,1,maxi(1,GameTime.day))
+		journal_label.text = daily_echoes_text(GameManager.daily_summary(daily_echo_day,daily_echo_category),daily_echo_category)
+		var previous_button := journal_panel.get_node_or_null("DailyPrevButton") as Button
+		var next_button := journal_panel.get_node_or_null("DailyNextButton") as Button
+		var filter_button := journal_panel.get_node_or_null("DailyFilterButton") as Button
+		if previous_button != null:
+			previous_button.disabled = daily_echo_day <= 1
+			previous_button.tooltip_text = "已經是最早保留日期" if previous_button.disabled else "回看前一天的事件"
+		if next_button != null:
+			next_button.disabled = daily_echo_day >= GameTime.day
+			next_button.tooltip_text = "目前沒有更晚的日期" if next_button.disabled else "回看後一天的事件"
+		if filter_button != null: filter_button.text = "分類：%s" % str(DAILY_ECHO_CATEGORY_LABELS.get(daily_echo_category,"全部"))
+	var toggle_button := journal_panel.get_node_or_null("DailySummaryButton") as Button
+	if toggle_button != null: toggle_button.text = "村落編年  J" if is_daily else "今日回音  L"
+
+func set_daily_echo_day(value: int) -> void:
+	daily_echo_day = clampi(value,1,maxi(1,GameTime.day))
+	if journal_mode == "daily" and journal_label != null: refresh_journal_panel(GameManager.community_progress())
+
+func set_daily_echo_category(value: String) -> void:
+	daily_echo_category = value if DAILY_ECHO_CATEGORIES.has(value) else "all"
+	if journal_mode == "daily" and journal_label != null: refresh_journal_panel(GameManager.community_progress())
+
+func cycle_daily_echo_category() -> void:
+	var index := DAILY_ECHO_CATEGORIES.find(daily_echo_category)
+	set_daily_echo_category(str(DAILY_ECHO_CATEGORIES[(index + 1) % DAILY_ECHO_CATEGORIES.size()]))
+
+func daily_echoes_text(summary: Dictionary, category: String = "all") -> String:
+	var counts: Dictionary = summary.get("category_counts",{})
+	var category_label := str(DAILY_ECHO_CATEGORY_LABELS.get(category,"全部"))
+	var lines := ["第 %d 天 · %s · 共記錄 %d 件事件" % [int(summary.get("day",GameTime.day)),category_label,int(summary.get("total_events",0))],"居民 %d  ·  世界 %d  ·  任務 %d" % [int(counts.get("social",0)),int(counts.get("world",0)),int(counts.get("quest",0))],"經濟 %d  ·  地點 %d  ·  進展 %d" % [int(counts.get("economy",0)),int(counts.get("location",0)),int(counts.get("progression",0))],""]
+	var highlights: Array = summary.get("highlights",[])
+	if highlights.is_empty():
+		lines.append("這一天沒有符合目前篩選的回音。")
+	else:
+		lines.append("重要回音")
+		for value in highlights.slice(0,5):
+			var event: Dictionary = value
+			lines.append("• %s  %s" % [str(event.get("phase","")),str(event.get("message",""))])
 	return "\n".join(lines)
 
 func handle_progression_unlock(achievement: Dictionary) -> void:
@@ -974,6 +1263,7 @@ func open_trade_panel() -> void:
 		show_interaction_feedback("trade","請先靠近一位居民並按 E 選取。")
 		return
 	refresh_trade_panel()
+	close_modal_panels()
 	trade_panel.set_visible_with_motion(true,motion_enabled)
 	trade_panel.move_to_front()
 	sync_simulation_pause()

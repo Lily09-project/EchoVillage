@@ -3,7 +3,7 @@ config_version=5
 [application]
 config/name="Echo Village"
 config/description="AI-Driven NPC Life Simulation RPG"
-config/version="1.2.0"
+config/version="1.3.0"
 run/main_scene="res://scenes/main/Main.tscn"
 config/features=PackedStringArray("4.2")
 config/icon="res://assets/portfolio/echo_village_cover.svg"
