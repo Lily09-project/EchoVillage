@@ -2,7 +2,7 @@
 
 ## 支援版本
 
-目前維護版本：`1.3.x`。請使用最新 release 或 `master` 上的 security fixes。
+目前維護版本：`1.4.x`。請使用最新 release 或 `master` 上的 security fixes。
 
 ## 回報漏洞
 
