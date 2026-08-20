@@ -37,4 +37,5 @@
 - `consumer_trade.png`：交易選品、買入／出售與錯誤回饋
 - `village_progression.png`：村落聲望、稱號與成就進度
 - `story_arc_active.png`：Living Stories active stage、分支選擇與模態層級
+- `relationship_history.png`：依居民與類型篩選的關係、記憶與故事因果紀錄
 - `consumer_onboarding.png`：首次旅程三步驟導覽、略過與操作提示

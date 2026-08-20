@@ -31,7 +31,7 @@
 - Modify: `scripts/main.gd`
 - Modify: `project.godot`
 
-新增 `relationship_history` 輸入動作與 R 快捷鍵；將 journal 擴充成 chronicle、daily、causality 三模式。重用現有控制列於不同模式，提供可讀空狀態、居民與類型篩選、44px 操作尺寸與 tooltip。
+新增 `relationship_history` 輸入動作與 Y 快捷鍵（避開既有 R 降雨事件）；將 journal 擴充成 chronicle、daily、causality 三模式。重用現有控制列於不同模式，提供可讀空狀態、居民與類型篩選、44px 操作尺寸與 tooltip。
 
 ## Task 4：視覺 QA 與文件
 
@@ -61,4 +61,3 @@
 ## Task 6：GitHub 交付
 
 提交乾淨分支，推送並建立 PR；等待 CI 成功後 squash merge。從合併 commit 建立 `v1.4.0` tag、GitHub Release，附上 Windows 可攜 zip 與 SHA-256。
-
