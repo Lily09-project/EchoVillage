@@ -2,6 +2,11 @@
 setlocal EnableExtensions EnableDelayedExpansion
 set "ROOT=%~dp0"
 set "ROOT=%ROOT:~0,-1%"
+cd /d "%ROOT%" >nul 2>nul
+if errorlevel 1 (
+  echo Echo Village cannot enter its project directory: "%ROOT%"
+  exit /b 2
+)
 set "GODOT="
 
 if defined GODOT_EXECUTABLE if exist "%GODOT_EXECUTABLE%" set "GODOT=%GODOT_EXECUTABLE%"
