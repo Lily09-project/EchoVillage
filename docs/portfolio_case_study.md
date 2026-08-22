@@ -21,7 +21,9 @@ Echo Village 是以 Godot 4 與 GDScript 完成的繁體中文 2D 生活模擬 R
 - 完整主選單、設定、暫停、HUD、背包、地圖、任務與交易 UX。
 - 自動存檔、版本化序列化、舊檔遷移與不重複任務獎勵。
 - 五級村落聲望、六項資料驅動成就與可持久保存的村落手札。
-- 76 項自動測試、十一張 GPU 視覺 QA 與 portable Windows 發行管線。
+- 首次旅程導覽：三步驟、可略過、Esc 關閉、偏好持久化與暫停選單 F1 重開，降低新玩家理解成本。
+- 關係與故事歷程：保存實際關係 delta、before／after、記憶重要度與故事選擇，支援依居民／類型追溯。
+- 98 項自動測試、十四張 GPU 視覺 QA、CI quality gate、tracked-file security audit 與 portable Windows 發行管線。
 
 ## 關鍵工程決策
 
@@ -30,6 +32,9 @@ Echo Village 是以 Godot 4 與 GDScript 完成的繁體中文 2D 生活模擬 R
 3. **原子狀態更新**：交易與製作先驗證完整條件，再一次更新雙方狀態。
 4. **防假綠燈測試**：測試器除斷言外還掃描 Godot runtime 錯誤。
 5. **免安裝交付**：沒有 Export Templates 時採 portable runtime + PCK，消費者仍可直接雙擊。
+6. **以首次體驗驗收產品**：導覽只保存偏好、不污染世界存檔；測試同時覆蓋完成、略過、Esc 與從暫停選單重開。
+7. **把本機輸入當成不可信資料**：存檔與偏好在 JSON 解析前先做 byte／型別／數值／數量上限驗證；`GameManager.deserialize()` 以候選狀態原子套用，malformed `Vector2`、非法時間、深層資料與混合型別 AI context 透過 fuzz 回歸測試；repository 以 tracked-file audit 防止 secrets 與發行產物外洩。
+8. **讓模擬後果可解釋**：每日回音回答「發生什麼」，關係歷程回答「誰因何改變」；兩者共用 bounded timeline，避免重複狀態與文字解析。
 
 ## 問題與修復案例
 
@@ -41,13 +46,14 @@ Echo Village 是以 Godot 4 與 GDScript 完成的繁體中文 2D 生活模擬 R
 
 ## 成果
 
-專案形成可直接交付的 1.2.0 Windows 作品：核心玩法可完整遊玩，聲望與資料驅動成就讓玩家選擇形成長期進展；所有主要功能有測試證據、UI 有實機視覺證據，並保留清楚的擴充邊界。這個作品可用來展示 Gameplay Engineering、AI Architecture、Progression Design、Systems Design、UI Implementation、Testing 與 Release Engineering。
+專案形成可直接交付的 1.4.0 Windows 作品：核心玩法可完整遊玩，聲望、資料驅動成就與 Living Stories 讓玩家選擇形成長期進展；關係歷程讓玩家與審查者能驗證每個後果，crash-tolerant save recovery 則確保選擇不會因單次檔案損壞而遺失。所有主要功能有測試證據、UI 有實機視覺證據，並保留清楚的擴充邊界。這個作品可用來展示 Gameplay Engineering、AI Architecture、Progression Design、Systems Design、UI Implementation、Persistence、Testing 與 Release Engineering。
 
 ## 建議展示順序（3–5 分鐘）
 
-1. 主選單與設定：說明消費者流程及自動存檔。
-2. 村落正午：觀察居民需求、作息與 Utility 決策。
-3. 贈禮／偷竊：展示記憶、關係與村落編年。
-4. 交易與製作：展示原子經濟流程。
-5. 林間回音：展示跨地點任務鏈。
-6. F3 面板與測試報告：展示可解釋 AI 與工程品質。
+1. 新遊戲首次導覽：展示三步驟 onboarding、可略過流程與 F1 重開入口。
+2. 主選單與設定：說明消費者流程及自動存檔。
+3. 村落正午：觀察居民需求、作息與 Utility 決策。
+4. 贈禮／偷竊：按 Y 展示關係 delta、記憶與故事因果歷程。
+5. 交易與製作：展示原子經濟流程。
+6. 林間回音：展示跨地點任務鏈。
+7. F3 面板與測試報告：展示可解釋 AI 與工程品質。

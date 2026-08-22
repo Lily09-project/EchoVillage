@@ -1,5 +1,5 @@
 class_name UtilityAction
-extends NPCAction
+extends "res://scripts/actions/npc_action.gd"
 
 func _init(id: String) -> void:
 	super(id)
