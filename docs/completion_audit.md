@@ -1,10 +1,10 @@
 # Echo Village 原始需求完成度稽核
 
-稽核基準：使用者最初提供的第 0–56 節規格。現行版本：1.2.0。
+稽核基準：使用者最初提供的第 0–56 節規格。現行版本：1.4.0。
 
 | 節次 | 驗收結果 | 證據摘要 |
 | --- | --- | --- |
-| 0 工作目錄 | 完成 | 所有專案成果位於 `C:\Users\user\Documents\Codex\EchoVillage`。 |
+| 0 工作目錄 | 完成 | 所有專案成果位於專案根目錄。 |
 | 1 開發原則 | 完成 | 核心系統分層、逐輪 TDD、編譯與 GPU QA。 |
 | 2 技術選擇 | 完成 | Godot 4.5.2／GDScript，核心完全離線。 |
 | 3 MVP 規模 | 完成 | 小鎮、酒館、商店、農場、5 住宅、森林、5 NPC 與完整玩家操作。 |
@@ -37,7 +37,7 @@
 | 32 Camera | 完成 | Camera2D 平滑跟隨與世界邊界。 |
 | 33 Input | 完成 | Input Map 提供 WASD/方向鍵、E/C、I、Esc、F3 等。 |
 | 34–37 Architecture/Data | 完成 | Autoload 節制、EventBus、JSON 資料、純邏輯服務與清楚目錄。 |
-| 38 Automated Tests | 完成 | 76 項 headless tests 與 runtime error gate。 |
+| 38 Automated Tests | 完成 | 98 項 headless tests、security audit 與 runtime error gate。 |
 | 39 Simulation Test | 完成 | 七日、5 NPC、Needs／Inventory／Relationship／Memory／Action 邊界驗證。 |
 | 40 Performance | 完成 | 每十遊戲分鐘決策，Navigation 與渲染分離，5 NPC 無昂貴逐幀評分。 |
 | 41 NPC 設定 | 完成 | 五位指定角色具可辨識職業、個性、日程、住宅與關係。 |
@@ -52,12 +52,14 @@
 | 51 Architecture Diagram | 完成 | Mermaid 含 Player、World、NPC、AI、Needs、Schedule、Action、Memory、Relationship、Inventory、Events、Save、UI、Optional LLM。 |
 | 52 Portfolio | 完成 | Case Study 與 README 聚焦 autonomous NPC architecture。 |
 | 53 禁止範圍 | 遵守 | 未加入多人、戰鬥、大世界、3D、Steam 或大量 NPC。 |
-| 54 Final Verification | 完成 | 1.2.0 build、76 tests、11 張 GPU QA、portable smoke 與 artifact audit。 |
+| 54 Final Verification | 完成 | 1.4.0 source verification、98 tests、14 張 GPU QA、tracked-file security audit、portable smoke 與 artifact audit。 |
 
-## 1.2.0 延伸完成項目
+## 1.4.0 延伸完成項目
 
 - 五級村落聲望與六項資料驅動成就。
 - 獨立 ProgressionService、一次性解鎖、未知條件安全與 v3 世界狀態。
 - 繁中村落手札、P 快捷鍵、文字化完成狀態、44px 關閉鍵與 GPU 視覺證據。
+- 三條資料驅動 Living Stories、O 快捷鍵、分支後果、故事狀態序列化與非法 choice 原子拒絕。
+- SaveManager `.tmp`／`.bak` recovery、損壞 primary 安全回退與 recovery status 診斷。
 | 55 最終成果 | 完成 | Source、Data、Docs、Tests、Screenshots、env 範本與 release pipeline 齊全。 |
 | 56 回報格式 | 完成 | 最終回覆提供路徑、版本、系統、測試、限制、重要檔案與三項推薦。 |

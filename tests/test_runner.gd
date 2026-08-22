@@ -1,5 +1,7 @@
 extends Node
 
+const UiRefreshSchedulerTest = preload("res://tests/suites/ui_refresh_scheduler_test.gd")
+
 var passed := 0
 var failed := 0
 var results: Array[Dictionary] = []
@@ -9,6 +11,15 @@ func _ready() -> void:
 
 func run() -> void:
 	await get_tree().process_frame
+	var test_storage_root := OS.get_environment("ECHO_VILLAGE_TEST_STORAGE_ROOT")
+	if test_storage_root.is_empty(): test_storage_root = "res://.test-data"
+	var isolated_storage_ready := SaveManager.configure_test_storage(test_storage_root)
+	if not isolated_storage_ready:
+		check("測試使用隔離存檔目錄", false)
+		get_tree().quit(1)
+		return
+	check("UI 刷新排程器合併髒區域請求", UiRefreshSchedulerTest.run())
+	check("Concrete Action scripts use explicit dependencies and instantiate", concrete_action_scripts_test())
 	GameManager.new_game()
 	check("載入五位 NPC 設定檔", GameManager.npcs.size() == 5)
 	check("所有 NPC 具有必要運行狀態", runtime_state_is_valid())
@@ -16,20 +27,36 @@ func run() -> void:
 	check("關係值正確限制在範圍內", relationship_test())
 	check("正向互動會建立記憶", memory_test())
 	check("存檔與讀檔能還原玩家狀態", save_load_test())
+	check("存檔原子寫入與備份復原", save_recovery_test())
 	check("糧食短缺會提高麵包價格", event_price_test())
 	check("七日加速模擬保持健康", simulation_test())
+	check("三十日加速模擬保持健康", long_simulation_stability_test())
 	check("展示情境會重現記憶擴散與勇氣決策", showcase_test())
 	check("玩家行動會推進村落編年與聲望", community_progress_test())
 	check("村落編年會隨遊戲狀態序列化還原", community_progress_save_test())
+	check("Living Stories 會產生可選擇且可存檔的分支後果", living_story_contract_test())
+	check("故事選擇拒絕重複與未知輸入且不污染狀態", story_choice_safety_test())
+	check("每日回音時間軸會分類並彙整重要事件", daily_echoes_summary_test())
+	check("每日回音可依日期與分類查詢且維持邊界", daily_echoes_history_filter_test())
+	check("每日回音面板提供摘要切換與快捷鍵入口", await daily_echoes_ui_test())
+	check("每日回音面板提供歷史日期與分類控制", await daily_echoes_history_ui_test())
+	check("關係與記憶會留下結構化因果歷程", causality_relationship_memory_test())
+	check("因果歷程可依居民與類型篩選且回傳深拷貝", causality_filter_and_copy_test())
+	check("故事選擇因果歷程可安全存檔並相容舊事件", causality_story_save_compatibility_test())
+	check("關係歷程面板提供三模式、篩選與快捷鍵入口", await causality_history_ui_test())
 	check("日夜階段會正確映射遊戲時間", day_phase_test())
 	check("NPC 展示快照會安全提供情緒、需求與關係", npc_showcase_snapshot_test())
 	check("日夜視覺設定會提供可用亮度與標籤", visual_profile_test())
 	check("主介面具備完整展示控制列與編年面板", await ui_structure_test())
 	check("居民互動介面提供情境操作列、靠近提示與結果回饋", await contextual_interaction_ui_test())
+	check("故事線面板提供分支選擇與明確關閉路徑", await story_arc_ui_test())
+	check("故事線模態入口會暫停模擬並能完整關閉", await story_modal_behavior_test())
 	check("關鍵操作具備離散按鍵輸入映射", input_map_test())
 	check("繪本美術系統提供角色與日夜視覺資料", village_art_system_test())
 	check("擴充內容資料契約可載入", expansion_data_contract_test())
 	check("舊版存檔可安全遷移至世界狀態 v2", save_v1_migration_test())
+	check("存檔邊界會拒絕損壞與超大資料", save_envelope_validation_test())
+	check("偏好設定只接受布林型別", preference_type_safety_test())
 	check("林間回音任務可依序推進並原子交付", forest_echo_progression_test())
 	check("完成任務後不可重複取得獎勵", quest_reward_idempotency_test())
 	check("森林配方製作成功且失敗時不消耗素材", crafting_atomicity_test())
@@ -39,6 +66,7 @@ func run() -> void:
 	check("主場景提供可重複的視覺 QA 擷取入口", await visual_capture_interface_test())
 	check("任務與森林視覺 QA 證據已產生", expansion_visual_capture_test())
 	check("消費者主選單與設定介面具備完整入口", await consumer_shell_structure_test())
+	check("首次旅程導覽可逐步操作、略過並從暫停選單重開", await onboarding_experience_test())
 	check("存檔服務支援繼續遊戲、自動存檔與偏好設定", save_service_capabilities_test())
 	check("遊戲時間可以在模態介面期間可靠暫停", game_time_pause_test())
 	check("買入與出售交易會原子更新雙方金錢與庫存", trade_atomicity_test())
@@ -56,6 +84,9 @@ func run() -> void:
 	check("村落美術提供五間可辨識的居民住宅", village_homes_visual_contract_test())
 	check("設定切換鈕在選取狀態仍維持高對比文字", await settings_selected_contrast_test())
 	check("交易面板開啟時位於所有 HUD 卡片上方", await trade_modal_layering_test())
+	check("模態面板互斥且關閉狀態一致", await modal_exclusivity_test())
+	check("暫停選單動態偏好與設定頁同步", await motion_preference_sync_test())
+	check("任務日誌使用玩家可讀的獎勵與任務名稱", await quest_log_copy_test())
 	check("Utility AI 由可擴充的十種 NPC Action Registry 驅動", npc_action_registry_test())
 	check("NPC State Machine 管理移動、工作、睡眠與逾時復原", npc_state_machine_test())
 	check("十種 NPC 行動皆由獨立具名 Action 類別實作", concrete_npc_actions_test())
@@ -87,6 +118,7 @@ func run() -> void:
 	check("村落手札具 44px 關閉操作且開啟時暫停模擬", await progression_panel_accessibility_test())
 	check("村落手札具有可重複的 GPU 視覺 QA 情境", await progression_visual_capture_contract_test())
 	write_report()
+	print("TEST_RESULT passed=%d failed=%d" % [passed,failed])
 	print("Echo Village 測試：%d 通過，%d 失敗" % [passed,failed])
 	get_tree().quit(0 if failed == 0 else 1)
 
@@ -103,6 +135,30 @@ func runtime_state_is_valid() -> bool:
 	for npc in GameManager.npcs.values():
 		for key in ["position","target","needs","inventory","relationships","memories","mood","action","state"]:
 			if not npc.has(key): return false
+	return true
+
+func concrete_action_scripts_test() -> bool:
+	var scripts := {
+		"Eat":"res://scripts/actions/eat_action.gd",
+		"Sleep":"res://scripts/actions/sleep_action.gd",
+		"Work":"res://scripts/actions/work_action.gd",
+		"Socialize":"res://scripts/actions/socialize_action.gd",
+		"Wander":"res://scripts/actions/wander_action.gd",
+		"Shop":"res://scripts/actions/shop_action.gd",
+		"GoHome":"res://scripts/actions/go_home_action.gd",
+		"Flee":"res://scripts/actions/flee_action.gd",
+		"Help":"res://scripts/actions/help_action.gd",
+		"Rest":"res://scripts/actions/rest_action.gd"
+	}
+	for action_id in scripts:
+		var path: String = scripts[action_id]
+		var file := FileAccess.open(path, FileAccess.READ)
+		if file == null or not file.get_as_text().begins_with('extends "res://scripts/actions/utility_action.gd"'):
+			return false
+		var script = load(path)
+		var action = script.new() if script != null else null
+		if action == null or action.action_id != action_id:
+			return false
 	return true
 
 func inventory_test() -> bool:
@@ -128,6 +184,25 @@ func save_load_test() -> bool:
 	if not SaveManager.load_game(): return false
 	return int(GameManager.player["coin"]) == original
 
+func save_recovery_test() -> bool:
+	GameManager.new_game()
+	GameManager.player["coin"] = 91
+	if not SaveManager.save_game("manual"): return false
+	GameManager.player["coin"] = 123
+	if not SaveManager.save_game("manual"): return false
+	var root := OS.get_environment("ECHO_VILLAGE_TEST_STORAGE_ROOT")
+	if root.is_empty(): root = ProjectSettings.globalize_path("res://.test-data")
+	var primary := root.path_join("echo_village_save.json")
+	var backup := primary + ".bak"
+	if not FileAccess.file_exists(backup): return false
+	var corrupted := FileAccess.open(primary,FileAccess.WRITE)
+	if corrupted == null: return false
+	corrupted.store_string(JSON.stringify({"save_version":2,"world_state":{"player":"tampered","npcs":{}}}))
+	corrupted.close()
+	GameManager.player["coin"] = 777
+	if not SaveManager.load_game(): return false
+	return int(GameManager.player["coin"]) == 91 and FileAccess.file_exists(backup)
+
 func event_price_test() -> bool:
 	GameManager.new_game()
 	var normal := GameManager.trade_price("alice","bread")
@@ -145,6 +220,20 @@ func simulation_test() -> bool:
 			if float(value) < 0.0 or float(value) > 100.0: return false
 		if npc["state"] == "" or npc["action"] == "": return false
 	return true
+
+func long_simulation_stability_test() -> bool:
+	GameManager.new_game()
+	var started_at := Time.get_ticks_usec()
+	for _minute in 43200:
+		GameTime.advance_minute()
+	var elapsed_ms := int((Time.get_ticks_usec() - started_at) / 1000)
+	var snapshot: Dictionary = GameManager.serialize()
+	for npc in GameManager.npcs.values():
+		for value in npc["needs"].values():
+			if float(value) < 0.0 or float(value) > 100.0: return false
+		if str(npc.get("state","")) == "" or str(npc.get("action","")) == "": return false
+	print("LONG_SIMULATION days=30 elapsed_ms=%d" % elapsed_ms)
+	return int(snapshot.get("save_version",0)) >= 3 and snapshot.has("npcs") and snapshot.has("progression")
 
 func showcase_test() -> bool:
 	GameManager.load_showcase("rumor")
@@ -171,6 +260,225 @@ func community_progress_save_test() -> bool:
 	GameManager.deserialize(snapshot)
 	var result: Dictionary = GameManager.community_progress()
 	return bool(result["kindness"]) and int(result["renown"]) >= 3 and int(result["unlocked"]) == 1
+
+func living_story_contract_test() -> bool:
+	if not FileAccess.file_exists("res://data/stories/story_arcs.json"): return false
+	if not GameManager.has_method("story_snapshot") or not GameManager.has_method("choose_story_arc"): return false
+	GameManager.new_game()
+	GameManager.interact("bob","steal_food")
+	var active_snapshot: Dictionary = GameManager.story_snapshot()
+	var rumor: Dictionary = active_snapshot.get("arcs",{}).get("bread_rumor",{})
+	if str(rumor.get("status","")) != "active": return false
+	var choice: Dictionary = GameManager.choose_story_arc("bread_rumor","apologize")
+	if not bool(choice.get("ok",false)): return false
+	var completed: Dictionary = GameManager.story_snapshot().get("arcs",{}).get("bread_rumor",{})
+	if str(completed.get("status","")) != "completed": return false
+	var relationship: Dictionary = GameManager.npcs["bob"]["relationships"].get("player",{})
+	if float(relationship.get("trust",0.0)) <= -25.0: return false
+	var serialized: Dictionary = GameManager.serialize()
+	GameManager.new_game()
+	if not GameManager.deserialize(serialized): return false
+	var restored: Dictionary = GameManager.story_snapshot().get("arcs",{}).get("bread_rumor",{})
+	return str(restored.get("status","")) == "completed" and int(restored.get("choices_made",[]).size()) == 1
+
+func story_choice_safety_test() -> bool:
+	GameManager.new_game()
+	GameManager.interact("bob","steal_food")
+	var before: Dictionary = GameManager.story_snapshot()
+	var unknown: Dictionary = GameManager.choose_story_arc("bread_rumor","not_a_choice")
+	if bool(unknown.get("ok",false)) or GameManager.story_snapshot() != before: return false
+	var chosen: Dictionary = GameManager.choose_story_arc("bread_rumor","deny")
+	if not bool(chosen.get("ok",false)): return false
+	var repeated: Dictionary = GameManager.choose_story_arc("bread_rumor","deny")
+	return not bool(repeated.get("ok",false)) and GameManager.story_available_choices("bread_rumor").is_empty()
+
+func daily_echoes_summary_test() -> bool:
+	GameTime.reset_clock()
+	GameManager.new_game()
+	GameManager.add_log("玩家與艾莉絲交談。")
+	GameManager.trigger_world_event("rain")
+	GameManager.add_log("完成任務：「林間回音」。")
+	var summary: Dictionary = GameManager.daily_summary()
+	var timeline: Array = GameManager.timeline_snapshot("all",GameTime.day,20)
+	var snapshot: Dictionary = GameManager.serialize()
+	var categories: Dictionary = summary.get("category_counts",{})
+	var has_required_fields: bool = not timeline.is_empty() and timeline[0].has_all(["id","day","time","phase","category","message"])
+	var classified: bool = int(categories.get("social",0)) > 0 and int(categories.get("world",0)) > 0 and int(categories.get("quest",0)) > 0
+	var has_highlights: bool = summary.get("highlights",[]).size() >= 3
+	GameManager.new_game()
+	var restored: bool = GameManager.deserialize(snapshot)
+	var restored_summary: Dictionary = GameManager.daily_summary(1)
+	return has_required_fields and classified and has_highlights and restored and int(restored_summary.get("total_events",0)) >= 3
+
+func daily_echoes_history_filter_test() -> bool:
+	GameTime.reset_clock()
+	GameManager.new_game()
+	GameManager.add_log("玩家與艾莉絲交談。")
+	GameManager.add_log("玩家買入麵包。")
+	GameTime.day = 2
+	GameTime.minute = 360
+	GameManager.add_log("第二天完成任務。")
+	var social_day_one: Array = GameManager.timeline_snapshot("social",1,20)
+	var economy_day_one: Array = GameManager.timeline_snapshot("economy",1,20)
+	var day_one: Array = GameManager.timeline_snapshot("all",1,20)
+	var day_two: Array = GameManager.timeline_snapshot("all",2,20)
+	var bounded: Array = GameManager.timeline_snapshot("all",-1,1)
+	var filtered_summary: Dictionary = GameManager.daily_summary(1,"social")
+	var all_social: bool = not social_day_one.is_empty()
+	for value in social_day_one:
+		all_social = all_social and int(value.get("day",0)) == 1 and str(value.get("category","")) == "social"
+	var summary_is_filtered: bool = int(filtered_summary.get("total_events",0)) == 1 and int(filtered_summary.get("category_counts",{}).get("social",0)) == 1 and int(filtered_summary.get("category_counts",{}).get("economy",0)) == 0
+	return all_social and economy_day_one.size() == 1 and day_one.size() >= 3 and day_two.size() == 1 and bounded.size() == 1 and summary_is_filtered
+
+func daily_echoes_ui_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	if scene == null: return false
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	instance.main_menu_panel.visible = false
+	instance.set_journal_mode("chronicle")
+	var button := instance.get_node_or_null("CanvasLayer/ChroniclePanel/DailySummaryButton") as Button
+	var has_daily_entry: bool = button != null and button.text.contains("今日回音")
+	instance.set_journal_mode("daily")
+	instance.open_side_panel(instance.journal_panel)
+	instance.refresh_ui()
+	var text := str(instance.journal_label.text)
+	var title := str(instance.journal_title_label.text)
+	var result: bool = has_daily_entry and button != null and button.text.contains("村落編年") and title.contains("今日回音") and text.contains("事件") and InputMap.has_action("daily_summary")
+	if button != null:
+		button.emit_signal("pressed")
+		var toggled_back: bool = instance.journal_mode == "chronicle" and str(instance.journal_title_label.text).contains("村落編年") and button.text.contains("今日回音")
+		result = result and toggled_back
+	instance.queue_free()
+	return result
+
+func daily_echoes_history_ui_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	if scene == null: return false
+	GameTime.reset_clock()
+	GameManager.new_game()
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	instance.main_menu_panel.visible = false
+	instance.set_journal_mode("daily")
+	var previous := instance.get_node_or_null("CanvasLayer/ChroniclePanel/DailyPrevButton") as Button
+	var next := instance.get_node_or_null("CanvasLayer/ChroniclePanel/DailyNextButton") as Button
+	var filter := instance.get_node_or_null("CanvasLayer/ChroniclePanel/DailyFilterButton") as Button
+	instance.set_daily_echo_day(0)
+	instance.set_daily_echo_category("social")
+	instance.refresh_ui()
+	var text := str(instance.journal_label.text)
+	var result: bool = previous != null and next != null and filter != null and previous.disabled and next.disabled and instance.daily_echo_day == 1 and instance.daily_echo_category == "social" and text.contains("居民")
+	if filter != null:
+		filter.emit_signal("pressed")
+		result = result and instance.daily_echo_category == "world" and filter.text.contains("世界")
+	instance.set_daily_echo_day(99)
+	result = result and instance.daily_echo_day == GameTime.day
+	instance.queue_free()
+	return result
+
+func causality_relationship_memory_test() -> bool:
+	if not GameManager.has_method("causality_snapshot"): return false
+	GameTime.reset_clock()
+	GameManager.new_game()
+	var before: Dictionary = GameManager.npcs["alice"]["relationships"]["player"].duplicate(true)
+	GameManager.interact("alice","give_bread")
+	var relationship_events: Array = GameManager.causality_snapshot("alice","relationship",20)
+	var memory_events: Array = GameManager.causality_snapshot("alice","memory",20)
+	if relationship_events.is_empty() or memory_events.is_empty(): return false
+	var relationship_event: Dictionary = relationship_events[0]
+	var effect: Dictionary = relationship_event.get("effect",{})
+	var after: Dictionary = GameManager.npcs["alice"]["relationships"]["player"]
+	var memory_effect: Dictionary = memory_events[0].get("effect",{})
+	return str(relationship_event.get("effect_kind","")) == "relationship" \
+		and "alice" in relationship_event.get("actors",[]) \
+		and effect.get("before",{}) == before \
+		and effect.get("after",{}) == after \
+		and str(memory_events[0].get("effect_kind","")) == "memory" \
+		and str(memory_effect.get("npc_id","")) == "alice" \
+		and int(memory_effect.get("importance",0)) > 0
+
+func causality_filter_and_copy_test() -> bool:
+	if not GameManager.has_method("causality_snapshot"): return false
+	GameTime.reset_clock()
+	GameManager.new_game()
+	GameManager.interact("alice","talk")
+	GameManager.interact("bob","talk")
+	var alice_events: Array = GameManager.causality_snapshot("alice","all",50)
+	var memory_events: Array = GameManager.causality_snapshot("","memory",50)
+	var bounded: Array = GameManager.causality_snapshot("","all",1)
+	if alice_events.is_empty() or memory_events.size() < 2 or bounded.size() != 1: return false
+	for value in alice_events:
+		if "alice" not in value.get("actors",[]): return false
+	for value in memory_events:
+		if str(value.get("effect_kind","")) != "memory": return false
+	var original_message: String = str(GameManager.timeline_events.back().get("message",""))
+	alice_events[0]["message"] = "mutated"
+	return str(GameManager.timeline_events.back().get("message","")) == original_message \
+		and GameManager.causality_snapshot("","unknown",0).size() == 1
+
+func causality_story_save_compatibility_test() -> bool:
+	if not GameManager.has_method("causality_snapshot"): return false
+	GameTime.reset_clock()
+	GameManager.new_game()
+	GameManager.interact("bob","steal_food")
+	var choice: Dictionary = GameManager.choose_story_arc("bread_rumor","apologize")
+	if not bool(choice.get("ok",false)): return false
+	var story_events: Array = GameManager.causality_snapshot("bob","story",20)
+	if story_events.is_empty(): return false
+	var effect: Dictionary = story_events[0].get("effect",{})
+	if str(effect.get("arc_id","")) != "bread_rumor" or str(effect.get("choice_id","")) != "apologize": return false
+	var saved: Dictionary = GameManager.serialize()
+	GameManager.new_game()
+	if not GameManager.deserialize(saved) or GameManager.causality_snapshot("bob","story",20).size() != 1: return false
+	var malicious: Dictionary = saved.duplicate(true)
+	malicious["timeline_events"][-1]["actors"] = ["x".repeat(65)]
+	GameManager.new_game()
+	if GameManager.deserialize(malicious): return false
+	var legacy: Dictionary = saved.duplicate(true)
+	for value in legacy.get("timeline_events",[]):
+		value.erase("effect_kind")
+		value.erase("actors")
+		value.erase("effect")
+	GameManager.new_game()
+	return GameManager.deserialize(legacy) and GameManager.causality_snapshot("","all",20).is_empty()
+
+func causality_history_ui_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	if scene == null: return false
+	GameTime.reset_clock()
+	GameManager.new_game()
+	GameManager.interact("alice","give_bread")
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	instance.main_menu_panel.visible = false
+	if not instance.has_method("set_causality_actor") or not instance.has_method("set_causality_kind"):
+		instance.queue_free()
+		return false
+	instance.set_journal_mode("causality")
+	instance.open_side_panel(instance.journal_panel)
+	instance.set_causality_actor("alice")
+	instance.set_causality_kind("relationship")
+	instance.refresh_ui()
+	var mode_button := instance.get_node_or_null("CanvasLayer/ChroniclePanel/CausalityButton") as Button
+	var previous := instance.get_node_or_null("CanvasLayer/ChroniclePanel/DailyPrevButton") as Button
+	var filter := instance.get_node_or_null("CanvasLayer/ChroniclePanel/DailyFilterButton") as Button
+	var title := str(instance.journal_title_label.text)
+	var text := str(instance.journal_label.text)
+	var result: bool = InputMap.has_action("relationship_history") \
+		and instance.journal_mode == "causality" \
+		and mode_button != null and mode_button.size.y >= 44.0 \
+		and previous != null and previous.text.contains("上一位") \
+		and filter != null and filter.text.contains("關係") \
+		and title.contains("關係歷程") and text.contains("艾莉絲") and text.contains("信任")
+	if filter != null:
+		filter.emit_signal("pressed")
+		result = result and instance.causality_kind == "memory" and filter.text.contains("記憶")
+	instance.queue_free()
+	return result
 
 func day_phase_test() -> bool:
 	return GameTime.phase_for_minute(360) == "黎明" and GameTime.phase_for_minute(780) == "正午" and GameTime.phase_for_minute(1140) == "黃昏" and GameTime.phase_for_minute(60) == "深夜"
@@ -204,7 +512,7 @@ func ui_structure_test() -> bool:
 	return result
 
 func input_map_test() -> bool:
-	for action in ["interact","inventory","journal","cancel","speed_normal","speed_2x","speed_5x","speed_10x","save_game","load_game","event_rain","event_festival","event_shortage","event_danger"]:
+	for action in ["interact","inventory","journal","story_arcs","cancel","speed_normal","speed_2x","speed_5x","speed_10x","save_game","load_game","event_rain","event_festival","event_shortage","event_danger"]:
 		if not InputMap.has_action(action): return false
 	return true
 
@@ -246,6 +554,73 @@ func save_v1_migration_test() -> bool:
 	var migrated: Dictionary = result.get("data",{})
 	var state: Dictionary = migrated.get("world_state",{})
 	return int(migrated.get("save_version",0)) == 2 and state.has_all(["player","npcs","current_location","discovered_locations","active_quests","completed_quests","world_flags"]) and int(state["player"]["inventory"].get("bread",0)) == 2
+
+func save_envelope_validation_test() -> bool:
+	var migration = load("res://scripts/save/save_migration.gd")
+	if migration == null or not migration.has_method("migrate"): return false
+	var malformed := [
+		{"save_version":2,"world_state":{"player":"tampered","npcs":{}}},
+		{"save_version":2,"world_state":{"player":{"inventory":[]},"npcs":{}}},
+		{"save_version":1,"time":GameTime.serialize(),"world":{"player":"tampered","npcs":[]}},
+		{"save_version":1,"time":GameTime.serialize(),"world":{"player":{},"npcs":{"alice":"tampered"}}}
+	]
+	for payload in malformed:
+		if bool(migration.migrate(payload).get("ok",false)): return false
+	var oversized: Dictionary = GameManager.serialize()
+	var timeline: Array = []
+	for _index in 513: timeline.append({"message":"oversized"})
+	oversized["timeline_events"] = timeline
+	var oversized_result: Dictionary = migration.migrate({"save_version":2,"world_state":oversized})
+	if bool(oversized_result.get("ok",false)): return false
+	var safe_state: Dictionary = GameManager.serialize()
+	var invalid_times: Array = [
+		{"minute":"tampered","day":1,"day_of_week":1,"time_scale":1.0},
+		{"minute":-1,"day":1,"day_of_week":1,"time_scale":1.0},
+		{"minute":1440,"day":1,"day_of_week":1,"time_scale":1.0},
+		{"minute":360,"day":0,"day_of_week":1,"time_scale":1.0},
+		{"minute":360,"day":1,"day_of_week":8,"time_scale":1.0},
+		{"minute":360,"day":1,"day_of_week":1,"time_scale":0.0},
+		{"minute":[],"day":1,"day_of_week":1,"time_scale":1.0}
+	]
+	for invalid_time in invalid_times:
+		if bool(migration.migrate({"save_version":2,"time":invalid_time,"world_state":safe_state}).get("ok",false)): return false
+	GameTime.deserialize({"minute":"tampered","day":-1,"day_of_week":99,"time_scale":0.0})
+	var direct_time_safe := GameTime.minute == 360 and GameTime.day == 1 and GameTime.day_of_week == 1 and is_equal_approx(GameTime.time_scale,1.0)
+	GameTime.reset_clock()
+	if not direct_time_safe: return false
+	var malformed_state_accepted := GameManager.deserialize({"player":"tampered","npcs":{}})
+	GameManager.new_game()
+	if malformed_state_accepted: return false
+	if not bool(migration.migrate({"save_version":2,"world_state":GameManager.serialize()}).get("ok",false)): return false
+	var temp_path := SaveManager._storage_path("echo_village_oversized_test.tmp","user://echo_village_oversized_test.tmp")
+	var temp_file := FileAccess.open(temp_path,FileAccess.WRITE)
+	if temp_file == null: return false
+	temp_file.store_string("x".repeat(SaveManager.MAX_SAVE_BYTES + 1))
+	temp_file.close()
+	var rejected_oversized_file := SaveManager.read_limited_text(temp_path,SaveManager.MAX_SAVE_BYTES).is_empty()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(temp_path))
+	if not rejected_oversized_file: return false
+	var malformed_vectors: Array = [
+		{"__vector2":[]},
+		{"__vector2":[1]},
+		{"__vector2":"tampered"},
+		{"nested":{"__vector2":[1]}}
+	]
+	for malformed_vector in malformed_vectors:
+		var decoded = GameManager.decode_value(malformed_vector)
+		if not (decoded is Dictionary) or decoded.has("__vector2"): return false
+	var valid_vector = GameManager.decode_value({"__vector2":[12,34]})
+	if not (valid_vector is Vector2) or valid_vector != Vector2(12,34): return false
+	var deeply_nested: Dictionary = {"leaf":"ok"}
+	for _depth in 96: deeply_nested = {"nested":deeply_nested}
+	if not (GameManager.decode_value(deeply_nested) is Dictionary): return false
+	return true
+
+func preference_type_safety_test() -> bool:
+	if not SaveManager.has_method("sanitize_preferences"): return false
+	var original: Dictionary = SaveManager.preferences.duplicate(true)
+	var sanitized: Dictionary = SaveManager.sanitize_preferences({"autosave":"false","motion":0,"fullscreen":1,"audio":false,"onboarding_seen":"true"})
+	return sanitized.get("autosave") == original.get("autosave") and sanitized.get("motion") == original.get("motion") and sanitized.get("fullscreen") == original.get("fullscreen") and sanitized.get("audio") == false and sanitized.get("onboarding_seen") == original.get("onboarding_seen")
 
 func forest_echo_progression_test() -> bool:
 	GameManager.new_game()
@@ -315,12 +690,12 @@ func visual_capture_interface_test() -> bool:
 	var result := instance.has_method("capture_visual_qa") and instance.has_method("visual_qa_capture_names")
 	if result:
 		var names: Array = instance.visual_qa_capture_names()
-		for expected in ["quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png"]: result = result and expected in names
+		for expected in ["quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","village_progression.png","story_arc_active.png","relationship_history.png","consumer_onboarding.png"]: result = result and expected in names
 	instance.queue_free()
 	return result
 
 func expansion_visual_capture_test() -> bool:
-	for expected in ["quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png"]:
+	for expected in ["quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","village_progression.png","story_arc_active.png","relationship_history.png","consumer_onboarding.png"]:
 		if not FileAccess.file_exists("res://tests/visual_qa/" + expected): return false
 	return true
 
@@ -518,6 +893,119 @@ func trade_modal_layering_test() -> bool:
 	instance.queue_free()
 	return result
 
+func story_arc_ui_test() -> bool:
+	var scene := load("res://scenes/ui/StoryArcPanel.tscn") as PackedScene
+	if scene == null: return false
+	GameManager.new_game()
+	GameManager.interact("bob","steal_food")
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	instance.refresh(GameManager.story_snapshot())
+	var close_button := instance.get_node_or_null("CloseButton") as Button
+	var choices := instance.get_node_or_null("DetailPanel/ChoiceList") as VBoxContainer
+	var result := close_button != null and close_button.text.contains("關閉") and choices != null and choices.get_child_count() == 2 and instance.has_method("set_visible_with_motion")
+	instance.queue_free()
+	return result
+
+func story_modal_behavior_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	if scene == null: return false
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	instance.main_menu_panel.visible = false
+	GameManager.new_game()
+	instance.open_story_panel()
+	var opened: bool = instance.story_arc_panel.visible and bool(GameTime.simulation_paused)
+	instance.story_arc_panel.visible = false
+	instance.sync_simulation_pause()
+	var closed: bool = not instance.story_arc_panel.visible and not bool(GameTime.simulation_paused)
+	instance.queue_free()
+	return opened and closed
+
+func onboarding_experience_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	if scene == null: return false
+	var previous_seen := SaveManager.get_preference("onboarding_seen",false)
+	SaveManager.preferences["onboarding_seen"] = false
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	instance.start_new_game()
+	await get_tree().process_frame
+	var panel := instance.get_node_or_null("CanvasLayer/OnboardingPanel") as Panel
+	var backdrop := instance.get_node_or_null("CanvasLayer/OnboardingBackdrop") as ColorRect
+	var next := instance.get_node_or_null("CanvasLayer/OnboardingPanel/NextButton") as Button
+	var skip := instance.get_node_or_null("CanvasLayer/OnboardingPanel/SkipButton") as Button
+	var guide := instance.get_node_or_null("CanvasLayer/PausePanel/GuideButton") as Button
+	var pause_motion := instance.pause_motion_button as Button
+	var step_label := instance.get_node_or_null("CanvasLayer/OnboardingPanel/StepLabel") as Label
+	var pause_layout_ok: bool = guide != null and pause_motion != null and guide.position.y + guide.size.y <= instance.pause_panel.size.y and guide.position.y + guide.size.y <= pause_motion.position.y
+	var result: bool = panel != null and backdrop != null and next != null and skip != null and guide != null and step_label != null and pause_layout_ok and panel.visible and backdrop.visible and step_label.text.contains("1 / 3") and bool(GameTime.simulation_paused)
+	if next != null:
+		next.emit_signal("pressed")
+		result = result and step_label.text.contains("2 / 3")
+	if skip != null:
+		skip.emit_signal("pressed")
+		result = result and not panel.visible and SaveManager.get_preference("onboarding_seen",false) and not bool(GameTime.simulation_paused)
+	if guide != null:
+		instance.pause_panel.visible = true
+		instance.sync_simulation_pause()
+		guide.emit_signal("pressed")
+		result = result and panel.visible and step_label.text.contains("1 / 3") and bool(GameTime.simulation_paused)
+	instance.queue_free()
+	SaveManager.set_preference("onboarding_seen",previous_seen)
+	return result
+
+func modal_exclusivity_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	if scene == null: return false
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	instance.main_menu_panel.visible = false
+	instance.open_side_panel(instance.inventory_panel)
+	var inventory_open: bool = instance.inventory_panel.visible and not instance.journal_panel.visible
+	instance.open_side_panel(instance.journal_panel)
+	var journal_replaced: bool = instance.journal_panel.visible and not instance.inventory_panel.visible
+	instance.toggle_modal_panel(instance.progression_panel)
+	var progression_replaced: bool = instance.progression_panel.visible and not instance.journal_panel.visible
+	instance.close_modal_panels()
+	var all_closed: bool = not instance.inventory_panel.visible and not instance.journal_panel.visible and not instance.progression_panel.visible and not instance.trade_panel.visible
+	instance.queue_free()
+	return inventory_open and journal_replaced and progression_replaced and all_closed
+
+func motion_preference_sync_test() -> bool:
+	var previous := SaveManager.get_preference("motion",true)
+	SaveManager.set_preference("motion",false)
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	if scene == null:
+		SaveManager.set_preference("motion",previous)
+		return false
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	var pause_button := instance.pause_motion_button as Button
+	var settings_toggle := instance.motion_toggle as CheckButton
+	var disabled_state: bool = not instance.motion_enabled and pause_button != null and pause_button.text.contains("關") and settings_toggle != null and not settings_toggle.button_pressed
+	instance.set_motion_enabled(true)
+	var enabled_state := bool(SaveManager.get_preference("motion",false)) and pause_button.text.contains("開") and settings_toggle.button_pressed
+	instance.queue_free()
+	SaveManager.set_preference("motion",previous)
+	return disabled_state and enabled_state
+
+func quest_log_copy_test() -> bool:
+	GameManager.new_game()
+	var scene := load("res://scenes/ui/QuestLogPanel.tscn") as PackedScene
+	if scene == null: return false
+	var panel := scene.instantiate()
+	add_child(panel)
+	panel.refresh([{"title":"林間回音","description":"測試任務","objective":{"description":"測試目標"},"rewards":{"coin":8,"herb":2}}],["forest_echo"])
+	var body := str(panel.body_label.text)
+	panel.queue_free()
+	return body.contains("金幣 +8") and body.contains("月光藥草 +2") and body.contains("林間回音") and not body.contains("{\"coin\"") and not body.contains("forest_echo")
+
 func npc_action_registry_test() -> bool:
 	var registry_script = load("res://scripts/ai/action_registry.gd")
 	if registry_script == null: return false
@@ -674,7 +1162,11 @@ func optional_ai_service_contract_test() -> bool:
 	var response: Dictionary = service.generate_dialogue(context)
 	var fallback = service_script.new()
 	var fallback_response: Dictionary = fallback.generate_dialogue(context)
-	return response.has_all(["dialogue","emotion","intent"]) and fallback_response.has_all(["dialogue","emotion","intent"]) and service.has_method("summarize_memories") and service.has_method("generate_long_term_goal") and context == original and not response.has("inventory") and not response.has("relationship_delta")
+	var hostile_context := {"npc_profile":"tampered","mood":{"unexpected":true},"relevant_memories":["not-a-memory",{"importance":4,"description":"保留這段"}],"relationship":"tampered","world_event":"tampered","situation":"x".repeat(1000)}
+	var hostile_response: Dictionary = service.generate_dialogue(hostile_context)
+	var hostile_summary: String = service.summarize_memories(["tampered",{"importance":4,"description":"保留這段"},null])
+	var hostile_goal: String = service.generate_long_term_goal({"npc_profile":"tampered"})
+	return response.has_all(["dialogue","emotion","intent"]) and fallback_response.has_all(["dialogue","emotion","intent"]) and hostile_response.has_all(["dialogue","emotion","intent"]) and hostile_summary.contains("保留這段") and hostile_goal.contains("居民") and service.has_method("summarize_memories") and service.has_method("generate_long_term_goal") and context == original and not response.has("inventory") and not response.has("relationship_delta")
 
 func inventory_safety_contract_test() -> bool:
 	GameManager.new_game()
@@ -856,6 +1348,6 @@ func progression_visual_capture_contract_test() -> bool:
 	return "village_progression.png" in names
 
 func write_report() -> void:
-	var report := {"project":"Echo Village","timestamp":Time.get_datetime_string_from_system(),"passed":passed,"failed":failed,"results":results,"simulated_game_days":7}
+	var report := {"project":"Echo Village","timestamp":Time.get_datetime_string_from_system(),"passed":passed,"failed":failed,"results":results,"simulated_game_days":30}
 	var file := FileAccess.open("res://tests/simulation_test_report.json",FileAccess.WRITE)
 	if file != null: file.store_string(JSON.stringify(report,"\t"))

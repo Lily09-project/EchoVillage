@@ -77,9 +77,20 @@ func serialize() -> Dictionary:
 	return {"minute": minute, "day": day, "day_of_week": day_of_week, "time_scale": time_scale}
 
 func deserialize(data: Dictionary) -> void:
-
-	minute = int(data.get("minute", 360))
-	day = int(data.get("day", 1))
-	day_of_week = int(data.get("day_of_week", 1))
-	time_scale = float(data.get("time_scale", 1.0))
+	minute = _safe_integer(data.get("minute",360),360,0,MINUTES_PER_DAY - 1)
+	day = _safe_integer(data.get("day",1),1,1,1000000)
+	day_of_week = _safe_integer(data.get("day_of_week",1),1,1,7)
+	time_scale = _safe_float(data.get("time_scale",1.0),1.0,0.01,10.0)
 	_accumulator = 0.0
+
+func _safe_integer(value: Variant, fallback: int, minimum: int, maximum: int) -> int:
+	if not (value is int or value is float): return fallback
+	var number := float(value)
+	if number != floor(number) or number < float(minimum) or number > float(maximum): return fallback
+	return int(number)
+
+func _safe_float(value: Variant, fallback: float, minimum: float, maximum: float) -> float:
+	if not (value is int or value is float): return fallback
+	var number := float(value)
+	if number < minimum or number > maximum: return fallback
+	return number

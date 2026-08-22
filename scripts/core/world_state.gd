@@ -8,5 +8,6 @@ static func expansion_defaults() -> Dictionary:
 		"active_quests":{},
 		"completed_quests":[],
 		"world_flags":{},
+		"story_progression":{"schema_version":1,"arcs":{}},
 		"progression":{"unlocked_ids":[],"unlocked_at":{},"stats":{"interactions":0,"trades":0}}
 	}

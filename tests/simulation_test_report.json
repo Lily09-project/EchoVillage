@@ -1,8 +1,16 @@
 {
 	"failed": 0,
-	"passed": 76,
+	"passed": 98,
 	"project": "Echo Village",
 	"results": [
+		{
+			"name": "UI 刷新排程器合併髒區域請求",
+			"passed": true
+		},
+		{
+			"name": "Concrete Action scripts use explicit dependencies and instantiate",
+			"passed": true
+		},
 		{
 			"name": "載入五位 NPC 設定檔",
 			"passed": true
@@ -28,11 +36,19 @@
 			"passed": true
 		},
 		{
+			"name": "存檔原子寫入與備份復原",
+			"passed": true
+		},
+		{
 			"name": "糧食短缺會提高麵包價格",
 			"passed": true
 		},
 		{
 			"name": "七日加速模擬保持健康",
+			"passed": true
+		},
+		{
+			"name": "三十日加速模擬保持健康",
 			"passed": true
 		},
 		{
@@ -45,6 +61,46 @@
 		},
 		{
 			"name": "村落編年會隨遊戲狀態序列化還原",
+			"passed": true
+		},
+		{
+			"name": "Living Stories 會產生可選擇且可存檔的分支後果",
+			"passed": true
+		},
+		{
+			"name": "故事選擇拒絕重複與未知輸入且不污染狀態",
+			"passed": true
+		},
+		{
+			"name": "每日回音時間軸會分類並彙整重要事件",
+			"passed": true
+		},
+		{
+			"name": "每日回音可依日期與分類查詢且維持邊界",
+			"passed": true
+		},
+		{
+			"name": "每日回音面板提供摘要切換與快捷鍵入口",
+			"passed": true
+		},
+		{
+			"name": "每日回音面板提供歷史日期與分類控制",
+			"passed": true
+		},
+		{
+			"name": "關係與記憶會留下結構化因果歷程",
+			"passed": true
+		},
+		{
+			"name": "因果歷程可依居民與類型篩選且回傳深拷貝",
+			"passed": true
+		},
+		{
+			"name": "故事選擇因果歷程可安全存檔並相容舊事件",
+			"passed": true
+		},
+		{
+			"name": "關係歷程面板提供三模式、篩選與快捷鍵入口",
 			"passed": true
 		},
 		{
@@ -68,6 +124,14 @@
 			"passed": true
 		},
 		{
+			"name": "故事線面板提供分支選擇與明確關閉路徑",
+			"passed": true
+		},
+		{
+			"name": "故事線模態入口會暫停模擬並能完整關閉",
+			"passed": true
+		},
+		{
 			"name": "關鍵操作具備離散按鍵輸入映射",
 			"passed": true
 		},
@@ -81,6 +145,14 @@
 		},
 		{
 			"name": "舊版存檔可安全遷移至世界狀態 v2",
+			"passed": true
+		},
+		{
+			"name": "存檔邊界會拒絕損壞與超大資料",
+			"passed": true
+		},
+		{
+			"name": "偏好設定只接受布林型別",
 			"passed": true
 		},
 		{
@@ -117,6 +189,10 @@
 		},
 		{
 			"name": "消費者主選單與設定介面具備完整入口",
+			"passed": true
+		},
+		{
+			"name": "首次旅程導覽可逐步操作、略過並從暫停選單重開",
 			"passed": true
 		},
 		{
@@ -185,6 +261,18 @@
 		},
 		{
 			"name": "交易面板開啟時位於所有 HUD 卡片上方",
+			"passed": true
+		},
+		{
+			"name": "模態面板互斥且關閉狀態一致",
+			"passed": true
+		},
+		{
+			"name": "暫停選單動態偏好與設定頁同步",
+			"passed": true
+		},
+		{
+			"name": "任務日誌使用玩家可讀的獎勵與任務名稱",
 			"passed": true
 		},
 		{
@@ -308,6 +396,6 @@
 			"passed": true
 		}
 	],
-	"simulated_game_days": 7,
-	"timestamp": "2026-08-12T21:00:39"
+	"simulated_game_days": 30,
+	"timestamp": "2026-08-20T23:36:42"
 }

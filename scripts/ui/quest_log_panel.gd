@@ -22,9 +22,28 @@ func refresh(entries: Array, completed: Array) -> void:
 	for entry_value in entries:
 		var entry: Dictionary = entry_value
 		var objective: Dictionary = entry.get("objective",{})
-		lines.append("【%s】\n%s\n目前目標：%s\n獎勵：%s" % [str(entry.get("title","任務")),str(entry.get("description","")),str(objective.get("description","")),str(entry.get("rewards",{}))])
-	if not completed.is_empty(): lines.append("\n已完成：%s" % ", ".join(PackedStringArray(completed)))
+		lines.append("【%s】\n%s\n目前目標：%s\n獎勵：%s" % [str(entry.get("title","任務")),str(entry.get("description","")),str(objective.get("description","")),format_rewards(entry.get("rewards",{}))])
+	if not completed.is_empty(): lines.append("\n已完成：%s" % format_completed(completed))
 	body_label.text = "\n\n".join(lines)
+
+func format_rewards(rewards: Dictionary) -> String:
+	var labels: Array[String] = []
+	for reward_id in rewards:
+		var key: String = str(reward_id)
+		var display_name: String = str({"coin":"金幣","renown":"聲望"}.get(key,""))
+		if display_name == "" and GameManager.item_defs.has(key):
+			display_name = str(GameManager.item_defs[key].get("display_name",key))
+		if display_name == "": display_name = key
+		labels.append("%s +%d" % [display_name,int(rewards[reward_id])])
+	return "、".join(labels) if not labels.is_empty() else "無"
+
+func format_completed(completed: Array) -> String:
+	var titles: Array[String] = []
+	for quest_id in completed:
+		var key: String = str(quest_id)
+		var definition: Dictionary = GameManager.quest_defs.get(key,{})
+		titles.append(str(definition.get("title",key)))
+	return "、".join(titles)
 
 func set_visible_with_motion(value: bool, motion_enabled: bool) -> void:
 	visible = value
