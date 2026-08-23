@@ -18,7 +18,7 @@ func run() -> void:
 		check("測試使用隔離存檔目錄", false)
 		get_tree().quit(1)
 		return
-	check("UI 刷新排程器合併髒區域請求", UiRefreshSchedulerTest.run())
+	check("UI 刷新排程器合併事件且閒置時不重算", await ui_refresh_scheduler_integration_test())
 	check("Concrete Action scripts use explicit dependencies and instantiate", concrete_action_scripts_test())
 	GameManager.new_game()
 	check("載入五位 NPC 設定檔", GameManager.npcs.size() == 5)
@@ -329,6 +329,30 @@ func daily_echoes_history_filter_test() -> bool:
 		all_social = all_social and int(value.get("day",0)) == 1 and str(value.get("category","")) == "social"
 	var summary_is_filtered: bool = int(filtered_summary.get("total_events",0)) == 1 and int(filtered_summary.get("category_counts",{}).get("social",0)) == 1 and int(filtered_summary.get("category_counts",{}).get("economy",0)) == 0
 	return all_social and economy_day_one.size() == 1 and day_one.size() >= 3 and day_two.size() == 1 and bounded.size() == 1 and summary_is_filtered
+
+func ui_refresh_scheduler_integration_test() -> bool:
+	if not UiRefreshSchedulerTest.run(): return false
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	if scene == null: return false
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	if not instance.has_method("ui_refresh_metrics"):
+		instance.queue_free()
+		return false
+	var before: Dictionary = instance.ui_refresh_metrics()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var idle: Dictionary = instance.ui_refresh_metrics()
+	EventBus.inventory_changed.emit({"bread":1})
+	EventBus.quest_changed.emit([])
+	await get_tree().process_frame
+	var after: Dictionary = instance.ui_refresh_metrics()
+	var result: bool = int(idle.get("flushes",-1)) == int(before.get("flushes",-2)) \
+		and int(after.get("flushes",-1)) == int(idle.get("flushes",-1)) + 1 \
+		and int(after.get("coalesced_requests",-1)) >= int(idle.get("coalesced_requests",0)) + 1
+	instance.queue_free()
+	return result
 
 func daily_echoes_ui_test() -> bool:
 	var scene := load("res://scenes/main/Main.tscn") as PackedScene

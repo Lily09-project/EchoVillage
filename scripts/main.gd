@@ -9,6 +9,7 @@ const TradePanelScene = preload("res://scenes/ui/TradePanel.tscn")
 const ProgressionPanelScene = preload("res://scenes/ui/ProgressionPanel.tscn")
 const StoryArcPanelScene = preload("res://scenes/ui/StoryArcPanel.tscn")
 const NavigationCoordinatorScript = preload("res://scripts/navigation/navigation_coordinator.gd")
+const UiRefreshSchedulerScript = preload("res://scripts/ui/ui_refresh_scheduler.gd")
 
 const WORLD := Rect2(42, 92, 1196, 506)
 const CAMERA_BOUNDS := Rect2(0,0,1280,720)
@@ -98,26 +99,38 @@ var gather_button: Button
 var navigation_coordinator: Node2D
 var player_camera: Camera2D
 var camera_follow_target := Vector2.ZERO
+var ui_refresh_scheduler = UiRefreshSchedulerScript.new()
 
 func _ready() -> void:
 	create_input_map()
 	create_camera()
 	create_navigation()
 	create_ui()
-	EventBus.event_logged.connect(func(_time: String, _message: String): refresh_ui())
-	EventBus.community_progressed.connect(func(_entry: Dictionary): refresh_ui())
-	EventBus.quest_changed.connect(func(_snapshot: Array): refresh_ui())
-	EventBus.location_changed.connect(func(_location_id: String): refresh_ui())
-	EventBus.save_completed.connect(func(_path: String): refresh_ui())
-	EventBus.progression_unlocked.connect(handle_progression_unlock)
-	EventBus.story_arc_updated.connect(func(_arc_id: String, _stage_id: String, _consequence: Dictionary):
-		if story_arc_panel != null: story_arc_panel.refresh(GameManager.story_snapshot())
-		refresh_ui())
+	connect_ui_refresh_signals()
 	motion_enabled = SaveManager.get_preference("motion",true)
 	sync_motion_controls()
 	GameTime.set_simulation_paused(true)
+	refresh_ui()
 	queue_redraw()
 	if is_visual_qa_requested(): call_deferred("capture_visual_qa")
+
+func connect_ui_refresh_signals() -> void:
+	EventBus.event_logged.connect(func(_time: String, _message: String): request_ui_refresh(UiRefreshSchedulerScript.LOG | UiRefreshSchedulerScript.WORLD, "event logged"))
+	EventBus.community_progressed.connect(func(_entry: Dictionary): request_ui_refresh(UiRefreshSchedulerScript.PROGRESSION | UiRefreshSchedulerScript.LOG | UiRefreshSchedulerScript.WORLD, "community progressed"))
+	EventBus.quest_changed.connect(func(_snapshot: Array): request_ui_refresh(UiRefreshSchedulerScript.QUEST | UiRefreshSchedulerScript.PLAYER | UiRefreshSchedulerScript.PROGRESSION, "quest changed"))
+	EventBus.location_changed.connect(func(_location_id: String): request_ui_refresh(UiRefreshSchedulerScript.WORLD | UiRefreshSchedulerScript.PLAYER | UiRefreshSchedulerScript.NPC | UiRefreshSchedulerScript.QUEST | UiRefreshSchedulerScript.CONTEXT, "location changed"))
+	EventBus.save_completed.connect(func(_path: String): request_ui_refresh(UiRefreshSchedulerScript.LOG, "save completed"))
+	EventBus.inventory_changed.connect(func(_inventory: Dictionary): request_ui_refresh(UiRefreshSchedulerScript.PLAYER | UiRefreshSchedulerScript.QUEST | UiRefreshSchedulerScript.PROGRESSION, "inventory changed"))
+	EventBus.world_event_changed.connect(func(_event_id: String): request_ui_refresh(UiRefreshSchedulerScript.WORLD | UiRefreshSchedulerScript.NPC | UiRefreshSchedulerScript.QUEST, "world event changed"))
+	EventBus.relationship_changed.connect(func(_subject_id: String, _target_id: String, _changes: Dictionary): request_ui_refresh(UiRefreshSchedulerScript.NPC | UiRefreshSchedulerScript.PROGRESSION, "relationship changed"))
+	EventBus.npc_action_changed.connect(func(_npc_id: String, _action: String): request_ui_refresh(UiRefreshSchedulerScript.NPC | UiRefreshSchedulerScript.DEBUG, "npc action changed"))
+	EventBus.memory_created.connect(func(_npc_id: String, _memory: Dictionary): request_ui_refresh(UiRefreshSchedulerScript.NPC | UiRefreshSchedulerScript.LOG, "memory created"))
+	EventBus.player_interaction.connect(func(_npc_id: String, _interaction: String): request_ui_refresh(UiRefreshSchedulerScript.NPC | UiRefreshSchedulerScript.QUEST | UiRefreshSchedulerScript.PROGRESSION | UiRefreshSchedulerScript.LOG, "player interaction"))
+	EventBus.progression_unlocked.connect(handle_progression_unlock)
+	EventBus.story_arc_updated.connect(func(_arc_id: String, _stage_id: String, _consequence: Dictionary):
+		if story_arc_panel != null: story_arc_panel.refresh(GameManager.story_snapshot())
+		request_ui_refresh(UiRefreshSchedulerScript.QUEST | UiRefreshSchedulerScript.PROGRESSION | UiRefreshSchedulerScript.NPC | UiRefreshSchedulerScript.LOG, "story arc updated"))
+	GameTime.minute_changed.connect(func(_minute: int, _hour: int): request_ui_refresh(UiRefreshSchedulerScript.TIME | UiRefreshSchedulerScript.WORLD | UiRefreshSchedulerScript.NPC | UiRefreshSchedulerScript.QUEST | UiRefreshSchedulerScript.PROGRESSION | UiRefreshSchedulerScript.DEBUG, "minute changed"))
 
 func is_visual_qa_requested() -> bool:
 	return "--visual-qa" in OS.get_cmdline_user_args() or "--visual-qa" in OS.get_cmdline_args() or OS.get_environment("ECHO_VILLAGE_VISUAL_QA") == "1"
@@ -240,8 +253,30 @@ func _process(delta: float) -> void:
 	if not is_blocking_modal_open(): move_player(delta)
 	update_player_camera(delta)
 	sync_simulation_pause()
-	refresh_ui()
+	if not GameTime.simulation_paused:
+		request_ui_refresh(UiRefreshSchedulerScript.CONTEXT,"live proximity")
+	flush_ui_refresh()
 	queue_redraw()
+
+func request_ui_refresh(mask: int = UiRefreshSchedulerScript.ALL, reason: String = "") -> void:
+	ui_refresh_scheduler.request(mask,reason)
+
+func flush_ui_refresh() -> void:
+	var batch: Dictionary = ui_refresh_scheduler.consume()
+	var mask := int(batch.get("mask",0))
+	if mask == 0: return
+	if mask & UiRefreshSchedulerScript.TIME: refresh_time_ui()
+	if mask & UiRefreshSchedulerScript.PLAYER: refresh_player_ui()
+	if mask & UiRefreshSchedulerScript.WORLD: refresh_world_ui()
+	if mask & UiRefreshSchedulerScript.NPC: refresh_npc_ui()
+	if mask & UiRefreshSchedulerScript.QUEST: refresh_quest_ui()
+	if mask & UiRefreshSchedulerScript.PROGRESSION: refresh_progression_ui()
+	if mask & UiRefreshSchedulerScript.LOG: refresh_log_ui()
+	if mask & UiRefreshSchedulerScript.CONTEXT: refresh_contextual_interaction()
+	if mask & UiRefreshSchedulerScript.DEBUG and debug_visible: refresh_debug()
+
+func ui_refresh_metrics() -> Dictionary:
+	return ui_refresh_scheduler.metrics()
 
 func move_player(delta: float) -> void:
 	var direction := Input.get_vector("ui_left","ui_right","ui_up","ui_down")
@@ -252,6 +287,7 @@ func move_player(delta: float) -> void:
 	if direction.length() > 0.0:
 		GameManager.player["position"] += direction.normalized() * 180.0 * delta
 		GameManager.player["position"] = GameManager.player["position"].clamp(WORLD.position + Vector2(12,12), WORLD.end - Vector2(12,12))
+		request_ui_refresh(UiRefreshSchedulerScript.CONTEXT,"player moved")
 
 func create_camera() -> void:
 	player_camera = Camera2D.new()
@@ -317,10 +353,10 @@ func handle_shortcuts() -> void:
 	if Input.is_action_just_pressed("steal"): perform("steal_food")
 	if Input.is_action_just_pressed("trade"): perform("trade")
 	if Input.is_action_just_pressed("ask"): perform("ask")
-	if Input.is_action_just_pressed("speed_normal"): GameTime.set_speed("normal")
-	if Input.is_action_just_pressed("speed_2x"): GameTime.set_speed("2x")
-	if Input.is_action_just_pressed("speed_5x"): GameTime.set_speed("5x")
-	if Input.is_action_just_pressed("speed_10x"): GameTime.set_speed("10x")
+	if Input.is_action_just_pressed("speed_normal"): set_simulation_speed("normal")
+	if Input.is_action_just_pressed("speed_2x"): set_simulation_speed("2x")
+	if Input.is_action_just_pressed("speed_5x"): set_simulation_speed("5x")
+	if Input.is_action_just_pressed("speed_10x"): set_simulation_speed("10x")
 	if Input.is_action_just_pressed("save_game"): SaveManager.save_game()
 	if Input.is_action_just_pressed("load_game"): SaveManager.load_game()
 	if Input.is_action_just_pressed("event_rain"): GameManager.trigger_world_event("rain")
@@ -713,8 +749,12 @@ func add_time_button(text_value: String, position_value: Vector2, speed_key: Str
 	button.size = Vector2(29 if speed_key != "10x" else 36,34)
 	button.add_theme_font_size_override("font_size",11)
 	style_action_button(button,VillageTheme.TEAL)
-	button.pressed.connect(func(): GameTime.set_speed(speed_key))
+	button.pressed.connect(func(): set_simulation_speed(speed_key))
 	time_panel.add_child(button)
+
+func set_simulation_speed(speed_key: String) -> void:
+	GameTime.set_speed(speed_key)
+	request_ui_refresh(UiRefreshSchedulerScript.TIME | UiRefreshSchedulerScript.WORLD,"simulation speed changed")
 
 func create_inventory_panel() -> void:
 	inventory_panel = Panel.new()
@@ -1084,12 +1124,14 @@ func launch_showcase(scenario: String) -> void:
 	if scenario == "start":
 		GameManager.new_game()
 		showcase_panel.visible = false
+		request_ui_refresh(UiRefreshSchedulerScript.ALL,"showcase started")
 		return
 	var response := GameManager.load_showcase(scenario)
 	selected_id = {"kindness":"alice","rumor":"charlie","danger":"bob"}.get(scenario,"")
 	info_panel.visible = selected_id != ""
 	dialogue_label.text = response
 	showcase_panel.visible = false
+	request_ui_refresh(UiRefreshSchedulerScript.ALL,"showcase scenario loaded")
 
 func open_side_panel(panel: Panel) -> void:
 	toggle_modal_panel(panel)
@@ -1121,6 +1163,7 @@ func set_motion_enabled(value: bool) -> void:
 	motion_enabled = value
 	SaveManager.set_preference("motion",value)
 	sync_motion_controls()
+	request_ui_refresh(UiRefreshSchedulerScript.TIME,"motion preference changed")
 
 func sync_motion_controls() -> void:
 	if motion_toggle != null:
@@ -1161,30 +1204,45 @@ func perform(action: String) -> void:
 	show_interaction_feedback(action,response)
 
 func refresh_ui() -> void:
+	request_ui_refresh(UiRefreshSchedulerScript.ALL,"compatibility full refresh")
+	flush_ui_refresh()
+
+func refresh_time_ui() -> void:
 	var visual: Dictionary = GameTime.visual_profile()
-	var progress: Dictionary = GameManager.community_progress()
 	clock_label.text = GameTime.formatted_time() + "  ·  " + str(visual["phase"]) + "  ×%.0f" % GameTime.time_scale
-	resource_label.text = "硬幣 %d   麵包 %d   藥品 %d" % [GameManager.player["coin"],GameManager.count_item(GameManager.player["inventory"],"bread"),GameManager.count_item(GameManager.player["inventory"],"medicine")]
-	event_label.text = "事件：" + str(GameManager.active_event.get("display_name","平靜的村落"))
-	var progression_snapshot: Dictionary = GameManager.progression_snapshot()
-	renown_label.text = "聲望 %d  ·  %s  ·  成就 %d / 6" % [int(progression_snapshot["renown"]),str(progression_snapshot["tier"].get("title","陌生旅人")),progression_snapshot["unlocked_ids"].size()]
 	time_label.text = "%s · 動態%s" % [str(visual["phase"]),"開" if motion_enabled else "關"]
-	log_label.text = "\n".join(GameManager.event_log.slice(maxi(0,GameManager.event_log.size() - 3)))
-	toast_label.text = ""
-	if GameManager.event_log.size() > 0:
-		toast_label.text = GameManager.event_log.back()
-	pulse_label.text = "居民運作中：%d / 5\n當前事件：%s\n模擬速度：×%.0f\n編年進度：%d / 3\n\nE 選取村民，查看關係與記憶。" % [GameManager.npcs.size(),str(GameManager.active_event.get("display_name","平靜的村落")),GameTime.time_scale,int(progress["unlocked"])]
+
+func refresh_player_ui() -> void:
+	resource_label.text = "硬幣 %d   麵包 %d   藥品 %d" % [GameManager.player["coin"],GameManager.count_item(GameManager.player["inventory"],"bread"),GameManager.count_item(GameManager.player["inventory"],"medicine")]
 	inventory_label.text = inventory_summary()
 	craft_button.disabled = GameManager.current_location != "forest_edge" or GameManager.count_item(GameManager.player["inventory"],"herb") < 2
 	craft_button.tooltip_text = "消耗月光藥草 ×2，製作藥品 ×1" if not craft_button.disabled else "需在低語森林邊緣並持有 2 株月光藥草"
 	gather_button.disabled = not GameManager.can_gather_location_resource("herb")
 	gather_button.tooltip_text = "森林每輪可採集 3 株月光藥草" if not gather_button.disabled else "需在森林邊緣，或本輪資源已採完"
-	refresh_journal_panel(progress)
-	progression_panel.refresh(progression_snapshot)
-	quest_tracker.refresh(GameManager.active_quest_snapshot())
+
+func refresh_world_ui() -> void:
+	var progress: Dictionary = GameManager.community_progress()
+	event_label.text = "事件：" + str(GameManager.active_event.get("display_name","平靜的村落"))
+	pulse_label.text = "居民運作中：%d / 5\n當前事件：%s\n模擬速度：×%.0f\n編年進度：%d / 3\n\nE 選取村民，查看關係與記憶。" % [GameManager.npcs.size(),str(GameManager.active_event.get("display_name","平靜的村落")),GameTime.time_scale,int(progress["unlocked"])]
 	world_map_panel.set_locations(GameManager.location_defs,GameManager.current_location,GameManager.discovered_locations)
+
+func refresh_log_ui() -> void:
+	log_label.text = "\n".join(GameManager.event_log.slice(maxi(0,GameManager.event_log.size() - 3)))
+	toast_label.text = ""
+	if GameManager.event_log.size() > 0:
+		toast_label.text = GameManager.event_log.back()
+	if journal_panel.visible: refresh_journal_panel(GameManager.community_progress())
+
+func refresh_progression_ui() -> void:
+	var progression_snapshot: Dictionary = GameManager.progression_snapshot()
+	renown_label.text = "聲望 %d  ·  %s  ·  成就 %d / 6" % [int(progression_snapshot["renown"]),str(progression_snapshot["tier"].get("title","陌生旅人")),progression_snapshot["unlocked_ids"].size()]
+	progression_panel.refresh(progression_snapshot)
+
+func refresh_quest_ui() -> void:
+	quest_tracker.refresh(GameManager.active_quest_snapshot())
 	quest_log_panel.refresh(GameManager.active_quest_snapshot(),GameManager.completed_quests)
-	refresh_contextual_interaction()
+
+func refresh_npc_ui() -> void:
 	if selected_id != "" and GameManager.npcs.has(selected_id):
 		var snapshot: Dictionary = GameManager.npc_showcase_snapshot(selected_id)
 		var npc: Dictionary = GameManager.npcs[selected_id]
@@ -1196,7 +1254,6 @@ func refresh_ui() -> void:
 		memory_label.text = GameManager.latest_memory_summary(selected_id)
 		if dialogue_label.text == "": dialogue_label.text = GameManager.dialogue(npc)
 		info_label.tooltip_text = "信任 %d · 好感 %d · 記憶 %d" % [int(relation.get("trust",0)),int(relation.get("affinity",0)),npc["memories"].size()]
-	if debug_visible: refresh_debug()
 
 func chronicle_text(progress: Dictionary) -> String:
 	var lines := ["目前聲望：%d" % int(progress["renown"]),"","[%s] 善意留下回音" % ("已解鎖" if bool(progress["kindness"]) else "未解鎖"),"贈送麵包，觀察記憶與信任如何改變。","","[%s] 流言開始擴散" % ("已解鎖" if bool(progress["rumor"]) else "未解鎖"),"偷取食物，觀察負面記憶如何傳播。","","[%s] 危機考驗勇氣" % ("已解鎖" if bool(progress["crisis"]) else "未解鎖"),"按 B 觸發危險，使用 F3 比較 NPC 決策。"]

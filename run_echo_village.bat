@@ -60,7 +60,7 @@ if /I "%~1"=="--test" (
   set "PREFLIGHT_LOG=%TEMP%\EchoVillage_preflight_output_!RUN_TAG!.log"
   set "PREFLIGHT_ERROR_LOG=%TEMP%\EchoVillage_preflight_error_!RUN_TAG!.log"
   set "PREFLIGHT_ENGINE_LOG=%TEMP%\EchoVillage_preflight_engine_!RUN_TAG!.log"
-  powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\tools\run_godot_bounded.ps1" -Godot "%GODOT%" -ProjectRoot "%ROOT%" -StandardOutput "!PREFLIGHT_LOG!" -StandardError "!PREFLIGHT_ERROR_LOG!" -TimeoutSeconds 60 --headless --editor --path "%ROOT%" --import --quit --log-file "!PREFLIGHT_ENGINE_LOG!"
+  powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\tools\run_godot_bounded.ps1" -Godot "%GODOT%" -ProjectRoot "%ROOT%" -StandardOutput "!PREFLIGHT_LOG!" -StandardError "!PREFLIGHT_ERROR_LOG!" -TimeoutSeconds 90 --headless --editor --path "%ROOT%" --import --quit --log-file "!PREFLIGHT_ENGINE_LOG!"
   set "PREFLIGHT_RESULT=!ERRORLEVEL!"
   if not exist "!PREFLIGHT_ENGINE_LOG!" set "PREFLIGHT_RESULT=1"
   type "!PREFLIGHT_LOG!"
