@@ -395,6 +395,13 @@ func create_ui() -> void:
 	canvas = CanvasLayer.new()
 	canvas.name = "CanvasLayer"
 	add_child(canvas)
+	var bottom_readability_scrim := ColorRect.new()
+	bottom_readability_scrim.name = "BottomReadabilityScrim"
+	bottom_readability_scrim.position = Vector2(42,599)
+	bottom_readability_scrim.size = Vector2(1196,121)
+	bottom_readability_scrim.color = Color("102332",0.94)
+	bottom_readability_scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	canvas.add_child(bottom_readability_scrim)
 	brand_label = make_label(Vector2(58,4),Vector2(520,30),20,VillageTheme.SUN)
 	brand_label.text = "ECHO VILLAGE  ·  AI 驅動 NPC 生活模擬"
 	clock_label = make_label(Vector2(58,35), Vector2(370,38), 22, VillageTheme.PAPER)
@@ -408,6 +415,8 @@ func create_ui() -> void:
 	log_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	toast_label = make_label(Vector2(390,566),Vector2(420,26),14,VillageTheme.SUN)
 	toast_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	toast_label.add_theme_color_override("font_outline_color",Color("102332"))
+	toast_label.add_theme_constant_override("outline_size",3)
 	create_pulse_panel()
 	create_time_panel()
 	create_inventory_panel()

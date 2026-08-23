@@ -526,14 +526,34 @@ func ui_structure_test() -> bool:
 	var instance := scene.instantiate()
 	add_child(instance)
 	await get_tree().process_frame
-	var required := ["CanvasLayer/TimeControls","CanvasLayer/ChroniclePanel","CanvasLayer/InventoryPanel","CanvasLayer/PausePanel"]
+	var required := ["CanvasLayer/TimeControls","CanvasLayer/ChroniclePanel","CanvasLayer/InventoryPanel","CanvasLayer/PausePanel","CanvasLayer/BottomReadabilityScrim"]
 	var result := true
 	for path in required:
 		if instance.get_node_or_null(path) == null:
 			print("UI 缺少節點：" + path)
 			result = false
+	var footer_scrim := instance.get_node_or_null("CanvasLayer/BottomReadabilityScrim") as ColorRect
+	if footer_scrim != null:
+		var footer_rgb := Color(footer_scrim.color.r,footer_scrim.color.g,footer_scrim.color.b,1.0)
+		if _contrast_ratio(VillageTheme.PAPER,footer_rgb) < 4.5 or _contrast_ratio(VillageTheme.PAPER_DARK,footer_rgb) < 4.5:
+			print("底部操作提示與事件紀錄未達 WCAG AA 文字對比。")
+			result = false
+	if instance.toast_label == null or instance.toast_label.get_theme_constant("outline_size") < 2:
+		print("世界內即時訊息缺少跨背景可讀的文字描邊。")
+		result = false
 	instance.queue_free()
 	return result
+
+func _contrast_ratio(foreground: Color, background: Color) -> float:
+	var foreground_luminance := _relative_luminance(foreground)
+	var background_luminance := _relative_luminance(background)
+	return (maxf(foreground_luminance,background_luminance) + 0.05) / (minf(foreground_luminance,background_luminance) + 0.05)
+
+func _relative_luminance(color: Color) -> float:
+	var red := color.r / 12.92 if color.r <= 0.04045 else pow((color.r + 0.055) / 1.055,2.4)
+	var green := color.g / 12.92 if color.g <= 0.04045 else pow((color.g + 0.055) / 1.055,2.4)
+	var blue := color.b / 12.92 if color.b <= 0.04045 else pow((color.b + 0.055) / 1.055,2.4)
+	return 0.2126 * red + 0.7152 * green + 0.0722 * blue
 
 func input_map_test() -> bool:
 	for action in ["interact","inventory","journal","story_arcs","cancel","speed_normal","speed_2x","speed_5x","speed_10x","save_game","load_game","event_rain","event_festival","event_shortage","event_danger"]:
