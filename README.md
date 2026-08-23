@@ -29,6 +29,7 @@ Echo Village 是一款以「居民會記得、會判斷，也會因玩家行動�
 | 失敗應該可理解、可復原 | 交易、製作與任務獎勵採驗證後一次提交，失敗不會消耗資源 |
 | UI 必須真的能使用 | 主選單、設定、暫停、背包、交易、地圖、任務、手札與 Debug 工具都有實際互動流程 |
 | AI 必須可解釋與可測試 | 核心決策使用離線 Utility AI；Optional AI provider 只能產生結構化文字，不能修改權威狀態 |
+| 即時介面不能浪費每幀預算 | `EventBus` 將同一幀的狀態變更合併成 dirty-region 更新；閒置畫面不重算完整 HUD，移動時只更新距離提示 |
 
 ## 目前版本與驗收快照
 
@@ -301,7 +302,8 @@ flowchart TD
     ACTIONS --> DOMAIN[Inventory / Economy / Quest / Location]
     DOMAIN --> EVENTS[EventBus]
     NPC --> MEMORY[Memory + Relationship]
-    EVENTS <--> UI[Main UI and modal panels]
+    EVENTS --> REFRESH[UiRefreshScheduler]
+    REFRESH --> UI[Main UI and modal panels]
     GM --> SAVE[SaveManager + migration]
     GM --> PROG[ProgressionService]
     GM --> STORIES[StoryArcService]
@@ -320,7 +322,7 @@ flowchart TD
 | NPC runtime | 需求、人格、決策、行動、狀態與移動 | `scripts/ai/`、`scripts/actions/`、`scripts/npc/` |
 | Domain services | 背包、需求、關係、因果歷程、經濟、任務、地點、進展 | `scripts/inventory/`、`scripts/needs/`、`scripts/relationship/`、`scripts/history/`、`scripts/services/`、`scripts/progression/` |
 | Events | 將狀態變更傳遞給 UI 與其他模組 | `scripts/core/event_bus.gd` |
-| Presentation | HUD、交易、地圖、任務、手札、故事線、Debug 與繪本視覺 | `scripts/main.gd`、`scripts/ui/`、`scenes/ui/` |
+| Presentation | 事件合併與 dirty-region HUD、交易、地圖、任務、手札、故事線、Debug 與繪本視覺 | `scripts/main.gd`、`scripts/ui/`、`scenes/ui/` |
 | Persistence | 存檔、偏好、遷移與 portable runtime | `scripts/save/`、`run_echo_village.bat`、`build_release.bat` |
 
 `GameManager` 是對外相容入口；服務層接收明確資料並回傳結構化結果，不直接依賴 UI 節點。更多設計決策請參考 [技術架構](docs/architecture.md)。

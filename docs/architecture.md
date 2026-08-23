@@ -11,7 +11,7 @@
 3. 每十個遊戲分鐘，`ActionRegistry` 讓十種 Action 計算可解釋分數。
 4. 最高分 Action 啟動，`NPCStateMachine` 設定移動或執行狀態。
 5. `NavigationCoordinator` 使用 `NavigationRegion2D` 與每位居民的 `NavigationAgent2D` 移動；停滯四秒會安全復原。
-6. 狀態、記憶、關係與世界變更透過 `EventBus` 讓 UI 更新。
+6. 狀態、記憶、關係與世界變更透過 `EventBus` 提交 dirty-region 請求；`UiRefreshScheduler` 將同一幀的重複請求合併後，只更新受影響的 HUD 區域。閒置且暫停時不會重算完整 UI，遊戲進行中則保留逐幀距離提示。
 7. 觸發條件成立時，`StoryArcService` 建立 active arc；玩家選擇後以既有 domain service 套用後果，再將結果寫入時間軸與存檔。
 8. `CausalityHistoryService` 將關係、記憶與故事結果正規化為 bounded metadata，供 UI 依居民與類型查詢。
 
@@ -34,6 +34,7 @@
 | `ProgressionService` | 五級聲望、資料驅動成就、一次性解鎖與安全條件評估 |
 | `StoryArcService` | 驗證故事定義、評估觸發、分支選擇、後果套用與序列化狀態 |
 | `CausalityHistoryService` | 因果事件 metadata 正規化、存檔驗證、居民／類型查詢、中文摘要與深拷貝邊界 |
+| `UiRefreshScheduler` | 合併 TIME／PLAYER／WORLD／NPC／QUEST／PROGRESSION／LOG／CONTEXT／DEBUG dirty mask，提供刷新與合併次數供測試驗證 |
 | `SaveManager` | v3 世界狀態、自動存檔、偏好、舊版遷移與 `.bak` recovery |
 | `SaveMigration` | 在載入前驗證 envelope／world state 型別、陣列數量上限與版本相容性，拒絕損壞或竄改資料 |
 | `Main` onboarding UI | 首次旅程三步驟、模態暫停、Esc／略過、F1 重開；只保存 `onboarding_seen` 偏好，不寫入世界狀態 |

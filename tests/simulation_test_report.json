@@ -4,7 +4,7 @@
 	"project": "Echo Village",
 	"results": [
 		{
-			"name": "UI 刷新排程器合併髒區域請求",
+			"name": "UI 刷新排程器合併事件且閒置時不重算",
 			"passed": true
 		},
 		{
@@ -397,5 +397,5 @@
 		}
 	],
 	"simulated_game_days": 30,
-	"timestamp": "2026-08-22T20:21:46"
+	"timestamp": "2026-08-23T15:53:13"
 }
