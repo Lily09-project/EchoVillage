@@ -35,7 +35,8 @@ Echo Village 是一款以「居民會記得、會判斷，也會因玩家行動�
 
 | 項目 | 狀態 |
 | --- | --- |
-| 遊戲版本 | `1.4.0` |
+| 公開發行版 | `v1.4.0` |
+| 目前原始碼 | `master`；包含 v1.4.0 之後、列於 `CHANGELOG.md` 的已驗證更新 |
 | 驗證引擎 | Godot `4.5.2-stable` |
 | 最低開發引擎 | Godot `4.2+` |
 | 目標平台 | Windows 10/11 64-bit |
@@ -183,7 +184,7 @@ v1.4 將這些後果寫成結構化因果事件。事件可依居民與效果類
 
 ### 一般玩家：Windows Portable
 
-1. 從 release 取得 `EchoVillage-v1.4.0-windows.zip`。
+1. 前往 [GitHub Release v1.4.0](https://github.com/Lily09-project/EchoVillage/releases/tag/v1.4.0)，下載 `EchoVillage-v1.4.0-windows.zip`。
 2. 解壓縮後，確認 `EchoVillage.exe` 與 `EchoVillage.pck` 位於同一個資料夾。
 3. 雙擊 `EchoVillage.exe` 開始遊玩。
 
@@ -417,7 +418,7 @@ run_echo_village.bat --test
 
 ## Roadmap
 
-目前作品已完成可遊玩的村落與森林垂直切片，以及第一版可持久化分支故事；下一階段可沿著既有服務邊界擴充：
+目前作品已完成可遊玩的村落與森林垂直切片，以及第一版可持久化分支故事；`master` 會先收錄通過品質閘門、尚待下一版封裝的更新，公開可攜版則以 GitHub Release 標籤為準。下一階段可沿著既有服務邊界擴充：
 
 - 季節循環、天氣與地圖事件鏈。
 - 居民友誼、衝突與家庭事件。
