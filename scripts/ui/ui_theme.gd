@@ -15,6 +15,7 @@ const DANGER := Color("c64d4c")
 const CREAM := Color("fff7df")
 const TEAL := Color("2e8894")
 const LILAC := Color("806598")
+const FOCUS := Color("f7d88a")
 const OVERLAY := Color(0.05, 0.09, 0.13, 0.78)
 
 static func panel_style(fill: Color = PAPER, border: Color = INK, radius: int = 10) -> StyleBoxFlat:
@@ -40,5 +41,6 @@ static func card_style(fill: Color, accent: Color) -> StyleBoxFlat:
 	return style
 
 static func button_style(fill: Color, hover: Color, pressed: Color) -> Dictionary:
-
-	return {"normal": panel_style(fill, INK, 8), "hover": panel_style(hover, INK, 8), "pressed": panel_style(pressed, INK, 8)}
+	var focus := panel_style(hover, FOCUS, 8)
+	focus.set_border_width_all(3)
+	return {"normal": panel_style(fill, INK, 8), "hover": panel_style(hover, INK, 8), "pressed": panel_style(pressed, INK, 8), "focus": focus}

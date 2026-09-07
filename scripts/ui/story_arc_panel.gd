@@ -168,10 +168,12 @@ func _style_button(button: Button, accent: Color) -> void:
 	button.add_theme_stylebox_override("normal",styles["normal"])
 	button.add_theme_stylebox_override("hover",styles["hover"])
 	button.add_theme_stylebox_override("pressed",styles["pressed"])
+	button.add_theme_stylebox_override("focus",styles["focus"])
 	button.add_theme_stylebox_override("disabled",VillageTheme.panel_style(VillageTheme.PAPER_DARK,VillageTheme.INK_SOFT,6))
 	# Keep the amber choice buttons readable in both normal and hover states.
 	# Godot's default Button font color is light, which fails contrast on SUN.
 	button.add_theme_color_override("font_color",VillageTheme.INK)
 	button.add_theme_color_override("font_hover_color",VillageTheme.INK)
 	button.add_theme_color_override("font_pressed_color",VillageTheme.INK)
+	button.add_theme_color_override("font_focus_color",VillageTheme.INK)
 	button.add_theme_color_override("font_disabled_color",VillageTheme.INK_SOFT)

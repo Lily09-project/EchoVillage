@@ -47,5 +47,5 @@ func make_button(at: Vector2, extent: Vector2, text_value: String) -> Button:
 	var button := Button.new(); button.position = at; button.size = extent; button.text = text_value; button.tooltip_text = text_value
 	button.add_theme_font_size_override("font_size",13)
 	var styles := VillageTheme.button_style(VillageTheme.MOSS_LIGHT,VillageTheme.MOSS_LIGHT.lightened(0.12),VillageTheme.MOSS_LIGHT.darkened(0.12))
-	button.add_theme_stylebox_override("normal",styles["normal"]); button.add_theme_stylebox_override("hover",styles["hover"]); button.add_theme_stylebox_override("pressed",styles["pressed"])
+	button.add_theme_stylebox_override("normal",styles["normal"]); button.add_theme_stylebox_override("hover",styles["hover"]); button.add_theme_stylebox_override("pressed",styles["pressed"]); button.add_theme_stylebox_override("focus",styles["focus"])
 	add_child(button); return button

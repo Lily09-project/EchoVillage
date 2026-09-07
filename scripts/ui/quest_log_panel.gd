@@ -13,7 +13,7 @@ func _ready() -> void:
 	body_label.add_theme_font_size_override("font_size",14); body_label.add_theme_color_override("font_color",VillageTheme.INK_SOFT); body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; add_child(body_label)
 	var close := Button.new(); close.position = Vector2(392,344); close.size = Vector2(164,48); close.text = "關閉日誌  K"; close.tooltip_text = "關閉任務日誌"
 	var styles := VillageTheme.button_style(VillageTheme.LILAC,VillageTheme.LILAC.lightened(0.12),VillageTheme.LILAC.darkened(0.12))
-	close.add_theme_stylebox_override("normal",styles["normal"]); close.add_theme_stylebox_override("hover",styles["hover"]); close.add_theme_stylebox_override("pressed",styles["pressed"]); close.pressed.connect(func(): visible = false); add_child(close)
+	close.add_theme_stylebox_override("normal",styles["normal"]); close.add_theme_stylebox_override("hover",styles["hover"]); close.add_theme_stylebox_override("pressed",styles["pressed"]); close.add_theme_stylebox_override("focus",styles["focus"]); close.pressed.connect(func(): visible = false); add_child(close)
 	visible = false
 
 func refresh(entries: Array, completed: Array) -> void:

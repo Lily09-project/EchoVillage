@@ -996,7 +996,7 @@ func create_action_dock() -> void:
 	action_dock = Panel.new()
 	action_dock.name = "ActionDock"
 	action_dock.position = Vector2(808,438)
-	action_dock.size = Vector2(413,82)
+	action_dock.size = Vector2(413,90)
 	action_dock.add_theme_stylebox_override("panel",VillageTheme.card_style(Color("f7edcf"),VillageTheme.MOSS))
 	canvas.add_child(action_dock)
 	action_dock_title = make_panel_label(action_dock,Vector2(12,6),Vector2(190,24),15,VillageTheme.INK)
@@ -1014,8 +1014,8 @@ func create_action_dock() -> void:
 		var button := Button.new()
 		button.name = str(entry["name"])
 		button.text = str(entry["label"])
-		button.position = Vector2(offset,40)
-		button.size = Vector2(float(entry["width"]),32)
+		button.position = Vector2(offset,43)
+		button.size = Vector2(float(entry["width"]),38)
 		button.add_theme_font_size_override("font_size",12)
 		button.tooltip_text = str(entry["label"]) + "（需先選取居民）"
 		style_action_button(button,entry["color"])
@@ -1100,10 +1100,12 @@ func show_interaction_feedback(action: String, response: String) -> void:
 
 func style_action_button(button: Button, color: Color) -> void:
 	button.add_theme_color_override("font_color",VillageTheme.INK)
+	button.add_theme_color_override("font_focus_color",VillageTheme.INK)
 	var styles: Dictionary = VillageTheme.button_style(color,color.lightened(0.12),color.darkened(0.12))
 	button.add_theme_stylebox_override("normal",styles["normal"])
 	button.add_theme_stylebox_override("hover",styles["hover"])
 	button.add_theme_stylebox_override("pressed",styles["pressed"])
+	button.add_theme_stylebox_override("focus",styles["focus"])
 	button.add_theme_stylebox_override("disabled",VillageTheme.panel_style(VillageTheme.PAPER_DARK.lightened(0.08),VillageTheme.PAPER_DARK,8))
 	button.add_theme_color_override("font_disabled_color",VillageTheme.INK_SOFT.darkened(0.12))
 

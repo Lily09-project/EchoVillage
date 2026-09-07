@@ -35,6 +35,7 @@ func _ready() -> void:
 	close.add_theme_stylebox_override("normal",styles["normal"])
 	close.add_theme_stylebox_override("hover",styles["hover"])
 	close.add_theme_stylebox_override("pressed",styles["pressed"])
+	close.add_theme_stylebox_override("focus",styles["focus"])
 	close.pressed.connect(func(): visible = false)
 	add_child(close)
 	visible = false

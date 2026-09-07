@@ -10,6 +10,7 @@
 - **溫和、可關閉的動態**：面板僅使用 180ms 透明度／縮放進場；使用者可在暫停選單關閉環境動態。此做法也符合 [Web Interface Guidelines](https://raw.githubusercontent.com/vercel-labs/web-interface-guidelines/main/command.md) 對可見焦點、清楚控制與尊重減少動態偏好的要求。
 - **把分支選擇放在後果之前**：Living Stories 面板先呈現故事摘要與目前階段，再以兩個以上的 44px 選擇按鈕提供清楚的 label／description；選擇完成後保留回饋文字與 completed 狀態，避免玩家不知道按鈕是否成功。琥珀色選擇按鈕明確代表「需要思考的決策」，並強制使用深色字體覆寫 Godot 預設淺色字，確保對比度。
 - **資訊密度與模態優先級**：故事線是低頻但高影響的操作，因此使用 `O` 開啟獨立模態面板，不把長文塞入 HUD。開啟後暫停時間，且與交易、任務、地圖、背包互斥；`Esc` 與可見關閉按鈕都能離開，維持鍵盤與滑鼠兩種路徑一致。
+- **穩定的按鈕回饋**：所有互動按鈕共用同一組 normal／hover／pressed／focus 樣式；focus 以金色外框呈現，hover 不再位移周邊版面，主要互動列維持可掃讀的 38px 高度。
 
 ## 可驗證落點
 

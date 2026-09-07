@@ -99,8 +99,10 @@ func make_button(node_name: String, at: Vector2, extent: Vector2, text_value: St
 	button.add_theme_stylebox_override("normal",styles["normal"])
 	button.add_theme_stylebox_override("hover",styles["hover"])
 	button.add_theme_stylebox_override("pressed",styles["pressed"])
+	button.add_theme_stylebox_override("focus",styles["focus"])
 	button.add_theme_stylebox_override("disabled",VillageTheme.panel_style(VillageTheme.PAPER_DARK.lightened(0.08),VillageTheme.PAPER_DARK,8))
 	button.add_theme_color_override("font_color",VillageTheme.INK)
+	button.add_theme_color_override("font_focus_color",VillageTheme.INK)
 	button.add_theme_color_override("font_disabled_color",VillageTheme.INK_SOFT)
 	add_child(button)
 	return button
