@@ -2,9 +2,13 @@
 
 ## Unreleased
 
+- 玩家選取居民後可直接查看 Utility AI 的目前決策、最高分、次選與日程差異；候選皆未達門檻時會顯示待命原因。
+- NPC 展示快照新增深拷貝的結構化決策證據，並加入核心契約與玩家介面回歸測試。
+- 新增 `npc_decision_explanation.png` 實機視覺證據；Visual QA 現為 15 張 1280×720 截圖。
+- 音效服務在停用與退出時主動停止播放並釋放動態 `AudioStreamWAV`，headless 驗證不再啟動無人使用的音訊播放；測試結束也會等待 deferred free 完成，品質閘門現在會把 `ObjectDB instances leaked at exit` 視為失敗，避免物件洩漏被綠色測試結果掩蓋。
 - 將 `UiRefreshScheduler` 正式接入主場景：同一幀的狀態事件會合併，並依 TIME／PLAYER／WORLD／NPC／QUEST／PROGRESSION／LOG／CONTEXT／DEBUG dirty mask 更新介面。
 - 移除 `_process()` 每幀重算完整 HUD；暫停閒置時不產生 UI flush，遊戲進行中只保留玩家／NPC 距離提示的逐幀更新。
-- 新增主場景整合回歸測試，驗證閒置幀零額外刷新，以及背包與任務事件同幀合併；完整驗收維持 `98 passed / 0 failed`。
+- 新增主場景整合回歸測試，驗證閒置幀零額外刷新，以及背包與任務事件同幀合併；加入玩家可見決策摘要後，完整驗收為 `99 passed / 0 failed`。
 - 修正主畫面底部操作提示與事件紀錄在淺色天空上的低對比：加入固定深色可讀性底層、即時訊息描邊，以及 WCAG AA `4.5:1` 對比契約測試。
 - 修正 portable 隨附說明的 `J`／`K` 按鍵對照，並在 README 直接連結穩定版下載、區分公開 Release 與 post-release `master`。
 
@@ -43,7 +47,7 @@
 - 新增正式 Talk、NPC 社交模式、森林公共資源採集與完整 F3 診斷。
 - 新增平滑 Camera2D、可關閉程式化音效與持久音效設定。
 - 新增安全 Optional AIService、Mock Provider 與模板 fallback。
-- 自動測試擴充至 66 項，並更新完整需求稽核與作品集文件。
+- 自動測試擴充至 66 項，並更新需求驗證與工程文件。
 
 ## 1.0.0 — 2026-08-10
 

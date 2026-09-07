@@ -124,6 +124,7 @@ func new_game() -> void:
 		npc["temporary_modifiers"] = []
 		npc["current_goal"] = npc["goal"]
 		npc["scores"] = {}
+		npc["decision"] = {}
 		npc["last_decision"] = -100
 		npc["action_started_minute"] = 0
 		npc["state_entered_minute"] = 0
@@ -160,15 +161,34 @@ func update_needs(npc: Dictionary) -> void:
 	needs_service.update(npc,str(active_event.get("id","")))
 
 func decide(npc: Dictionary) -> void:
-	var scores := utility_scores(npc)
+	var decision_context := action_context(npc)
+	var scores := action_registry.calculate_scores(npc,decision_context)
 	npc["scores"] = scores
 	var choice := "Wander"
 	var best := -999.0
+	var runner_up := ""
+	var runner_up_score := -999.0
 	for action in scores:
 		if float(scores[action]) > best:
+			runner_up = choice
+			runner_up_score = best
 			best = float(scores[action])
 			choice = action
+		elif float(scores[action]) > runner_up_score:
+			runner_up = action
+			runner_up_score = float(scores[action])
 	if best < minimum_action_score: choice = "Idle"
+	npc["decision"] = {
+		"selected_action":choice,
+		"leading_action":runner_up if choice == "Idle" else choice,
+		"leading_score":best,
+		"runner_up_action":runner_up if choice != "Idle" else "",
+		"runner_up_score":runner_up_score if choice != "Idle" else -999.0,
+		"scheduled_action":str(decision_context.get("scheduled_action","Wander")),
+		"event_id":str(decision_context.get("event_id","")),
+		"met_threshold":best >= minimum_action_score,
+		"threshold":minimum_action_score
+	}
 	var previous_action := str(npc.get("current_action","Idle"))
 	var previous = action_registry.get_action(previous_action)
 	if previous != null and previous_action != choice:
@@ -177,7 +197,7 @@ func decide(npc: Dictionary) -> void:
 	npc["action"] = choice
 	npc["goal"] = choice + " based on needs and schedule"
 	npc["target"] = target_for(npc,choice)
-	var context := action_context(npc)
+	var context := decision_context
 	context["target"] = npc["target"]
 	var selected = action_registry.get_action(choice)
 	if selected != null: selected.start(npc,context)
@@ -499,6 +519,7 @@ func npc_showcase_snapshot(npc_id: String) -> Dictionary:
 		"mood":npc["mood"],
 		"action":npc["action"],
 		"goal":npc["goal"],
+		"decision":npc.get("decision",{}).duplicate(true),
 		"needs":npc["needs"].duplicate(true),
 		"relationship":npc["relationships"].get("player",{}).duplicate(true),
 		"memory_count":npc["memories"].size()

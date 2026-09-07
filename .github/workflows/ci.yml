@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - master
-      - 'codex/**'
   pull_request:
     branches:
       - master
@@ -18,25 +17,42 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out complete history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Scan Git history for secrets
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   quality:
     name: Echo Village CI
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install Godot 4.5.2 stable
         shell: pwsh
         env:
           GODOT_VERSION: 4.5.2
           GODOT_TAG: 4.5.2-stable
+          GODOT_SHA512: b21115cf3620438e17959d13946bf9c7dceabb6ff71ed32a68996a21e08615edd2d1a3d25641bb3e260d084b31f500231aa59fcf026a5228bcc20ac4e8bade60
         run: |
           $ErrorActionPreference = 'Stop'
           $archive = Join-Path $env:RUNNER_TEMP 'godot-4.5.2-win64.zip'
           $install = Join-Path $env:RUNNER_TEMP 'godot-4.5.2-win64'
           $url = "https://github.com/godotengine/godot-builds/releases/download/$env:GODOT_TAG/Godot_v$env:GODOT_VERSION-stable_win64.exe.zip"
           Invoke-WebRequest -Uri $url -OutFile $archive
+          $actualHash = (Get-FileHash -LiteralPath $archive -Algorithm SHA512).Hash.ToLowerInvariant()
+          if ($actualHash -ne $env:GODOT_SHA512) { throw "Godot archive checksum mismatch." }
           if (Test-Path -LiteralPath $install) { Remove-Item -LiteralPath $install -Recurse -Force }
           Expand-Archive -LiteralPath $archive -DestinationPath $install -Force
           $executable = Join-Path $install 'Godot_v4.5.2-stable_win64.exe'
@@ -45,7 +61,7 @@ jobs:
           "GODOT_VERSION=$env:GODOT_VERSION" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Cache Godot import data
-        uses: actions/cache@v4
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: .godot
           key: godot-${{ runner.os }}-${{ hashFiles('project.godot', 'data/**/*.json', 'scripts/**/*.gd', 'scenes/**/*.tscn') }}
@@ -62,7 +78,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $expectedPassed = 98
+          $expectedPassed = 99
           $reportPath = Join-Path $env:GITHUB_WORKSPACE 'tests\simulation_test_report.json'
           if (-not (Test-Path -LiteralPath $reportPath -PathType Leaf)) { throw "Test report was not generated: $reportPath" }
           $report = Get-Content -Raw -Encoding UTF8 -LiteralPath $reportPath | ConvertFrom-Json
@@ -83,7 +99,7 @@ jobs:
           Add-Type -AssemblyName System.Drawing
           $expected = @(
             'consumer_main_menu.png', 'consumer_onboarding.png', 'consumer_settings.png',
-            'consumer_trade.png', 'forest_echo_complete.png', 'quest_in_progress.png',
+            'consumer_trade.png', 'forest_echo_complete.png', 'npc_decision_explanation.png', 'quest_in_progress.png',
             'relationship_history.png', 'story_arc_active.png', 'storybook_event_danger.png', 'storybook_explore_dawn.png',
             'storybook_explore_night.png', 'storybook_explore_noon.png', 'storybook_intro.png',
             'village_progression.png'
@@ -108,7 +124,7 @@ jobs:
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: echo-village-test-report
           path: |

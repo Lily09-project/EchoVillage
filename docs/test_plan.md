@@ -4,12 +4,14 @@
 
 `run_echo_village.bat --test` 先執行結構與 JSON 驗證，再執行 Godot 測試場景；任何斷言、Script Error、腳本載入錯誤或非零退出碼都會使流程失敗。
 
-GitHub Actions workflow `.github/workflows/ci.yml` 在乾淨 Windows runner 上固定使用 Godot 4.5.2，呼叫同一個 `.bat` 入口，並上傳 `tests/simulation_test_report.json` 作為 artifact。
+GitHub Actions workflow `.github/workflows/ci.yml` 在乾淨 Windows runner 上固定使用 Godot 4.5.2，呼叫同一個 `.bat` 入口，並上傳 `tests/simulation_test_report.json` 作為 artifact。`.github/workflows/nightly-soak.yml` 每日台北時間 02:30（UTC 18:30）及手動觸發時執行 90 日 soak，並保留 30 天的 soak 與 acceptance artifacts。
 
-## 目前覆蓋：98 項
+統一驗收入口為 `powershell -NoProfile -ExecutionPolicy Bypass -File quality\run_acceptance.ps1 release`；長時間驗證使用相同 runner 的 `nightly` profile。Manifest 明確定義 timeout、required gate、網路／寫入政策與 evidence，報告依共同 JSON Schema 寫入 `reports/acceptance/`。
+
+## 目前覆蓋：99 項
 
 - 資料與 runtime：五位 NPC、必要欄位、獨立住宅、NPC 對 NPC 關係。
-- 長時間模擬：七日加速，需求保持 0–100，狀態與 Action 有效。
+- 長時間模擬：七日與三十日回歸，以及獨立九十日 soak；需求保持 0–100，狀態與 Action 有效，並檢查記憶體、存檔大小與末段效能漂移上限。
 - AI 架構：十種 Action Registry、評分反應、State Machine 轉換與逾時。
 - 記憶與社會：建立、傳播、關係影響、衰減、容量與重要記憶保護。
 - 經濟：關係價格、糧食短缺、原子買賣、無效交易不改狀態。
@@ -29,11 +31,11 @@ GitHub Actions workflow `.github/workflows/ci.yml` 在乾淨 Windows runner 上�
 
 ## 視覺 QA
 
-設定 `ECHO_VILLAGE_VISUAL_QA=1` 並啟動 GUI runtime，使用實際 GPU 產生十四張 1280×720 PNG：主選單、設定、交易、村落手札、active 故事線、關係歷程、首次旅程導覽、開場、黎明、正午、夜晚、危險事件、任務進行與森林完成。人工檢查遮擋、對比、層級、文字截斷與畫面一致性。
+設定 `ECHO_VILLAGE_VISUAL_QA=1` 並啟動 GUI runtime，使用實際 GPU 產生十五張 1280×720 PNG：主選單、設定、交易、村落手札、active 故事線、關係歷程、NPC 決策說明、首次旅程導覽、開場、黎明、正午、夜晚、危險事件、任務進行與森林完成。人工檢查遮擋、對比、層級、文字截斷與畫面一致性；CI 逐檔驗證名稱與尺寸。
 
 ## 發行驗證
 
-`build_release.bat` 依序執行：98 項測試 → PCK 匯出 → portable runtime 組裝 → 120 幀成品煙霧測試。最後另檢查成品檔案、大小與殘留程序。
+`build_release.bat` 依序執行：99 項測試 → PCK 匯出 → portable runtime 組裝 → 120 幀成品煙霧測試。最後另檢查成品檔案、大小與殘留程序。
 
 ## 安全稽核
 
@@ -43,6 +45,7 @@ GitHub Actions workflow `.github/workflows/ci.yml` 在乾淨 Windows runner 上�
 
 - 自動測試 0 失敗。
 - Console 不含 `SCRIPT ERROR` 或腳本載入失敗。
-- 十四張視覺證據齊全且尺寸正確，包含首次旅程導覽、故事線 active choice、關係歷程與按鈕層級。
+- 十五張視覺證據齊全且尺寸正確，包含首次旅程導覽、故事線 active choice、關係歷程、NPC 決策說明與按鈕層級。
+- Nightly soak 必須模擬完整 90 日，且 needs、NPC state/action、事件、save schema、2 MiB save、64 MiB 記憶體成長與 1.5 倍末段耗時比門檻全部通過。
 - `EchoVillage.exe` 可從 release 資料夾載入同名 PCK。
 - 一鍵啟動可透過 bundled runtime 或 `GODOT_EXECUTABLE` 執行；一鍵建置在明確設定 `GODOT_RUNTIME`（或提供 bundled GUI runtime）後不依賴系統 PATH，且不會把 console bootstrap 誤包成玩家執行檔。

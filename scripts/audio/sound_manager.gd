@@ -10,10 +10,18 @@ func _ready() -> void:
 	add_child(ui_player)
 	enabled = SaveManager.get_preference("audio",true)
 
+func _exit_tree() -> void:
+	prepare_for_shutdown()
+
 func set_enabled(value: bool) -> void:
 	enabled = value
-	if not enabled and ui_player != null: ui_player.stop()
+	if not enabled: prepare_for_shutdown()
 	SaveManager.set_preference("audio",value)
+
+func prepare_for_shutdown() -> void:
+	if ui_player == null: return
+	ui_player.stop()
+	ui_player.stream = null
 
 func play_ui() -> void:
 	play_tone(520.0,0.055)
@@ -24,6 +32,9 @@ func play_interaction(kind: String = "talk") -> void:
 
 func play_tone(frequency: float, duration: float) -> void:
 	if not enabled or ui_player == null: return
+	# Headless validation has no audible consumer. Starting a playback there can
+	# race Godot's audio teardown and leave AudioStreamPlaybackWAV alive at exit.
+	if DisplayServer.get_name() == "headless": return
 	ui_player.stream = make_tone(frequency,duration)
 	ui_player.play()
 

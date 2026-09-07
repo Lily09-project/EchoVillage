@@ -7,6 +7,14 @@ if errorlevel 1 (
   echo Echo Village cannot enter its project directory: "%ROOT%"
   exit /b 2
 )
+
+if /I "%~1"=="--help" goto :usage
+if "%~1"=="" goto :arguments_ready
+if /I "%~1"=="--test" goto :arguments_ready
+echo Echo Village does not support argument: %~1
+goto :usage_error
+
+:arguments_ready
 set "GODOT="
 
 if defined GODOT_EXECUTABLE if exist "%GODOT_EXECUTABLE%" set "GODOT=%GODOT_EXECUTABLE%"
@@ -85,7 +93,7 @@ if /I "%~1"=="--test" (
   type "!TEST_LOG!"
   type "!TEST_ERROR_LOG!"
   type "!TEST_ENGINE_LOG!"
-  findstr /C:"SCRIPT ERROR" /C:"ERROR: Failed to load script" "!TEST_LOG!" "!TEST_ERROR_LOG!" "!TEST_ENGINE_LOG!" >nul && set "RESULT=1"
+  findstr /C:"SCRIPT ERROR" /C:"ERROR: Failed to load script" /C:"ObjectDB instances leaked" "!TEST_LOG!" "!TEST_ERROR_LOG!" "!TEST_ENGINE_LOG!" >nul && set "RESULT=1"
   findstr /C:"TEST_RESULT passed=" "!TEST_LOG!" "!TEST_ENGINE_LOG!" >nul || set "RESULT=1"
   findstr /C:"failed=0" "!TEST_LOG!" "!TEST_ENGINE_LOG!" >nul || set "RESULT=1"
   del /q "!TEST_LOG!" "!TEST_ERROR_LOG!" "!TEST_ENGINE_LOG!" >nul 2>nul
@@ -96,3 +104,13 @@ if /I "%~1"=="--test" (
 )
 start "Echo Village" "%GODOT%" --path "%ROOT%"
 exit /b 0
+
+:usage
+echo Usage: run_echo_village.bat [--test ^| --help]
+echo   no argument   Start Echo Village.
+echo   --test        Run structural, security, parser, and Godot tests.
+exit /b 0
+
+:usage_error
+echo Use run_echo_village.bat --help for supported options.
+exit /b 2

@@ -45,7 +45,8 @@ func run() -> void:
 	check("故事選擇因果歷程可安全存檔並相容舊事件", causality_story_save_compatibility_test())
 	check("關係歷程面板提供三模式、篩選與快捷鍵入口", await causality_history_ui_test())
 	check("日夜階段會正確映射遊戲時間", day_phase_test())
-	check("NPC 展示快照會安全提供情緒、需求與關係", npc_showcase_snapshot_test())
+	check("NPC 展示快照會安全提供情緒、需求、關係與決策依據", npc_showcase_snapshot_test())
+	check("居民卡片會直接顯示 Utility 決策摘要", await npc_decision_explanation_ui_test())
 	check("日夜視覺設定會提供可用亮度與標籤", visual_profile_test())
 	check("主介面具備完整展示控制列與編年面板", await ui_structure_test())
 	check("居民互動介面提供情境操作列、靠近提示與結果回饋", await contextual_interaction_ui_test())
@@ -120,7 +121,13 @@ func run() -> void:
 	write_report()
 	print("TEST_RESULT passed=%d failed=%d" % [passed,failed])
 	print("Echo Village 測試：%d 通過，%d 失敗" % [passed,failed])
-	get_tree().quit(0 if failed == 0 else 1)
+	var exit_code := 0 if failed == 0 else 1
+	SoundManager.prepare_for_shutdown()
+	# Let queue_free() calls issued by UI tests complete before the process exits.
+	# Without this frame, Godot reports ObjectDB instances leaked even when every
+	# assertion passes, which makes the quality-gate output look unhealthy.
+	await get_tree().process_frame
+	get_tree().quit(exit_code)
 
 func check(name: String, condition: bool) -> void:
 	results.append({"name":name,"passed":condition})
@@ -509,11 +516,30 @@ func day_phase_test() -> bool:
 
 func npc_showcase_snapshot_test() -> bool:
 	GameManager.new_game()
+	GameManager.decide(GameManager.npcs["alice"])
 	var snapshot: Dictionary = GameManager.npc_showcase_snapshot("alice")
-	if snapshot.is_empty() or not snapshot.has_all(["display_name","mood","action","needs","relationship","memory_count","goal"]): return false
+	if snapshot.is_empty() or not snapshot.has_all(["display_name","mood","action","needs","relationship","memory_count","goal","decision"]): return false
+	var decision: Dictionary = snapshot["decision"]
+	if not decision.has_all(["selected_action","leading_action","leading_score","runner_up_action","runner_up_score","scheduled_action","event_id","met_threshold","threshold"]): return false
+	if str(decision["selected_action"]) != str(snapshot["action"]): return false
+	if bool(decision["met_threshold"]) and float(decision["leading_score"]) < float(decision["runner_up_score"]): return false
 	var original_hunger: float = float(GameManager.npcs["alice"]["needs"]["hunger"])
 	snapshot["needs"]["hunger"] = 99.0
 	return float(GameManager.npcs["alice"]["needs"]["hunger"]) == original_hunger
+
+func npc_decision_explanation_ui_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	if scene == null: return false
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	GameManager.decide(GameManager.npcs["alice"])
+	instance.selected_id = "alice"
+	instance.refresh_npc_ui()
+	var label := instance.get_node_or_null("CanvasLayer/NpcDossier/DecisionLabel") as Label
+	var result := label != null and label.text.contains("決策") and label.text.contains(instance.action_text(str(GameManager.npcs["alice"]["action"])))
+	instance.queue_free()
+	return result
 
 func visual_profile_test() -> bool:
 	var night: Dictionary = GameTime.visual_profile(60)
@@ -734,12 +760,12 @@ func visual_capture_interface_test() -> bool:
 	var result := instance.has_method("capture_visual_qa") and instance.has_method("visual_qa_capture_names")
 	if result:
 		var names: Array = instance.visual_qa_capture_names()
-		for expected in ["quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","village_progression.png","story_arc_active.png","relationship_history.png","consumer_onboarding.png"]: result = result and expected in names
+		for expected in ["quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","village_progression.png","story_arc_active.png","relationship_history.png","consumer_onboarding.png","npc_decision_explanation.png"]: result = result and expected in names
 	instance.queue_free()
 	return result
 
 func expansion_visual_capture_test() -> bool:
-	for expected in ["quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","village_progression.png","story_arc_active.png","relationship_history.png","consumer_onboarding.png"]:
+	for expected in ["quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","village_progression.png","story_arc_active.png","relationship_history.png","consumer_onboarding.png","npc_decision_explanation.png"]:
 		if not FileAccess.file_exists("res://tests/visual_qa/" + expected): return false
 	return true
 
@@ -1183,7 +1209,7 @@ func player_camera_contract_test() -> bool:
 
 func sound_service_and_settings_test() -> bool:
 	var sound_manager := get_node_or_null("/root/SoundManager")
-	if sound_manager == null or not sound_manager.has_method("play_ui") or not sound_manager.has_method("play_interaction") or not sound_manager.has_method("set_enabled"): return false
+	if sound_manager == null or not sound_manager.has_method("play_ui") or not sound_manager.has_method("play_interaction") or not sound_manager.has_method("set_enabled") or not sound_manager.has_method("prepare_for_shutdown"): return false
 	sound_manager.set_enabled(false)
 	var disabled_ok: bool = not bool(sound_manager.enabled)
 	sound_manager.set_enabled(true)

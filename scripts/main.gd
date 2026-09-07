@@ -26,6 +26,7 @@ var info_label: Label
 var dialogue_label: Label
 var relationship_label: Label
 var needs_label: Label
+var decision_label: Label
 var memory_label: Label
 var log_label: Label
 var debug_panel: Panel
@@ -62,7 +63,7 @@ var onboarding_next_button: Button
 var onboarding_step := 0
 const ONBOARDING_STEPS := [
 	{"title":"先看見村落的節奏","body":"用 WASD 或方向鍵移動。時間會自己前進，居民會依需求、個性與日程做出選擇。\n\n先觀察，不急著改變任何人。"},
-	{"title":"靠近一個真實的居民","body":"走近居民後按 E 查看資料。\n\n按 C 交談，或按 Q 詢問近況；每次互動都可能留下記憶，影響下一次相遇。"},
+	{"title":"靠近一個真實的居民","body":"走近居民後按 E 查看資料，卡片會顯示目前決策、次選行動與日程。\n\n按 C 交談，或按 Q 詢問近況；每次互動都可能留下記憶，影響下一次相遇。"},
 	{"title":"讓你的選擇留下回音","body":"按 G 贈禮、T 交易，或前往森林推進任務。\n\n按 J 查看村落編年、L 回看每日回音、Y 追溯關係歷程，理解選擇如何改變村莊。"}
 ]
 var time_panel: Panel
@@ -140,6 +141,7 @@ func capture_visual_qa() -> void:
 		{"file":"storybook_intro.png","minute":780,"intro":true},
 		{"file":"storybook_explore_dawn.png","minute":360,"intro":false},
 		{"file":"storybook_explore_noon.png","minute":780,"intro":false},
+		{"file":"npc_decision_explanation.png","minute":780,"intro":false,"scenario":"decision"},
 		{"file":"storybook_explore_night.png","minute":60,"intro":false},
 		{"file":"storybook_event_danger.png","minute":780,"intro":false,"scenario":"danger"},
 		{"file":"quest_in_progress.png","minute":810,"intro":false,"scenario":"quest"},
@@ -174,6 +176,9 @@ func capture_visual_qa() -> void:
 			GameManager.load_showcase("danger")
 		else:
 			GameManager.new_game()
+		if scenario == "decision":
+			GameManager.player["position"] = GameManager.npcs["alice"]["position"] + Vector2(-38,0)
+			GameManager.decide(GameManager.npcs["alice"])
 		if scenario == "quest": GameManager.interact("alice","ask")
 		if scenario == "forest_complete":
 			GameManager.interact("alice","ask")
@@ -233,7 +238,7 @@ func capture_visual_qa() -> void:
 	get_tree().quit(0)
 
 func visual_qa_capture_names() -> Array:
-	return ["storybook_intro.png","storybook_explore_dawn.png","storybook_explore_noon.png","storybook_explore_night.png","storybook_event_danger.png","quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","village_progression.png","story_arc_active.png","relationship_history.png","consumer_onboarding.png"]
+	return ["storybook_intro.png","storybook_explore_dawn.png","storybook_explore_noon.png","npc_decision_explanation.png","storybook_explore_night.png","storybook_event_danger.png","quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","village_progression.png","story_arc_active.png","relationship_history.png","consumer_onboarding.png"]
 
 func create_input_map() -> void:
 	var bindings := {"interact":KEY_E,"talk":KEY_C,"give":KEY_G,"steal":KEY_X,"trade":KEY_T,"ask":KEY_Q,"cancel":KEY_ESCAPE,"guide":KEY_F1,"debug":KEY_F3,"inventory":KEY_I,"journal":KEY_J,"daily_summary":KEY_L,"relationship_history":KEY_Y,"story_arcs":KEY_O,"progression":KEY_P,"world_map":KEY_M,"quest_log":KEY_K,"speed_normal":KEY_1,"speed_2x":KEY_2,"speed_5x":KEY_5,"speed_10x":KEY_0,"save_game":KEY_F5,"load_game":KEY_F9,"event_rain":KEY_R,"event_festival":KEY_F,"event_shortage":KEY_H,"event_danger":KEY_B,"event_injury":KEY_N}
@@ -432,12 +437,14 @@ func create_ui() -> void:
 	info_panel.size = Vector2(413,180)
 	info_panel.add_theme_stylebox_override("panel",VillageTheme.panel_style(VillageTheme.PAPER,VillageTheme.INK,8))
 	canvas.add_child(info_panel)
-	info_label = make_panel_label(info_panel,Vector2(12,8),Vector2(385,25),16,VillageTheme.INK)
-	relationship_label = make_panel_label(info_panel,Vector2(12,33),Vector2(385,20),13,VillageTheme.INK_SOFT)
-	needs_label = make_panel_label(info_panel,Vector2(12,54),Vector2(385,20),13,VillageTheme.INK_SOFT)
-	memory_label = make_panel_label(info_panel,Vector2(12,76),Vector2(385,32),13,VillageTheme.INK_SOFT)
+	info_label = make_panel_label(info_panel,Vector2(12,6),Vector2(385,22),15,VillageTheme.INK)
+	relationship_label = make_panel_label(info_panel,Vector2(12,28),Vector2(385,18),12,VillageTheme.INK_SOFT)
+	needs_label = make_panel_label(info_panel,Vector2(12,47),Vector2(385,18),12,VillageTheme.INK_SOFT)
+	decision_label = make_panel_label(info_panel,Vector2(12,66),Vector2(385,18),12,VillageTheme.MOSS)
+	decision_label.name = "DecisionLabel"
+	memory_label = make_panel_label(info_panel,Vector2(12,85),Vector2(385,28),12,VillageTheme.INK_SOFT)
 	memory_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	dialogue_label = make_panel_label(info_panel,Vector2(12,112),Vector2(385,58),14,VillageTheme.INK_SOFT)
+	dialogue_label = make_panel_label(info_panel,Vector2(12,116),Vector2(385,54),13,VillageTheme.INK_SOFT)
 	dialogue_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	info_panel.visible = false
 	debug_panel = Panel.new()
@@ -481,7 +488,7 @@ func create_main_menu() -> void:
 	new_game_button.pressed.connect(start_new_game)
 	var settings_button := make_menu_button(main_menu_panel,"SettingsButton",Vector2(490,425),"遊戲設定")
 	settings_button.pressed.connect(open_settings)
-	var showcase_button := make_menu_button(main_menu_panel,"ShowcaseButton",Vector2(490,485),"作品集展示模式")
+	var showcase_button := make_menu_button(main_menu_panel,"ShowcaseButton",Vector2(490,485),"導覽展示模式")
 	showcase_button.pressed.connect(func(): main_menu_panel.visible = false; showcase_panel.visible = true; sync_simulation_pause())
 	menu_status_label = make_panel_label(main_menu_panel,Vector2(410,558),Vector2(460,50),13,VillageTheme.PAPER_DARK)
 	menu_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1107,7 +1114,7 @@ func create_showcase_panel() -> void:
 	showcase_panel.add_theme_stylebox_override("panel",VillageTheme.card_style(VillageTheme.CREAM,VillageTheme.SUN))
 	canvas.add_child(showcase_panel)
 	var eyebrow := make_panel_label(showcase_panel,Vector2(24,18),Vector2(520,22),13,VillageTheme.MOSS)
-	eyebrow.text = "自主村落模擬  ·  PORTFOLIO SHOWCASE"
+	eyebrow.text = "自主村落模擬  ·  GUIDED SHOWCASE"
 	var title := make_panel_label(showcase_panel,Vector2(24,42),Vector2(530,38),29,VillageTheme.INK)
 	title.text = "歡迎來到 Echo Village"
 	var subtitle := make_panel_label(showcase_panel,Vector2(24,86),Vector2(530,44),14,VillageTheme.INK_SOFT)
@@ -1260,6 +1267,7 @@ func refresh_npc_ui() -> void:
 		info_label.text = "%s · %s · %s · %s" % [snapshot["display_name"],snapshot["occupation"],mood_text(snapshot["mood"]),action_text(snapshot["action"])]
 		relationship_label.text = GameManager.relationship_summary(selected_id)
 		needs_label.text = "需求  飢餓 %d  ·  體力 %d  ·  社交 %d  ·  安全 %d" % [int(needs["hunger"]),int(needs["energy"]),int(needs["social"]),int(needs["safety"])]
+		decision_label.text = decision_summary(snapshot.get("decision",{}))
 		memory_label.text = GameManager.latest_memory_summary(selected_id)
 		if dialogue_label.text == "": dialogue_label.text = GameManager.dialogue(npc)
 		info_label.tooltip_text = "信任 %d · 好感 %d · 記憶 %d" % [int(relation.get("trust",0)),int(relation.get("affinity",0)),npc["memories"].size()]
@@ -1531,6 +1539,20 @@ func mood_text(value: String) -> String:
 
 func action_text(value: String) -> String:
 	return {"Idle":"待命","Moving":"移動","Eat":"用餐","Sleep":"睡眠","Work":"工作","Socialize":"社交","Shop":"採買","GoHome":"回家","Flee":"逃離","Help":"協助","Rest":"休息","Wander":"閒逛"}.get(value,value)
+
+func decision_summary(decision: Dictionary) -> String:
+	if decision.is_empty(): return "決策：等待首次評估"
+	var selected := action_text(str(decision.get("selected_action","Idle")))
+	var leading := action_text(str(decision.get("leading_action","Wander")))
+	var leading_score := float(decision.get("leading_score",0.0))
+	if not bool(decision.get("met_threshold",false)):
+		return "決策  %s｜最高候選 %s %.1f（未達門檻）" % [selected,leading,leading_score]
+	var runner_up := str(decision.get("runner_up_action",""))
+	var schedule := action_text(str(decision.get("scheduled_action","Wander")))
+	var summary := "決策  %s %.1f" % [selected,leading_score]
+	if runner_up != "": summary += "｜次選 %s %.1f" % [action_text(runner_up),float(decision.get("runner_up_score",0.0))]
+	if str(decision.get("scheduled_action","")) != str(decision.get("selected_action","")): summary += "｜日程 %s" % schedule
+	return summary
 
 func state_text(value: String) -> String:
 	return {"Idle":"待命","Moving":"移動中","PerformingAction":"執行行動","Talking":"交談","Sleeping":"睡眠中","Working":"工作中"}.get(value,value)

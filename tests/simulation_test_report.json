@@ -1,6 +1,6 @@
 {
 	"failed": 0,
-	"passed": 98,
+	"passed": 99,
 	"project": "Echo Village",
 	"results": [
 		{
@@ -108,7 +108,11 @@
 			"passed": true
 		},
 		{
-			"name": "NPC 展示快照會安全提供情緒、需求與關係",
+			"name": "NPC 展示快照會安全提供情緒、需求、關係與決策依據",
+			"passed": true
+		},
+		{
+			"name": "居民卡片會直接顯示 Utility 決策摘要",
 			"passed": true
 		},
 		{
@@ -397,5 +401,5 @@
 		}
 	],
 	"simulated_game_days": 30,
-	"timestamp": "2026-08-23T16:48:37"
+	"timestamp": "2026-09-07T16:54:20"
 }

@@ -1,0 +1,48 @@
+{
+  "$schema": "./test-manifest.schema.json",
+  "schema_version": "1.0",
+  "project": "EchoVillage",
+  "profiles": ["quick", "full", "release", "nightly"],
+  "gates": [
+    {
+      "id": "launcher_help", "category": "contract", "type": "command",
+      "profiles": ["quick", "full", "release"], "timeout_seconds": 30,
+      "network": "forbidden", "writes_project": false, "required": true,
+      "command": ["cmd", "/d", "/c", "run_echo_village.bat", "--help"]
+    },
+    {
+      "id": "static_validation", "category": "contract", "type": "command",
+      "profiles": ["quick", "full", "release", "nightly"], "timeout_seconds": 120,
+      "network": "forbidden", "writes_project": false, "required": true,
+      "command": ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "tools/validate_project.ps1"]
+    },
+    {
+      "id": "nightly_soak", "category": "stability", "type": "command",
+      "profiles": ["nightly"], "timeout_seconds": 660,
+      "network": "forbidden", "writes_project": true, "required": true,
+      "command": ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "tools/run_nightly_soak.ps1"],
+      "evidence": ["tests/soak_test_report.json"],
+      "evidence_freshness": "generated"
+    },
+    {
+      "id": "full_tests", "category": "release", "type": "command",
+      "profiles": ["full", "release"], "timeout_seconds": 1200,
+      "network": "forbidden", "writes_project": true, "required": true,
+      "command": ["cmd", "/d", "/c", "run_echo_village.bat", "--test"],
+      "evidence": ["tests/simulation_test_report.json", "tests/security_audit_report.json"],
+      "evidence_freshness": "generated"
+    },
+    {
+      "id": "release_build", "category": "release", "type": "command",
+      "profiles": ["release"], "timeout_seconds": 600,
+      "network": "forbidden", "writes_project": true, "required": true,
+      "command": ["cmd", "/d", "/c", "build_release.bat"]
+    },
+    {
+      "id": "diff_check", "category": "hygiene", "type": "command",
+      "profiles": ["full", "release"], "timeout_seconds": 30,
+      "network": "forbidden", "writes_project": false, "required": true,
+      "command": ["git", "-c", "safe.directory={root}", "diff", "--check"]
+    }
+  ]
+}
