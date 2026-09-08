@@ -25,10 +25,10 @@ func _ready() -> void:
 
 func refresh(entries: Array) -> void:
 	if entries.is_empty():
-		title_label.text = "旅途手札  /  QUEST TRACKER"
-		objective_label.text = "向艾莉絲詢問村莊近況，開啟第一段旅程。  [K] 任務日誌"
+		title_label.text = "旅途手札"
+		objective_label.text = "向艾莉絲詢問村莊近況。"
 		return
 	var entry: Dictionary = entries[0]
 	var objective: Dictionary = entry.get("objective",{})
 	title_label.text = "%s  ·  第 %d 步" % [str(entry.get("title","任務")),int(entry.get("objective_index",0)) + 1]
-	objective_label.text = "%s\n[K] 查看詳情  ·  [M] 世界地圖" % str(objective.get("description","目標已更新"))
+	objective_label.text = str(objective.get("description","目標已更新"))

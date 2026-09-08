@@ -23,7 +23,7 @@ func _ready() -> void:
 
 func set_locations(definitions: Dictionary, current_id: String, discovered: Array) -> void:
 	var current_name := str(definitions.get(current_id,{}).get("display_name",current_id))
-	status_label.text = "目前位置：%s\n選擇相鄰地點旅行；新地點會永久記錄於探索進度。" % current_name
+	status_label.text = "目前位置：%s" % current_name
 	village_button.text = "回音村廣場" + ("  ·  目前位置" if current_id == "village_square" else "")
 	forest_button.text = "低語森林邊緣" + ("  ·  目前位置" if current_id == "forest_edge" else ("  ·  已探索" if "forest_edge" in discovered else "  ·  未探索"))
 	village_button.disabled = current_id == "village_square"

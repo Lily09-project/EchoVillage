@@ -62,9 +62,9 @@ var onboarding_step_label: Label
 var onboarding_next_button: Button
 var onboarding_step := 0
 const ONBOARDING_STEPS := [
-	{"title":"先看見村落的節奏","body":"用 WASD 或方向鍵移動。時間會自己前進，居民會依需求、個性與日程做出選擇。\n\n先觀察，不急著改變任何人。"},
-	{"title":"靠近一個真實的居民","body":"走近居民後按 E 查看資料，卡片會顯示目前決策、次選行動與日程。\n\n按 C 交談，或按 Q 詢問近況；每次互動都可能留下記憶，影響下一次相遇。"},
-	{"title":"讓你的選擇留下回音","body":"按 G 贈禮、T 交易，或前往森林推進任務。\n\n按 J 查看村落編年、L 回看每日回音、Y 追溯關係歷程，理解選擇如何改變村莊。"}
+	{"title":"探索村落","body":"用 WASD 或方向鍵移動；時間與居民生活會持續前進。"},
+	{"title":"認識居民","body":"靠近居民按 E，再用 C 交談或 Q 詢問近況。"},
+	{"title":"留下回音","body":"贈禮、交易與任務選擇都會改變關係與村落故事。"}
 ]
 var time_panel: Panel
 var time_label: Label
@@ -408,14 +408,14 @@ func create_ui() -> void:
 	bottom_readability_scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	canvas.add_child(bottom_readability_scrim)
 	brand_label = make_label(Vector2(58,4),Vector2(520,30),20,VillageTheme.SUN)
-	brand_label.text = "ECHO VILLAGE  ·  AI 驅動 NPC 生活模擬"
+	brand_label.text = "ECHO VILLAGE"
 	clock_label = make_label(Vector2(58,35), Vector2(370,38), 22, VillageTheme.PAPER)
 	resource_label = make_label(Vector2(876,35), Vector2(345,38), 18, VillageTheme.PAPER)
 	event_label = make_label(Vector2(440,35), Vector2(390,38), 16, VillageTheme.SUN)
 	renown_label = make_label(Vector2(900,6), Vector2(320,22), 13, VillageTheme.MOSS_LIGHT)
 	renown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	hint_label = make_label(Vector2(58,610), Vector2(730,28), 14, VillageTheme.PAPER)
-	hint_label.text = "E 查看村民  •  G 贈送  •  T 交易  •  J 編年  •  L 回音  •  Y 關係  •  O 故事線  •  P 村落手札  •  F3 除錯"
+	hint_label.text = "靠近居民  E  ·  操作指南  F1  ·  暫停  Esc"
 	log_label = make_label(Vector2(58,644), Vector2(730,66), 13, VillageTheme.PAPER_DARK)
 	log_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	toast_label = make_label(Vector2(390,566),Vector2(420,26),14,VillageTheme.SUN)
@@ -546,7 +546,7 @@ func create_settings_panel() -> void:
 	var title := make_panel_label(settings_panel,Vector2(24,20),Vector2(390,36),25,VillageTheme.INK)
 	title.text = "遊戲設定  /  SETTINGS"
 	var description := make_panel_label(settings_panel,Vector2(24,62),Vector2(390,42),13,VillageTheme.INK_SOFT)
-	description.text = "所有設定會自動保存。關閉動態效果可減少環境微動。"
+	description.text = "設定會自動保存。"
 	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	autosave_toggle = make_settings_toggle("AutosaveToggle",Vector2(24,122),"每日開始時自動存檔")
 	motion_toggle = make_settings_toggle("MotionToggle",Vector2(24,180),"環境動態與介面轉場")
@@ -619,7 +619,7 @@ func create_onboarding_panel() -> void:
 	onboarding_step_label.name = "StepLabel"
 	onboarding_step_label.text = "第 1 / 3 步"
 	var hint := make_panel_label(onboarding_panel,Vector2(28,328),Vector2(534,22),12,VillageTheme.INK_SOFT)
-	hint.text = "可以隨時按 Esc 離開，之後也能從暫停選單重看。"
+	hint.text = "Esc 可隨時離開"
 	var skip := Button.new()
 	skip.name = "SkipButton"
 	skip.position = Vector2(28,365)
@@ -819,7 +819,7 @@ func create_journal_panel() -> void:
 	journal_panel.add_theme_stylebox_override("panel",VillageTheme.card_style(VillageTheme.CREAM,VillageTheme.LILAC))
 	canvas.add_child(journal_panel)
 	var eyebrow := make_panel_label(journal_panel,Vector2(18,14),Vector2(270,18),12,VillageTheme.LILAC)
-	eyebrow.text = "每個選擇都會留下回音"
+	eyebrow.text = ""
 	journal_title_label = make_panel_label(journal_panel,Vector2(18,34),Vector2(354,30),20,VillageTheme.INK)
 	journal_title_label.text = "村落編年  /  CHRONICLE"
 	journal_label = make_panel_label(journal_panel,Vector2(18,73),Vector2(354,190),13,VillageTheme.INK_SOFT)
@@ -893,7 +893,7 @@ func create_pause_panel() -> void:
 	var title := make_panel_label(pause_panel,Vector2(18,18),Vector2(310,32),22,VillageTheme.INK)
 	title.text = "暫停選單"
 	pause_label = make_panel_label(pause_panel,Vector2(18,55),Vector2(310,42),14,VillageTheme.INK_SOFT)
-	pause_label.text = "按 Esc 繼續探索\n按 I 背包 · J 編年 · O 故事線 · F5 儲存"
+	pause_label.text = "Esc 繼續 · F5 儲存"
 	var resume := Button.new()
 	resume.text = "繼續探索"
 	resume.position = Vector2(18,111)
