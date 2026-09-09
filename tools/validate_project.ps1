@@ -57,7 +57,7 @@ if(-not (Test-Path -LiteralPath $visualMatrixPath -PathType Leaf)){
   $issues += 'Missing: tools\run_visual_qa_matrix.ps1'
 } else {
   $visualMatrixText = Get-Content -Raw -Encoding UTF8 -LiteralPath $visualMatrixPath
-  foreach($token in @('ECHO_VILLAGE_VISUAL_QA','ECHO_VILLAGE_VISUAL_QA_OUTPUT_DIR','--resolution','matrix-report.json','System.Drawing.Image','run_godot_bounded.ps1')){ if($visualMatrixText -notmatch [regex]::Escape($token)){ $issues += "Visual QA matrix lacks required contract: $token" } }
+  foreach($token in @('ECHO_VILLAGE_VISUAL_QA','ECHO_VILLAGE_VISUAL_QA_OUTPUT_DIR','--audio-driver Dummy','--resolution','matrix-report.json','System.Drawing.Image','run_godot_bounded.ps1')){ if($visualMatrixText -notmatch [regex]::Escape($token)){ $issues += "Visual QA matrix lacks required contract: $token" } }
 }
 $nightlyWorkflowPath = Join-Path $root '.github\workflows\nightly-soak.yml'
 if(Test-Path -LiteralPath $nightlyWorkflowPath -PathType Leaf){

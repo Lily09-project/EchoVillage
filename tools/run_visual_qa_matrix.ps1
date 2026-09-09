@@ -51,7 +51,7 @@ foreach ($resolution in $resolutions) {
         -StandardOutput $stdout `
         -StandardError $stderr `
         -TimeoutSeconds $TimeoutSeconds `
-        --path $root --resolution $resolution.argument
+        --audio-driver Dummy --path $root --resolution $resolution.argument
     $exitCode = $LASTEXITCODE
     if ($exitCode -ne 0) {
         throw "Visual QA runtime failed at $($resolution.argument) with exit code $exitCode. See $stderr"
