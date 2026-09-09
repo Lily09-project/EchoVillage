@@ -52,6 +52,13 @@ if(Test-Path -LiteralPath $runnerPath -PathType Leaf){
   $runnerText = Get-Content -Raw -Encoding UTF8 -LiteralPath $runnerPath
   foreach($token in @('taskkill.exe','/PID $ProcessId','/T /F','exit 124')){ if($runnerText -notmatch [regex]::Escape($token)){ $issues += "Bounded Godot runner lacks process cleanup contract: $token" } }
 }
+$visualMatrixPath = Join-Path $root 'tools\run_visual_qa_matrix.ps1'
+if(-not (Test-Path -LiteralPath $visualMatrixPath -PathType Leaf)){
+  $issues += 'Missing: tools\run_visual_qa_matrix.ps1'
+} else {
+  $visualMatrixText = Get-Content -Raw -Encoding UTF8 -LiteralPath $visualMatrixPath
+  foreach($token in @('ECHO_VILLAGE_VISUAL_QA','ECHO_VILLAGE_VISUAL_QA_OUTPUT_DIR','--resolution','matrix-report.json','System.Drawing.Image','run_godot_bounded.ps1')){ if($visualMatrixText -notmatch [regex]::Escape($token)){ $issues += "Visual QA matrix lacks required contract: $token" } }
+}
 $nightlyWorkflowPath = Join-Path $root '.github\workflows\nightly-soak.yml'
 if(Test-Path -LiteralPath $nightlyWorkflowPath -PathType Leaf){
   $nightlyWorkflowText = Get-Content -Raw -Encoding UTF8 -LiteralPath $nightlyWorkflowPath

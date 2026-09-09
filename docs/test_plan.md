@@ -33,6 +33,8 @@ GitHub Actions workflow `.github/workflows/ci.yml` 在乾淨 Windows runner 上�
 
 設定 `ECHO_VILLAGE_VISUAL_QA=1` 並啟動 GUI runtime，使用實際 GPU 產生十五張 1280×720 PNG：主選單、設定、交易、村落手札、active 故事線、關係歷程、NPC 決策說明、首次旅程導覽、開場、黎明、正午、夜晚、危險事件、任務進行與森林完成。人工檢查遮擋、對比、層級、文字截斷與畫面一致性；CI 逐檔驗證名稱與尺寸。
 
+補充的解析度矩陣可用 `powershell -NoProfile -ExecutionPolicy Bypass -File tools\run_visual_qa_matrix.ps1` 執行。它以同一批十五個情境檢查 1280×720、1024×576、800×450 與 1600×900，將截圖與尺寸報告寫入被 Git 忽略的 `reports/visual_qa/matrix/`，不污染正式 1280×720 證據。
+
 ## 發行驗證
 
 `build_release.bat` 依序執行：99 項測試 → PCK 匯出 → portable runtime 組裝 → 120 幀成品煙霧測試。最後另檢查成品檔案、大小與殘留程序。

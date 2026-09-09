@@ -757,7 +757,7 @@ func visual_capture_interface_test() -> bool:
 	var instance := scene.instantiate()
 	add_child(instance)
 	await get_tree().process_frame
-	var result := instance.has_method("capture_visual_qa") and instance.has_method("visual_qa_capture_names")
+	var result := instance.has_method("capture_visual_qa") and instance.has_method("visual_qa_capture_names") and instance.has_method("visual_qa_output_path")
 	if result:
 		var names: Array = instance.visual_qa_capture_names()
 		for expected in ["quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","village_progression.png","story_arc_active.png","relationship_history.png","consumer_onboarding.png","npc_decision_explanation.png"]: result = result and expected in names

@@ -136,6 +136,12 @@ func connect_ui_refresh_signals() -> void:
 func is_visual_qa_requested() -> bool:
 	return "--visual-qa" in OS.get_cmdline_user_args() or "--visual-qa" in OS.get_cmdline_args() or OS.get_environment("ECHO_VILLAGE_VISUAL_QA") == "1"
 
+func visual_qa_output_path(file_name: String) -> String:
+	var custom_directory := OS.get_environment("ECHO_VILLAGE_VISUAL_QA_OUTPUT_DIR").strip_edges()
+	if custom_directory.is_empty(): return "res://tests/visual_qa/" + file_name
+	DirAccess.make_dir_recursive_absolute(custom_directory)
+	return custom_directory.path_join(file_name)
+
 func capture_visual_qa() -> void:
 	var captures := [
 		{"file":"storybook_intro.png","minute":780,"intro":true},
@@ -229,7 +235,7 @@ func capture_visual_qa() -> void:
 		if scenario in ["danger","forest_complete","settings","trade","progression","story_active","relationship_history","onboarding"]: await get_tree().create_timer(0.24).timeout
 		await RenderingServer.frame_post_draw
 		var image := get_viewport().get_texture().get_image()
-		var result := image.save_png("res://tests/visual_qa/" + file_name)
+		var result := image.save_png(visual_qa_output_path(file_name))
 		if result != OK:
 			push_error("無法輸出視覺 QA 截圖：" + file_name)
 			get_tree().quit(1)
