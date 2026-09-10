@@ -88,6 +88,7 @@ var main_menu_panel: Panel
 var settings_panel: Panel
 var menu_status_label: Label
 var continue_button: Button
+var new_game_button: Button
 var autosave_toggle: CheckButton
 var motion_toggle: CheckButton
 var fullscreen_toggle: CheckButton
@@ -490,7 +491,7 @@ func create_main_menu() -> void:
 	subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	continue_button = make_menu_button(main_menu_panel,"ContinueButton",Vector2(490,305),"繼續旅程")
 	continue_button.pressed.connect(continue_game)
-	var new_game_button := make_menu_button(main_menu_panel,"NewGameButton",Vector2(490,365),"開始新旅程")
+	new_game_button = make_menu_button(main_menu_panel,"NewGameButton",Vector2(490,365),"開始新旅程")
 	new_game_button.pressed.connect(start_new_game)
 	var settings_button := make_menu_button(main_menu_panel,"SettingsButton",Vector2(490,425),"遊戲設定")
 	settings_button.pressed.connect(open_settings)
@@ -508,15 +509,37 @@ func make_menu_button(parent: Control, node_name: String, at: Vector2, text_valu
 	button.size = Vector2(300,48)
 	button.text = text_value
 	button.add_theme_font_size_override("font_size",16)
-	style_action_button(button,VillageTheme.MOSS_LIGHT)
+	style_menu_secondary_button(button)
 	parent.add_child(button)
 	return button
 
+func style_menu_secondary_button(button: Button) -> void:
+	button.add_theme_color_override("font_color",VillageTheme.PAPER)
+	button.add_theme_color_override("font_hover_color",VillageTheme.CREAM)
+	button.add_theme_color_override("font_pressed_color",VillageTheme.CREAM)
+	button.add_theme_color_override("font_focus_color",VillageTheme.CREAM)
+	var normal := VillageTheme.panel_style(Color("193447"),Color("526778"),8)
+	var hover := VillageTheme.panel_style(Color("23445a"),VillageTheme.PAPER_DARK,8)
+	var pressed := VillageTheme.panel_style(Color("102737"),VillageTheme.PAPER_DARK,8)
+	var focus := VillageTheme.panel_style(Color("23445a"),VillageTheme.FOCUS,8)
+	focus.set_border_width_all(3)
+	button.add_theme_stylebox_override("normal",normal)
+	button.add_theme_stylebox_override("hover",hover)
+	button.add_theme_stylebox_override("pressed",pressed)
+	button.add_theme_stylebox_override("focus",focus)
+
 func refresh_main_menu() -> void:
 	if continue_button == null: return
-	continue_button.disabled = not SaveManager.has_save()
+	var has_save := SaveManager.has_save()
+	continue_button.disabled = not has_save
+	if has_save:
+		style_action_button(continue_button,VillageTheme.MOSS_LIGHT)
+		style_menu_secondary_button(new_game_button)
+	else:
+		style_menu_secondary_button(continue_button)
+		style_action_button(new_game_button,VillageTheme.MOSS_LIGHT)
 	continue_button.tooltip_text = "載入最近一次存檔" if not continue_button.disabled else "尚未建立存檔"
-	menu_status_label.text = "已偵測到存檔，可繼續上次旅程。" if SaveManager.has_save() else "第一次來訪？選擇「開始新旅程」。"
+	menu_status_label.text = "已偵測到存檔，可繼續上次旅程。" if has_save else "第一次來訪？選擇「開始新旅程」。"
 
 func start_new_game() -> void:
 	GameTime.reset_clock()

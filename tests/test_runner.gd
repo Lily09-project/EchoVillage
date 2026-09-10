@@ -785,7 +785,7 @@ func consumer_shell_structure_test() -> bool:
 		"CanvasLayer/SettingsPanel/MotionToggle",
 		"CanvasLayer/SettingsPanel/FullscreenToggle"
 	]
-	var result := instance.has_method("start_new_game") and instance.has_method("continue_game") and instance.has_method("open_settings")
+	var result := instance.has_method("start_new_game") and instance.has_method("continue_game") and instance.has_method("open_settings") and instance.has_method("style_menu_secondary_button")
 	for path in required: result = result and instance.get_node_or_null(path) != null
 	instance.queue_free()
 	return result
