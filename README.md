@@ -28,7 +28,7 @@ F5 儲存       Esc 暫停
 
 ## Windows Portable
 
-玩家可直接從 GitHub Release 下載壓縮包，不需要安裝 Godot：
+玩家可直接從 [GitHub Releases](https://github.com/Lily09-project/EchoVillage/releases/latest) 下載壓縮包，不需要安裝 Godot：
 
 ~~~powershell
 .\build_release.bat
