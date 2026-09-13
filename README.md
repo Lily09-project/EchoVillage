@@ -1,6 +1,6 @@
 # Echo Village
 
-Godot 4.5.2 的 Windows 2D 生活模擬遊戲。玩家探索村落、觀察居民需求與決策、建立關係、交易、完成任務，並透過可追溯的回音與故事線看見世界如何改變。
+Godot 4.5.2 的 Windows 2D 生活模擬遊戲。玩家探索村落、觀察居民需求與決策、建立關係、交易、完成任務，並透過可追溯的回音與故事線看見世界如何改變。遊戲 UI 以資料驅動，支援日／夜場景與一致的鍵盤操作。
 
 ## 介面預覽
 
@@ -9,7 +9,7 @@ Godot 4.5.2 的 Windows 2D 生活模擬遊戲。玩家探索村落、觀察居�
 ![交易流程](docs/screenshots/trade.png)
 ![關係與故事歷程](docs/screenshots/relationship-history.png)
 
-## 核心玩法
+## 核心玩法與系統
 
 - 五名居民依需求、性格、排程與世界事件自主行動。
 - Utility AI 與 state machine 產生可解釋的當前行動與決策理由。
@@ -36,7 +36,7 @@ F5 儲存       Esc 暫停
 
 產物位於 release/EchoVillage/，建置流程會執行 PCK export、portable smoke test、錯誤文字檢查與啟動逾時清理。release/ 與 Godot engine binary 不納入 repository。
 
-## 開發與測試
+## 開發、測試與發布
 
 需求：Windows、Godot 4.5.2 stable。可設定 GODOT_EXECUTABLE，或使用 PATH／tools/godot 中的 runtime。
 
@@ -47,13 +47,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File quality\run_acceptance.ps1 r
 powershell -NoProfile -ExecutionPolicy Bypass -File quality\run_acceptance.ps1 nightly
 ~~~
 
-品質流程包含結構與 JSON 驗證、headless Godot 測試、security audit、visual QA、Windows release smoke test，以及 90 日 nightly soak。測試結果寫入本機 tests/ 與 reports/acceptance/；不應提交產生的報告與使用者存檔。
+品質流程包含結構與 JSON 驗證、headless Godot 測試、security audit、visual QA、Windows release smoke test，以及 90 日 nightly soak。測試結果寫入本機 `tests/` 與 `reports/acceptance/`；不應提交生成報告與使用者存檔。
 
-## 系統邊界
+## 交付邊界與安全
 
 目前公開交付是 Windows 桌面版本，GitHub repository 本身不是可直接遊玩的網站。若要提供瀏覽器網址，需要另外製作 Godot Web export，再驗證瀏覽器相容性並部署靜態檔案。
 
-存檔位於 Godot user://，不應將真實存檔、.godot cache、release artifacts 或本機路徑提交。安全規則見 [SECURITY.md](SECURITY.md)，資料與架構見 [docs/game_design.md](docs/game_design.md)。
+存檔位於 Godot `user://`，不應將真實存檔、`.godot` cache、release artifacts 或本機路徑提交。安全規則見 [SECURITY.md](SECURITY.md)，資料與架構見 [docs/game_design.md](docs/game_design.md)。
 
 ## 專案結構
 
