@@ -17,30 +17,50 @@ const TEAL := Color("2e8894")
 const LILAC := Color("806598")
 const FOCUS := Color("f7d88a")
 const OVERLAY := Color(0.05, 0.09, 0.13, 0.78)
+const SURFACE_NIGHT := Color("102b3a")
+const SURFACE_NIGHT_RAISED := Color("193c50")
+const BORDER_NIGHT := Color("4f6b7b")
+const SPACE_UNIT := 8.0
 
 static func panel_style(fill: Color = PAPER, border: Color = INK, radius: int = 10) -> StyleBoxFlat:
-
 	var style := StyleBoxFlat.new()
 	style.bg_color = fill
 	style.border_color = border
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(radius)
-	style.shadow_color = Color(0.06, 0.05, 0.04, 0.34)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(clampi(radius, 8, 18))
+	style.shadow_color = Color(0.04, 0.05, 0.08, 0.34)
 	style.shadow_size = 10
-	style.shadow_offset = Vector2(0, 5)
-	style.content_margin_left = 12
-	style.content_margin_right = 12
-	style.content_margin_top = 8
-	style.content_margin_bottom = 8
+	style.shadow_offset = Vector2(0, 4)
+	style.content_margin_left = 20
+	style.content_margin_right = 20
+	style.content_margin_top = 16
+	style.content_margin_bottom = 16
 	return style
 
 static func card_style(fill: Color, accent: Color) -> StyleBoxFlat:
-	var style := panel_style(fill, accent, 14)
-	style.set_border_width(SIDE_LEFT, 6)
+	var style := panel_style(fill, accent, 16)
+	style.set_border_width(SIDE_LEFT, 5)
 	style.shadow_size = 14
+	style.shadow_offset = Vector2(0, 5)
 	return style
 
 static func button_style(fill: Color, hover: Color, pressed: Color) -> Dictionary:
-	var focus := panel_style(hover, FOCUS, 8)
+	var focus := panel_style(hover, FOCUS, 12)
 	focus.set_border_width_all(3)
-	return {"normal": panel_style(fill, INK, 8), "hover": panel_style(hover, INK, 8), "pressed": panel_style(pressed, INK, 8), "focus": focus}
+	return {"normal": panel_style(fill, INK, 12), "hover": panel_style(hover, INK, 12), "pressed": panel_style(pressed, INK, 12), "focus": focus}
+
+static func configure_label(label: Label, wrap: bool = false) -> Label:
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.clip_text = false
+	label.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+	if wrap:
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	return label
+
+static func configure_button(button: Button) -> Button:
+	button.focus_mode = Control.FOCUS_ALL
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	button.custom_minimum_size = Vector2(maxf(button.custom_minimum_size.x, 44.0), maxf(button.custom_minimum_size.y, 44.0))
+	button.clip_text = false
+	button.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+	return button

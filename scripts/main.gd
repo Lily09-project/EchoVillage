@@ -422,7 +422,7 @@ func create_ui() -> void:
 	renown_label = make_label(Vector2(900,6), Vector2(320,22), 13, VillageTheme.MOSS_LIGHT)
 	renown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	hint_label = make_label(Vector2(58,610), Vector2(730,28), 14, VillageTheme.PAPER)
-	hint_label.text = "靠近居民  E  ·  操作指南  F1  ·  暫停  Esc"
+	hint_label.text = "E 互動  ·  F1 指南  ·  Esc 暫停"
 	log_label = make_label(Vector2(58,644), Vector2(730,66), 13, VillageTheme.PAPER_DARK)
 	log_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	toast_label = make_label(Vector2(390,566),Vector2(420,26),14,VillageTheme.SUN)
@@ -485,19 +485,19 @@ func create_main_menu() -> void:
 	var title := make_panel_label(main_menu_panel,Vector2(310,145),Vector2(660,70),44,VillageTheme.SUN)
 	title.text = "ECHO VILLAGE"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var subtitle := make_panel_label(main_menu_panel,Vector2(370,218),Vector2(540,52),16,VillageTheme.PAPER_DARK)
-	subtitle.text = "一座即使沒有玩家介入，也會持續生活、記憶與改變的小村莊。"
+	var subtitle := make_panel_label(main_menu_panel,Vector2(350,218),Vector2(580,52),16,VillageTheme.PAPER_DARK)
+	subtitle.text = "居民會生活、記憶與改變；你的選擇會留下回音。"
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	continue_button = make_menu_button(main_menu_panel,"ContinueButton",Vector2(490,305),"繼續旅程")
+	continue_button = make_menu_button(main_menu_panel,"ContinueButton",Vector2(470,305),"繼續旅程")
 	continue_button.pressed.connect(continue_game)
-	new_game_button = make_menu_button(main_menu_panel,"NewGameButton",Vector2(490,365),"開始新旅程")
+	new_game_button = make_menu_button(main_menu_panel,"NewGameButton",Vector2(470,373),"開始新旅程")
 	new_game_button.pressed.connect(start_new_game)
-	var settings_button := make_menu_button(main_menu_panel,"SettingsButton",Vector2(490,425),"遊戲設定")
+	var settings_button := make_menu_button(main_menu_panel,"SettingsButton",Vector2(470,441),"遊戲設定")
 	settings_button.pressed.connect(open_settings)
-	var showcase_button := make_menu_button(main_menu_panel,"ShowcaseButton",Vector2(490,485),"導覽展示模式")
+	var showcase_button := make_menu_button(main_menu_panel,"ShowcaseButton",Vector2(470,509),"導覽展示模式")
 	showcase_button.pressed.connect(func(): main_menu_panel.visible = false; showcase_panel.visible = true; sync_simulation_pause())
-	menu_status_label = make_panel_label(main_menu_panel,Vector2(410,558),Vector2(460,50),13,VillageTheme.PAPER_DARK)
+	menu_status_label = make_panel_label(main_menu_panel,Vector2(410,586),Vector2(460,50),13,VillageTheme.PAPER_DARK)
 	menu_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	menu_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	refresh_main_menu()
@@ -506,7 +506,7 @@ func make_menu_button(parent: Control, node_name: String, at: Vector2, text_valu
 	var button := Button.new()
 	button.name = node_name
 	button.position = at
-	button.size = Vector2(300,48)
+	button.size = Vector2(340,52)
 	button.text = text_value
 	button.add_theme_font_size_override("font_size",16)
 	style_menu_secondary_button(button)
@@ -514,6 +514,8 @@ func make_menu_button(parent: Control, node_name: String, at: Vector2, text_valu
 	return button
 
 func style_menu_secondary_button(button: Button) -> void:
+	VillageTheme.configure_button(button)
+	button.size.y = maxf(button.size.y,44.0)
 	button.add_theme_color_override("font_color",VillageTheme.PAPER)
 	button.add_theme_color_override("font_hover_color",VillageTheme.CREAM)
 	button.add_theme_color_override("font_pressed_color",VillageTheme.CREAM)
@@ -775,23 +777,23 @@ func create_pulse_panel() -> void:
 func create_time_panel() -> void:
 	time_panel = Panel.new()
 	time_panel.name = "TimeControls"
-	time_panel.position = Vector2(58,502)
-	time_panel.size = Vector2(280,92)
+	time_panel.position = Vector2(58,484)
+	time_panel.size = Vector2(280,110)
 	time_panel.add_theme_stylebox_override("panel",VillageTheme.card_style(Color("f7edcf"),VillageTheme.TEAL))
 	canvas.add_child(time_panel)
 	var title := make_panel_label(time_panel,Vector2(16,10),Vector2(245,22),15,VillageTheme.INK)
 	title.text = "時間控制  /  SIMULATION"
 	time_label = make_panel_label(time_panel,Vector2(16,34),Vector2(115,20),12,VillageTheme.INK_SOFT)
-	add_time_button("1×",Vector2(136,38),"normal")
-	add_time_button("2×",Vector2(170,38),"2x")
-	add_time_button("5×",Vector2(204,38),"5x")
-	add_time_button("10×",Vector2(238,38),"10x")
+	add_time_button("1×",Vector2(16,58),"normal")
+	add_time_button("2×",Vector2(68,58),"2x")
+	add_time_button("5×",Vector2(120,58),"5x")
+	add_time_button("10×",Vector2(172,58),"10x")
 
 func add_time_button(text_value: String, position_value: Vector2, speed_key: String) -> void:
 	var button := Button.new()
 	button.text = text_value
 	button.position = position_value
-	button.size = Vector2(29 if speed_key != "10x" else 36,34)
+	button.size = Vector2(44,44)
 	button.add_theme_font_size_override("font_size",11)
 	style_action_button(button,VillageTheme.TEAL)
 	button.pressed.connect(func(): set_simulation_speed(speed_key))
@@ -950,7 +952,7 @@ func create_pause_panel() -> void:
 	var motion := Button.new()
 	pause_motion_button = motion
 	motion.text = "動態效果：開"
-	motion.position = Vector2(18,212)
+	motion.position = Vector2(18,218)
 	motion.size = Vector2(314,34)
 	motion.add_theme_font_size_override("font_size",12)
 	style_action_button(motion,VillageTheme.TEAL)
@@ -965,6 +967,7 @@ func make_label(position_value: Vector2, size_value: Vector2, font_size: int, co
 	label.size = size_value
 	label.add_theme_font_size_override("font_size",font_size)
 	label.add_theme_color_override("font_color",color)
+	VillageTheme.configure_label(label)
 	canvas.add_child(label)
 	return label
 
@@ -974,6 +977,7 @@ func make_panel_label(parent: Control, position_value: Vector2, size_value: Vect
 	label.size = size_value
 	label.add_theme_font_size_override("font_size",font_size)
 	label.add_theme_color_override("font_color",color)
+	VillageTheme.configure_label(label)
 	parent.add_child(label)
 	return label
 
@@ -1128,6 +1132,8 @@ func show_interaction_feedback(action: String, response: String) -> void:
 	impact_remaining = 3.8
 
 func style_action_button(button: Button, color: Color) -> void:
+	VillageTheme.configure_button(button)
+	button.size.y = maxf(button.size.y,44.0)
 	button.add_theme_color_override("font_color",VillageTheme.INK)
 	button.add_theme_color_override("font_focus_color",VillageTheme.INK)
 	var styles: Dictionary = VillageTheme.button_style(color,color.lightened(0.12),color.darkened(0.12))

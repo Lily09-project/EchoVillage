@@ -72,5 +72,6 @@ func _make_label(node_name: String, at: Vector2, extent: Vector2, font_size: int
 	label.text = text_value
 	label.add_theme_font_size_override("font_size",font_size)
 	label.add_theme_color_override("font_color",color)
+	VillageTheme.configure_label(label)
 	add_child(label)
 	return label

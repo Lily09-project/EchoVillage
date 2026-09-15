@@ -160,10 +160,13 @@ func _make_label_on(parent: Control, node_name: String, at: Vector2, extent: Vec
 	label.text = text_value
 	label.add_theme_font_size_override("font_size",font_size)
 	label.add_theme_color_override("font_color",color)
+	VillageTheme.configure_label(label)
 	parent.add_child(label)
 	return label
 
 func _style_button(button: Button, accent: Color) -> void:
+	VillageTheme.configure_button(button)
+	button.size.y = maxf(button.size.y,44.0)
 	var styles := VillageTheme.button_style(accent,accent.lightened(0.12),accent.darkened(0.12))
 	button.add_theme_stylebox_override("normal",styles["normal"])
 	button.add_theme_stylebox_override("hover",styles["hover"])

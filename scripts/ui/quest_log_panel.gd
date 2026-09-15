@@ -8,10 +8,11 @@ func _ready() -> void:
 	size = Vector2(580,410)
 	add_theme_stylebox_override("panel",VillageTheme.card_style(VillageTheme.CREAM,VillageTheme.LILAC))
 	var title := Label.new(); title.position = Vector2(24,18); title.size = Vector2(530,34); title.text = "任務日誌  /  QUEST LOG"
-	title.add_theme_font_size_override("font_size",22); title.add_theme_color_override("font_color",VillageTheme.INK); add_child(title)
+	title.add_theme_font_size_override("font_size",22); title.add_theme_color_override("font_color",VillageTheme.INK); VillageTheme.configure_label(title); add_child(title)
 	body_label = Label.new(); body_label.position = Vector2(24,64); body_label.size = Vector2(532,270)
-	body_label.add_theme_font_size_override("font_size",14); body_label.add_theme_color_override("font_color",VillageTheme.INK_SOFT); body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; add_child(body_label)
+	body_label.add_theme_font_size_override("font_size",14); body_label.add_theme_color_override("font_color",VillageTheme.INK_SOFT); VillageTheme.configure_label(body_label,true); add_child(body_label)
 	var close := Button.new(); close.position = Vector2(392,344); close.size = Vector2(164,48); close.text = "關閉日誌  K"; close.tooltip_text = "關閉任務日誌"
+	VillageTheme.configure_button(close)
 	var styles := VillageTheme.button_style(VillageTheme.LILAC,VillageTheme.LILAC.lightened(0.12),VillageTheme.LILAC.darkened(0.12))
 	close.add_theme_stylebox_override("normal",styles["normal"]); close.add_theme_stylebox_override("hover",styles["hover"]); close.add_theme_stylebox_override("pressed",styles["pressed"]); close.add_theme_stylebox_override("focus",styles["focus"]); close.pressed.connect(func(): visible = false); add_child(close)
 	visible = false

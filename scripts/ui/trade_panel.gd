@@ -85,6 +85,7 @@ func make_label(at: Vector2, extent: Vector2, font_size: int, color: Color, text
 	label.text = text_value
 	label.add_theme_font_size_override("font_size",font_size)
 	label.add_theme_color_override("font_color",color)
+	VillageTheme.configure_label(label)
 	add_child(label)
 	return label
 
@@ -94,6 +95,8 @@ func make_button(node_name: String, at: Vector2, extent: Vector2, text_value: St
 	button.position = at
 	button.size = extent
 	button.text = text_value
+	VillageTheme.configure_button(button)
+	button.size.y = maxf(button.size.y,44.0)
 	button.add_theme_font_size_override("font_size",14)
 	var styles := VillageTheme.button_style(color,color.lightened(0.12),color.darkened(0.12))
 	button.add_theme_stylebox_override("normal",styles["normal"])
