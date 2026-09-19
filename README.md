@@ -1,6 +1,6 @@
 # Echo Village
 
-Godot 4.5.2 的 Windows 2D 生活模擬遊戲。玩家探索村落、觀察居民需求與決策、建立關係、交易、完成任務，並透過可追溯的回音與故事線看見世界如何改變。UI 以資料驅動，支援日／夜場景與一致的鍵盤操作。
+Godot 4.5.2 的 Windows 2D 生活模擬遊戲。玩家探索村落、觀察居民決策、建立關係、交易與完成任務；世界狀態會透過可追溯的回音與故事線持續改變。
 
 ## 介面預覽
 
@@ -9,33 +9,21 @@ Godot 4.5.2 的 Windows 2D 生活模擬遊戲。玩家探索村落、觀察居�
 ![交易流程](docs/screenshots/trade.png)
 ![關係與故事歷程](docs/screenshots/relationship-history.png)
 
-## 核心玩法與系統
+## Highlights
 
-- 五名居民依需求、性格、排程與世界事件自主行動。
-- Utility AI 與 state machine 產生可解釋的當前行動與決策理由。
-- 對話、記憶、信任／好感、資訊傳播與可追溯事件歷程。
-- 探索、地點解鎖、任務、製作、交易、村落進展與 Living Stories 分支。
+- Utility AI 與 state machine，呈現居民目前行動與決策理由。
+- 需求、性格、排程、關係、記憶與資訊傳播共同驅動世界狀態。
+- 探索、任務、製作、交易、地點解鎖與 Living Stories 分支。
 - 存檔 schema、遷移、portable runtime 與壞檔降級處理。
 
-## 操作
+## Controls
 
 ```text
-E 選取居民    G 贈送    T 交易    J 編年
-L 回音        Y 關係    O 故事線  P 村落手札
-F5 儲存       Esc 暫停
+E 選取居民   G 贈送   T 交易   J 編年   L 回音
+Y 關係       O 故事線 P 村落手札 F5 儲存   Esc 暫停
 ```
 
-## Windows Portable
-
-玩家可從 [GitHub Releases](https://github.com/Lily09-project/EchoVillage/releases/latest) 下載壓縮包，不需要安裝 Godot：
-
-```powershell
-.\build_release.bat
-```
-
-產物位於 `release/EchoVillage/`。建置流程會執行 PCK export、portable smoke test、錯誤文字檢查與啟動逾時清理；`release/` 與 Godot engine binary 不納入 repository。
-
-## 開發、測試與發布
+## Run & test
 
 需求：Windows、Godot 4.5.2 stable。可設定 `GODOT_EXECUTABLE`，或使用 PATH／`tools/godot` 中的 runtime。
 
@@ -43,27 +31,18 @@ F5 儲存       Esc 暫停
 .\run_echo_village.bat --test
 powershell -NoProfile -ExecutionPolicy Bypass -File quality\run_acceptance.ps1 quick
 powershell -NoProfile -ExecutionPolicy Bypass -File quality\run_acceptance.ps1 release
-powershell -NoProfile -ExecutionPolicy Bypass -File quality\run_acceptance.ps1 nightly
 ```
 
-品質流程包含結構與 JSON 驗證、headless Godot 測試、security audit、visual QA、Windows release smoke test，以及 90 日 nightly soak。測試結果寫入本機 `tests/` 與 `reports/acceptance/`；不應提交生成報告與使用者存檔。
+Windows portable release：
 
-## 交付邊界與安全
-
-目前公開交付是 Windows 桌面版本，GitHub repository 不是可直接遊玩的網站。若要提供瀏覽器網址，需要另外製作 Godot Web export，再驗證瀏覽器相容性並部署靜態檔案。
-
-存檔位於 Godot `user://`，不應將真實存檔、`.godot` cache、release artifacts 或本機路徑提交。安全規則見 [SECURITY.md](SECURITY.md)，資料與架構見 [docs/game_design.md](docs/game_design.md)。
-
-## 專案結構
-
-```text
-scenes/       場景與主遊戲畫面
-scripts/      遊戲邏輯、NPC、存檔與 UI
-data/         資料驅動內容
-tests/        headless tests、soak 與 visual QA
-tools/        bounded runner、validator、安全稽核
-quality/      acceptance manifest 與報告工具
-build_release.bat
+```powershell
+.\build_release.bat
 ```
+
+產物位於 `release/EchoVillage/`，不提交 Godot engine、`.godot` cache、release artifacts 或使用者存檔。也可從 [GitHub Releases](https://github.com/Lily09-project/EchoVillage/releases/latest) 下載。
+
+## Scope & security
+
+目前公開交付是 Windows 桌面版本；若要提供瀏覽器網址，需另外製作並驗證 Godot Web export。安全規則見 [SECURITY.md](SECURITY.md)，遊戲設計見 [docs/game_design.md](docs/game_design.md)。
 
 目前版本：Echo Village 1.4.0｜Godot 4.5.2｜Windows 10/11 64-bit
