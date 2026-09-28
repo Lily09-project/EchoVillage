@@ -35,7 +35,7 @@ jobs:
   quality:
     name: Echo Village CI
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -80,6 +80,10 @@ jobs:
       - name: Validate visual matrix CI contract
         shell: pwsh
         run: ./tools/test_ci_visual_matrix_contract.ps1
+
+      - name: Run multi-resolution visual QA matrix
+        shell: pwsh
+        run: ./tools/run_visual_qa_matrix.ps1 -GodotExecutable $env:GODOT_EXECUTABLE -OutputRoot "$env:GITHUB_WORKSPACE\reports\visual_qa\matrix"
 
       - name: Validate generated report
         shell: pwsh
@@ -137,4 +141,12 @@ jobs:
           path: |
             tests/simulation_test_report.json
             tests/security_audit_report.json
+          if-no-files-found: warn
+
+      - name: Upload visual QA matrix
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: echo-village-visual-qa-matrix
+          path: reports/visual_qa/matrix
           if-no-files-found: warn
