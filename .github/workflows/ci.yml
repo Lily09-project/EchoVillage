@@ -77,6 +77,10 @@ jobs:
           $exitCode = $LASTEXITCODE
           if ($exitCode -ne 0) { throw "Echo Village quality gate failed with exit code $exitCode." }
 
+      - name: Validate visual matrix CI contract
+        shell: pwsh
+        run: ./tools/test_ci_visual_matrix_contract.ps1
+
       - name: Validate generated report
         shell: pwsh
         run: |
