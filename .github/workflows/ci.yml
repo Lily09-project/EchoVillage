@@ -35,7 +35,7 @@ jobs:
   quality:
     name: Echo Village CI
     runs-on: windows-latest
-    timeout-minutes: 35
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -80,10 +80,6 @@ jobs:
       - name: Validate visual matrix CI contract
         shell: pwsh
         run: ./tools/test_ci_visual_matrix_contract.ps1
-
-      - name: Run multi-resolution visual QA matrix
-        shell: pwsh
-        run: ./tools/run_visual_qa_matrix.ps1 -GodotExecutable $env:GODOT_EXECUTABLE -OutputRoot "$env:GITHUB_WORKSPACE\reports\visual_qa\matrix"
 
       - name: Validate generated report
         shell: pwsh
@@ -142,6 +138,36 @@ jobs:
             tests/simulation_test_report.json
             tests/security_audit_report.json
           if-no-files-found: warn
+
+  visual-matrix:
+    name: Multi-resolution visual QA
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install verified Godot 4.5.2 stable
+        shell: bash
+        env:
+          GODOT_SHA256: 87f6e6be292929e363d15ed9052f277b2ba4e95ed994e1e099048097be2dfd03
+        run: |
+          archive="$RUNNER_TEMP/godot-4.5.2-linux.zip"
+          install="$RUNNER_TEMP/godot-4.5.2-linux"
+          curl --fail --location --retry 3             --output "$archive"             https://github.com/godotengine/godot-builds/releases/download/4.5.2-stable/Godot_v4.5.2-stable_linux.x86_64.zip
+          echo "$GODOT_SHA256  $archive" | sha256sum --check -
+          mkdir -p "$install"
+          unzip -q "$archive" -d "$install"
+          executable="$install/Godot_v4.5.2-stable_linux.x86_64"
+          test -x "$executable"
+          echo "GODOT_EXECUTABLE=$executable" >> "$GITHUB_ENV"
+
+      - name: Run visual QA at four resolutions
+        shell: bash
+        run: xvfb-run --auto-servernum pwsh -File ./tools/run_visual_qa_matrix.ps1 -GodotExecutable "$GODOT_EXECUTABLE" -OutputRoot "${{ github.workspace }}/reports/visual_qa/matrix"
 
       - name: Upload visual QA matrix
         if: always()
