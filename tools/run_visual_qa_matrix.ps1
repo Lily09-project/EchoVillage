@@ -5,7 +5,18 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-Add-Type -AssemblyName System.Drawing
+
+function Get-PngDimensions {
+    param([Parameter(Mandatory = $true)] [string] $Path)
+
+    $bytes = [System.IO.File]::ReadAllBytes($Path)
+    if ($bytes.Length -lt 24 -or $bytes[0] -ne 0x89 -or $bytes[1] -ne 0x50 -or $bytes[2] -ne 0x4E -or $bytes[3] -ne 0x47) {
+        throw "Visual QA capture is not a valid PNG: $Path"
+    }
+    $width = ([int]$bytes[16] -shl 24) -bor ([int]$bytes[17] -shl 16) -bor ([int]$bytes[18] -shl 8) -bor [int]$bytes[19]
+    $height = ([int]$bytes[20] -shl 24) -bor ([int]$bytes[21] -shl 16) -bor ([int]$bytes[22] -shl 8) -bor [int]$bytes[23]
+    return @{ width = $width; height = $height }
+}
 $root = Split-Path -Parent $PSScriptRoot
 if ([string]::IsNullOrWhiteSpace($GodotExecutable)) {
     if (-not [string]::IsNullOrWhiteSpace($env:GODOT_EXECUTABLE)) {
@@ -63,13 +74,9 @@ foreach ($resolution in $resolutions) {
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
             throw "Missing visual QA capture at $($resolution.argument): $capture"
         }
-        $image = [System.Drawing.Image]::FromFile($path)
-        try {
-            if ($image.Width -ne $resolution.width -or $image.Height -ne $resolution.height) {
-                throw "Unexpected capture dimensions at $($resolution.argument): $capture ($($image.Width)x$($image.Height))"
-            }
-        } finally {
-            $image.Dispose()
+        $dimensions = Get-PngDimensions -Path $path
+        if ($dimensions.width -ne $resolution.width -or $dimensions.height -ne $resolution.height) {
+            throw "Unexpected capture dimensions at $($resolution.argument): $capture ($($dimensions.width)x$($dimensions.height))"
         }
         $files += [ordered]@{
             name = $capture
