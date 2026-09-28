@@ -43,7 +43,7 @@ foreach($recipe in $recipeData.recipes){
 $workflowPath = Join-Path $root '.github\workflows\ci.yml'
 if(Test-Path -LiteralPath $workflowPath -PathType Leaf){
   $workflowText = Get-Content -Raw -Encoding UTF8 -LiteralPath $workflowPath
-  $workflowRequired = @('name: Echo Village CI','pull_request:','workflow_dispatch:','permissions:','contents: read','runs-on: windows-latest','4.5.2-stable','GODOT_SHA512','Godot archive checksum mismatch.','gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e','GODOT_EXECUTABLE','run_echo_village.bat --test','actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a','tests/simulation_test_report.json','tests/security_audit_report.json','npc_decision_explanation.png','if: always()')
+  $workflowRequired = @('name: Echo Village CI','pull_request:','workflow_dispatch:','permissions:','contents: read','runs-on: windows-latest','4.5.2-stable','GODOT_SHA512','Godot archive checksum mismatch.','gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e','GODOT_EXECUTABLE','run_echo_village.bat --test','actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a','tests/simulation_test_report.json','tests/security_audit_report.json','npc_decision_explanation.png','if: always()','runs-on: ubuntu-latest','GODOT_SHA256','run_visual_qa_matrix.ps1','reports/visual_qa/matrix')
   foreach($token in $workflowRequired){ if($workflowText -notmatch [regex]::Escape($token)){ $issues += "CI workflow lacks required contract: $token" } }
   foreach($forbidden in @('TODO','TBD','YOUR_','CHANGE_ME')){ if($workflowText -match [regex]::Escape($forbidden)){ $issues += "CI workflow contains forbidden placeholder text: $forbidden" } }
 }
@@ -57,7 +57,7 @@ if(-not (Test-Path -LiteralPath $visualMatrixPath -PathType Leaf)){
   $issues += 'Missing: tools\run_visual_qa_matrix.ps1'
 } else {
   $visualMatrixText = Get-Content -Raw -Encoding UTF8 -LiteralPath $visualMatrixPath
-  foreach($token in @('ECHO_VILLAGE_VISUAL_QA','ECHO_VILLAGE_VISUAL_QA_OUTPUT_DIR','--audio-driver Dummy','--resolution','matrix-report.json','System.Drawing.Image','run_godot_bounded.ps1')){ if($visualMatrixText -notmatch [regex]::Escape($token)){ $issues += "Visual QA matrix lacks required contract: $token" } }
+  foreach($token in @('ECHO_VILLAGE_VISUAL_QA','ECHO_VILLAGE_VISUAL_QA_OUTPUT_DIR','--audio-driver Dummy','--resolution','matrix-report.json','Get-PngDimensions','run_godot_bounded.ps1')){ if($visualMatrixText -notmatch [regex]::Escape($token)){ $issues += "Visual QA matrix lacks required contract: $token" } }
 }
 $nightlyWorkflowPath = Join-Path $root '.github\workflows\nightly-soak.yml'
 if(Test-Path -LiteralPath $nightlyWorkflowPath -PathType Leaf){
