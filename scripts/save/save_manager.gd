@@ -49,6 +49,9 @@ func _absolute_path(path: String) -> String:
 		return ProjectSettings.globalize_path(path)
 	return path
 
+func _rename_save_file(from_path: String, to_path: String) -> Error:
+	return DirAccess.rename_absolute(from_path,to_path)
+
 func _write_save_atomically(path: String, payload: String) -> bool:
 	var absolute_path := _absolute_path(path)
 	var temporary_path := absolute_path + ".tmp"
@@ -58,17 +61,23 @@ func _write_save_atomically(path: String, payload: String) -> bool:
 	if file == null: return false
 	file.store_string(payload)
 	file.flush()
+	var write_error := file.get_error()
 	file.close()
+	if write_error != OK:
+		if FileAccess.file_exists(temporary_path): DirAccess.remove_absolute(temporary_path)
+		return false
 	var current_save_is_valid := false
 	if FileAccess.file_exists(absolute_path):
 		current_save_is_valid = bool(_read_save_candidate(absolute_path).get("ok",false))
 	if current_save_is_valid and DirAccess.copy_absolute(absolute_path,backup_temporary_path) != OK:
 		if FileAccess.file_exists(temporary_path): DirAccess.remove_absolute(temporary_path)
 		return false
-	if DirAccess.rename_absolute(temporary_path,absolute_path) != OK:
+	if _rename_save_file(temporary_path,absolute_path) != OK:
 		if FileAccess.file_exists(temporary_path): DirAccess.remove_absolute(temporary_path)
+		if current_save_is_valid and FileAccess.file_exists(backup_temporary_path): DirAccess.remove_absolute(backup_temporary_path)
 		return false
-	if current_save_is_valid and DirAccess.rename_absolute(backup_temporary_path,backup_path) != OK:
+	if current_save_is_valid and _rename_save_file(backup_temporary_path,backup_path) != OK:
+		if FileAccess.file_exists(backup_temporary_path): DirAccess.remove_absolute(backup_temporary_path)
 		push_warning("存檔已完成，但無法更新備份；保留先前可用的備份。")
 	return FileAccess.file_exists(absolute_path)
 
@@ -94,8 +103,7 @@ func _promote_backup(path: String) -> bool:
 	file.store_string(raw)
 	file.flush()
 	file.close()
-	if FileAccess.file_exists(absolute_path): DirAccess.remove_absolute(absolute_path)
-	if DirAccess.rename_absolute(recovery_path,absolute_path) != OK:
+	if _rename_save_file(recovery_path,absolute_path) != OK:
 		if FileAccess.file_exists(recovery_path): DirAccess.remove_absolute(recovery_path)
 		return false
 	return FileAccess.file_exists(absolute_path) and FileAccess.file_exists(backup_path)
