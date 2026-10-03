@@ -1,5 +1,6 @@
 extends Node
 
+const SaveFailureTest = preload("res://tests/suites/save_failure_test.gd")
 const UiRefreshSchedulerTest = preload("res://tests/suites/ui_refresh_scheduler_test.gd")
 
 var passed := 0
@@ -28,6 +29,12 @@ func run() -> void:
 	check("正向互動會建立記憶", memory_test())
 	check("存檔與讀檔能還原玩家狀態", save_load_test())
 	check("存檔原子寫入與備份復原", save_recovery_test())
+	check("有效備份不因損壞主檔覆寫而遺失", save_backup_preservation_test())
+	check("暫存檔開啟失敗保留主檔與備份", save_failure_test("open",test_storage_root))
+	check("備份複製失敗保留主檔與備份", save_failure_test("copy",test_storage_root))
+	check("主檔替換失敗保留主檔與備份", save_failure_test("rename",test_storage_root))
+	check("備份替換失敗仍保留舊備份", save_failure_test("backup",test_storage_root))
+	check("備份復原替換失敗不刪除任何存檔", save_failure_test("recovery",test_storage_root))
 	check("糧食短缺會提高麵包價格", event_price_test())
 	check("七日加速模擬保持健康", simulation_test())
 	check("三十日加速模擬保持健康", long_simulation_stability_test())
@@ -184,6 +191,12 @@ func memory_test() -> bool:
 	GameManager.interact("alice","give_bread")
 	return GameManager.npcs["alice"]["memories"].size() == before + 1
 
+func save_failure_test(failure: String, root: String) -> bool:
+	var instance := SaveFailureTest.new()
+	var result: bool = instance.run_failure_case(root,failure)
+	instance.free()
+	return result
+
 func save_load_test() -> bool:
 	var original := int(GameManager.player["coin"])
 	if not SaveManager.save_game(): return false
@@ -209,6 +222,31 @@ func save_recovery_test() -> bool:
 	GameManager.player["coin"] = 777
 	if not SaveManager.load_game(): return false
 	return int(GameManager.player["coin"]) == 91 and FileAccess.file_exists(backup)
+
+func save_backup_preservation_test() -> bool:
+	GameManager.new_game()
+	GameManager.player["coin"] = 91
+	if not SaveManager.save_game("manual"): return false
+	GameManager.player["coin"] = 123
+	if not SaveManager.save_game("manual"): return false
+	var root := OS.get_environment("ECHO_VILLAGE_TEST_STORAGE_ROOT")
+	if root.is_empty(): root = ProjectSettings.globalize_path("res://.test-data")
+	var primary := root.path_join("echo_village_save.json")
+	var backup := primary + ".bak"
+	if not FileAccess.file_exists(backup): return false
+	var first_corruption := FileAccess.open(primary,FileAccess.WRITE)
+	if first_corruption == null: return false
+	first_corruption.store_string("{ malformed primary")
+	first_corruption.close()
+	GameManager.player["coin"] = 777
+	if not SaveManager.save_game("manual"): return false
+	var second_corruption := FileAccess.open(primary,FileAccess.WRITE)
+	if second_corruption == null: return false
+	second_corruption.store_string("{ malformed after save")
+	second_corruption.close()
+	GameManager.player["coin"] = 555
+	if not SaveManager.load_game(): return false
+	return int(GameManager.player["coin"]) == 91
 
 func event_price_test() -> bool:
 	GameManager.new_game()
