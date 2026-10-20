@@ -1120,8 +1120,29 @@ func modal_exclusivity_test() -> bool:
 	var progression_replaced: bool = instance.progression_panel.visible and not instance.journal_panel.visible
 	instance.close_modal_panels()
 	var all_closed: bool = not instance.inventory_panel.visible and not instance.journal_panel.visible and not instance.progression_panel.visible and not instance.trade_panel.visible
+	var motion_ok := true
+	var was_paused := get_tree().paused
+	get_tree().paused = true
+	for panel in [instance.trade_panel,instance.progression_panel,instance.quest_log_panel,instance.story_arc_panel,instance.world_map_panel]:
+		panel.set_visible_with_motion(true,true)
+		var prior: Tween = panel.get("_visibility_tween")
+		panel.set_visible_with_motion(false,true)
+		motion_ok = motion_ok and not prior.is_valid() and not panel.visible and panel.modulate == Color.WHITE and panel.scale == Vector2.ONE
+		panel.set_visible_with_motion(true,true)
+		prior = panel.get("_visibility_tween")
+		panel.visible = false
+		motion_ok = motion_ok and not prior.is_valid() and panel.modulate == Color.WHITE and panel.scale == Vector2.ONE
+		panel.set_visible_with_motion(true,true)
+		prior = panel.get("_visibility_tween")
+		panel.set_visible_with_motion(true,false)
+		motion_ok = motion_ok and not prior.is_valid() and panel.visible and panel.modulate == Color.WHITE and panel.scale == Vector2.ONE
+		panel.set_visible_with_motion(true,true)
+		await get_tree().create_timer(0.25,true).timeout
+		motion_ok = motion_ok and panel.modulate.is_equal_approx(Color.WHITE) and panel.scale.is_equal_approx(Vector2.ONE)
+		panel.set_visible_with_motion(false,false)
+	get_tree().paused = was_paused
 	instance.queue_free()
-	return inventory_open and journal_replaced and progression_replaced and all_closed
+	return inventory_open and journal_replaced and progression_replaced and all_closed and motion_ok
 
 func motion_preference_sync_test() -> bool:
 	var previous := SaveManager.get_preference("motion",true)
