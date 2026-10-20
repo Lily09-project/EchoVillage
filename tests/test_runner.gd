@@ -866,33 +866,34 @@ func trade_ui_structure_test() -> bool:
 	for path in required: result = result and instance.get_node_or_null(path) != null
 	instance.selected_id = ""
 	instance.open_trade_panel()
-	result = trade_feedback_probe("case-1",instance.impact_title.text == "交易未完成" and not instance.impact_body.text.is_empty(),instance) and result
+	result = trade_feedback_probe("no-resident",instance.impact_title.text == "交易未完成" and not instance.impact_body.text.is_empty(),instance) and result
 	instance.selected_id = "alice"
 	var before := GameManager.serialize()
 	instance.handle_buy_request("missing_item")
-	result = trade_feedback_probe("case-2",instance.impact_title.text == "交易未完成" and GameManager.serialize() == before,instance) and result
+	result = trade_feedback_probe("invalid-buy",instance.impact_title.text == "交易未完成" and GameManager.serialize() == before,instance) and result
 	instance.handle_sell_request("missing_item")
-	result = trade_feedback_probe("case-3",instance.impact_title.text == "交易未完成" and GameManager.serialize() == before,instance) and result
+	result = trade_feedback_probe("invalid-sell",instance.impact_title.text == "交易未完成" and GameManager.serialize() == before,instance) and result
 	GameManager.player["coin"] = 0
 	before = GameManager.serialize()
 	instance.handle_buy_request("bread")
-	result = trade_feedback_probe("case-4",instance.impact_title.text == "交易未完成" and GameManager.serialize() == before,instance) and result
+	result = trade_feedback_probe("no-money",instance.impact_title.text == "交易未完成" and GameManager.serialize() == before,instance) and result
 	GameManager.new_game()
+	instance.selected_id = "alice"
 	instance.handle_buy_request("bread")
-	result = trade_feedback_probe("case-5",instance.impact_title.text == "交易完成" and instance.impact_body.text == "買入完成。",instance) and result
+	result = trade_feedback_probe("valid-buy",instance.impact_title.text == "交易完成" and instance.impact_body.text == "買入完成。",instance) and result
 	instance.handle_sell_request("medicine")
-	result = trade_feedback_probe("case-6",instance.impact_title.text == "交易完成" and instance.impact_body.text == "出售完成。",instance) and result
+	result = trade_feedback_probe("valid-sell",instance.impact_title.text == "交易完成" and instance.impact_body.text == "出售完成。",instance) and result
 	for action in ["craft","gather"]:
 		instance.show_interaction_feedback(action,"隔離測試失敗",{"ok":false})
-		result = trade_feedback_probe("case-7",instance.impact_title.text == ("無法製作" if action == "craft" else "無法採集"),instance) and result
+		result = trade_feedback_probe("craft-gather-failure",instance.impact_title.text == ("無法製作" if action == "craft" else "無法採集"),instance) and result
 	instance.motion_enabled = true
 	instance.show_interaction_feedback("trade","第一次",{"ok":true})
 	var prior: Tween = instance.impact_tween
 	instance.show_interaction_feedback("trade","最後一次",{"ok":false})
-	result = trade_feedback_probe("case-8",not prior.is_valid() and instance.impact_title.text == "交易未完成" and instance.impact_body.text == "最後一次",instance) and result
+	result = trade_feedback_probe("cancel-previous-tween",not prior.is_valid() and instance.impact_title.text == "交易未完成" and instance.impact_body.text == "最後一次",instance) and result
 	instance.motion_enabled = false
 	instance.show_interaction_feedback("trade","無動畫",{"ok":true})
-	result = trade_feedback_probe("case-9",instance.impact_feedback.modulate == Color.WHITE and instance.impact_feedback.scale == Vector2.ONE,instance) and result
+	result = trade_feedback_probe("motion-disabled-final-state",instance.impact_feedback.modulate == Color.WHITE and instance.impact_feedback.scale == Vector2.ONE,instance) and result
 	instance.queue_free()
 	GameManager.new_game()
 	return result
