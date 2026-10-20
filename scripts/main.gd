@@ -79,6 +79,7 @@ var impact_feedback: Panel
 var impact_title: Label
 var impact_body: Label
 var impact_remaining := 0.0
+var impact_tween: Tween
 var motion_enabled := true
 var ambience_clock := 0.0
 var quest_tracker
@@ -1117,18 +1118,27 @@ func npc_is_present(npc_id: String) -> bool:
 	if GameManager.current_location == "forest_edge": return npc_id in ["diana","eric"]
 	return true
 
-func show_interaction_feedback(action: String, response: String) -> void:
-	var labels := {"talk":"交談留下了回憶","give_bread":"善意被記住了","steal_food":"關係正在改變","trade":"交易完成","ask":"新的線索已更新","gather":"採集完成"}
-	impact_title.text = str(labels.get(action,"互動完成"))
+func interaction_feedback_title(action: String, outcome: Dictionary = {}) -> String:
+	var neutral := {"talk":"交談回音","give_bread":"贈禮回饋","steal_food":"關係變化","trade":"交易提示","ask":"居民線索","gather":"採集提示","craft":"製作提示"}
+	if outcome.has("ok"):
+		if not bool(outcome["ok"]):
+			return str({"trade":"交易未完成","gather":"無法採集","craft":"無法製作"}.get(action,"操作未完成"))
+		return str({"trade":"交易完成","gather":"採集完成","craft":"製作完成"}.get(action,"操作完成"))
+	return str(neutral.get(action,"互動回饋"))
+
+func show_interaction_feedback(action: String, response: String, outcome: Dictionary = {}) -> void:
+	if impact_tween != null and impact_tween.is_valid():
+		impact_tween.kill()
+	impact_title.text = interaction_feedback_title(action,outcome)
 	impact_body.text = response
 	impact_feedback.visible = true
 	impact_feedback.modulate = Color(1,1,1,0.0) if motion_enabled else Color.WHITE
 	impact_feedback.scale = Vector2(0.96,0.96) if motion_enabled else Vector2.ONE
 	impact_feedback.pivot_offset = impact_feedback.size * 0.5
 	if motion_enabled:
-		var tween := create_tween().set_parallel(true)
-		tween.tween_property(impact_feedback,"modulate",Color.WHITE,0.18)
-		tween.tween_property(impact_feedback,"scale",Vector2.ONE,0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		impact_tween = create_tween().set_parallel(true)
+		impact_tween.tween_property(impact_feedback,"modulate",Color.WHITE,0.18)
+		impact_tween.tween_property(impact_feedback,"scale",Vector2.ONE,0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	impact_remaining = 3.8
 
 func style_action_button(button: Button, color: Color) -> void:
@@ -1458,20 +1468,20 @@ func inventory_summary() -> String:
 func craft_forest_remedy() -> void:
 	var result: Dictionary = GameManager.craft_recipe("forest_remedy")
 	var response := "製作完成：月光藥草 ×2 → 藥品 ×1。" if bool(result.get("ok",false)) else str(result.get("reason","目前無法製作。"))
-	show_interaction_feedback("craft",response)
-	SoundManager.play_interaction("craft")
+	show_interaction_feedback("craft",response,result)
+	if bool(result.get("ok",false)): SoundManager.play_interaction("craft")
 	refresh_ui()
 
 func gather_forest_herb() -> void:
 	var result: Dictionary = GameManager.gather_location_resource("herb")
 	var response := "採集完成：月光藥草 ×1，這片藥草地尚可採集 %d 次。" % int(result.get("remaining",0)) if bool(result.get("ok",false)) else str(result.get("reason","目前無法採集。"))
-	show_interaction_feedback("gather",response)
-	SoundManager.play_interaction("gather")
+	show_interaction_feedback("gather",response,result)
+	if bool(result.get("ok",false)): SoundManager.play_interaction("gather")
 	refresh_ui()
 
 func open_trade_panel() -> void:
 	if selected_id == "" or not GameManager.npcs.has(selected_id):
-		show_interaction_feedback("trade","請先靠近一位居民並按 E 選取。")
+		show_interaction_feedback("trade","請先靠近一位居民並按 E 選取。",{"ok":false})
 		return
 	refresh_trade_panel()
 	close_modal_panels()
@@ -1498,13 +1508,13 @@ func refresh_trade_panel() -> void:
 
 func handle_buy_request(item_id: String) -> void:
 	var result: Dictionary = GameManager.buy_item(selected_id,item_id,1)
-	show_interaction_feedback("trade","買入完成。" if bool(result.get("ok",false)) else str(result.get("reason","無法買入。")))
+	show_interaction_feedback("trade","買入完成。" if bool(result.get("ok",false)) else str(result.get("reason","無法買入。")),result)
 	refresh_trade_panel()
 	refresh_ui()
 
 func handle_sell_request(item_id: String) -> void:
 	var result: Dictionary = GameManager.sell_item(selected_id,item_id,1)
-	show_interaction_feedback("trade","出售完成。" if bool(result.get("ok",false)) else str(result.get("reason","無法出售。")))
+	show_interaction_feedback("trade","出售完成。" if bool(result.get("ok",false)) else str(result.get("reason","無法出售。")),result)
 	refresh_trade_panel()
 	refresh_ui()
 

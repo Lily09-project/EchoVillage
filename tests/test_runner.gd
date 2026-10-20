@@ -855,6 +855,7 @@ func trade_atomicity_test() -> bool:
 	return bool(sold.get("ok",false)) and GameManager.count_item(GameManager.player["inventory"],"medicine") == medicine_before - 1 and int(GameManager.player["coin"]) > int(snapshot["player"]["coin"])
 
 func trade_ui_structure_test() -> bool:
+	GameManager.new_game()
 	var scene := load("res://scenes/main/Main.tscn") as PackedScene
 	if scene == null: return false
 	var instance := scene.instantiate()
@@ -863,7 +864,37 @@ func trade_ui_structure_test() -> bool:
 	var required := ["CanvasLayer/TradePanel","CanvasLayer/TradePanel/ItemSelector","CanvasLayer/TradePanel/BuyButton","CanvasLayer/TradePanel/SellButton","CanvasLayer/TradePanel/CloseButton"]
 	var result := instance.has_method("open_trade_panel")
 	for path in required: result = result and instance.get_node_or_null(path) != null
+	instance.selected_id = ""
+	instance.open_trade_panel()
+	result = result and instance.impact_title.text == "交易未完成" and not instance.impact_body.text.is_empty()
+	instance.selected_id = "alice"
+	var before := GameManager.serialize()
+	instance.handle_buy_request("missing_item")
+	result = result and instance.impact_title.text == "交易未完成" and GameManager.serialize() == before
+	instance.handle_sell_request("missing_item")
+	result = result and instance.impact_title.text == "交易未完成" and GameManager.serialize() == before
+	GameManager.player["coin"] = 0
+	before = GameManager.serialize()
+	instance.handle_buy_request("bread")
+	result = result and instance.impact_title.text == "交易未完成" and GameManager.serialize() == before
+	GameManager.new_game()
+	instance.handle_buy_request("bread")
+	result = result and instance.impact_title.text == "交易完成" and instance.impact_body.text == "買入完成。"
+	instance.handle_sell_request("medicine")
+	result = result and instance.impact_title.text == "交易完成" and instance.impact_body.text == "出售完成。"
+	for action in ["craft","gather"]:
+		instance.show_interaction_feedback(action,"隔離測試失敗",{"ok":false})
+		result = result and instance.impact_title.text == ("無法製作" if action == "craft" else "無法採集")
+	instance.motion_enabled = true
+	instance.show_interaction_feedback("trade","第一次",{"ok":true})
+	var prior: Tween = instance.impact_tween
+	instance.show_interaction_feedback("trade","最後一次",{"ok":false})
+	result = result and not prior.is_valid() and instance.impact_title.text == "交易未完成" and instance.impact_body.text == "最後一次"
+	instance.motion_enabled = false
+	instance.show_interaction_feedback("trade","無動畫",{"ok":true})
+	result = result and instance.impact_feedback.modulate == Color.WHITE and instance.impact_feedback.scale == Vector2.ONE
 	instance.queue_free()
+	GameManager.new_game()
 	return result
 
 func complete_inventory_ui_test() -> bool:
