@@ -868,6 +868,7 @@ func trade_ui_structure_test() -> bool:
 	instance.open_trade_panel()
 	result = trade_feedback_probe("no-resident",instance.impact_title.text == "交易未完成" and not instance.impact_body.text.is_empty(),instance) and result
 	instance.selected_id = "alice"
+	GameManager.player["position"] = GameManager.npcs["alice"]["position"]
 	var before := GameManager.serialize()
 	instance.handle_buy_request("missing_item")
 	result = trade_feedback_probe("invalid-buy",instance.impact_title.text == "交易未完成" and GameManager.serialize() == before,instance) and result
@@ -879,6 +880,7 @@ func trade_ui_structure_test() -> bool:
 	result = trade_feedback_probe("no-money",instance.impact_title.text == "交易未完成" and GameManager.serialize() == before,instance) and result
 	GameManager.new_game()
 	instance.selected_id = "alice"
+	GameManager.player["position"] = GameManager.npcs["alice"]["position"]
 	instance.handle_buy_request("bread")
 	result = trade_feedback_probe("valid-buy",instance.impact_title.text == "交易完成" and instance.impact_body.text == "買入完成。",instance) and result
 	instance.handle_sell_request("medicine")
