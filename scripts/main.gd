@@ -79,6 +79,8 @@ var impact_feedback: Panel
 var impact_title: Label
 var impact_body: Label
 var impact_remaining := 0.0
+var impact_tween: Tween
+var panel_motion_tweens: Dictionary = {}
 var motion_enabled := true
 var ambience_clock := 0.0
 var quest_tracker
@@ -122,6 +124,9 @@ func connect_ui_refresh_signals() -> void:
 	EventBus.quest_changed.connect(func(_snapshot: Array): request_ui_refresh(UiRefreshSchedulerScript.QUEST | UiRefreshSchedulerScript.PLAYER | UiRefreshSchedulerScript.PROGRESSION, "quest changed"))
 	EventBus.location_changed.connect(func(_location_id: String): request_ui_refresh(UiRefreshSchedulerScript.WORLD | UiRefreshSchedulerScript.PLAYER | UiRefreshSchedulerScript.NPC | UiRefreshSchedulerScript.QUEST | UiRefreshSchedulerScript.CONTEXT, "location changed"))
 	EventBus.save_completed.connect(func(_path: String): request_ui_refresh(UiRefreshSchedulerScript.LOG, "save completed"))
+	EventBus.save_failed.connect(func(_kind: String, reason: String):
+		show_interaction_feedback("save",reason,{"ok":false})
+		request_ui_refresh(UiRefreshSchedulerScript.LOG,"save failed"))
 	EventBus.inventory_changed.connect(func(_inventory: Dictionary): request_ui_refresh(UiRefreshSchedulerScript.PLAYER | UiRefreshSchedulerScript.QUEST | UiRefreshSchedulerScript.PROGRESSION, "inventory changed"))
 	EventBus.world_event_changed.connect(func(_event_id: String): request_ui_refresh(UiRefreshSchedulerScript.WORLD | UiRefreshSchedulerScript.NPC | UiRefreshSchedulerScript.QUEST, "world event changed"))
 	EventBus.relationship_changed.connect(func(_subject_id: String, _target_id: String, _changes: Dictionary): request_ui_refresh(UiRefreshSchedulerScript.NPC | UiRefreshSchedulerScript.PROGRESSION, "relationship changed"))
@@ -1117,18 +1122,32 @@ func npc_is_present(npc_id: String) -> bool:
 	if GameManager.current_location == "forest_edge": return npc_id in ["diana","eric"]
 	return true
 
-func show_interaction_feedback(action: String, response: String) -> void:
-	var labels := {"talk":"交談留下了回憶","give_bread":"善意被記住了","steal_food":"關係正在改變","trade":"交易完成","ask":"新的線索已更新","gather":"採集完成"}
-	impact_title.text = str(labels.get(action,"互動完成"))
+func interaction_feedback_title(action: String, outcome: Dictionary = {}) -> String:
+	var neutral := {"talk":"交談回音","give_bread":"贈禮回饋","steal_food":"關係變化","trade":"交易提示","ask":"居民線索","gather":"採集提示","craft":"製作提示"}
+	if outcome.has("ok"):
+		if not bool(outcome["ok"]):
+			return str({"trade":"交易未完成","gather":"無法採集","craft":"無法製作","save":"儲存失敗"}.get(action,"操作未完成"))
+		return str({"trade":"交易完成","gather":"採集完成","craft":"製作完成"}.get(action,"操作完成"))
+	return str(neutral.get(action,"互動回饋"))
+
+func show_interaction_feedback(action: String, response: String, outcome: Dictionary = {}) -> void:
+	if impact_tween != null and impact_tween.is_valid():
+		impact_tween.kill()
+	impact_title.text = interaction_feedback_title(action,outcome)
 	impact_body.text = response
+	# Measure wrapped content for every feedback type, not only save errors.
+	impact_body.size.y = 0.0
+	impact_body.size.y = maxf(22.0,impact_body.get_minimum_size().y)
+	impact_feedback.size.y = maxf(50.0,impact_body.position.y + impact_body.size.y + 10.0)
+	impact_feedback.position.y = minf(478.0,590.0 - impact_feedback.size.y)
 	impact_feedback.visible = true
 	impact_feedback.modulate = Color(1,1,1,0.0) if motion_enabled else Color.WHITE
 	impact_feedback.scale = Vector2(0.96,0.96) if motion_enabled else Vector2.ONE
 	impact_feedback.pivot_offset = impact_feedback.size * 0.5
 	if motion_enabled:
-		var tween := create_tween().set_parallel(true)
-		tween.tween_property(impact_feedback,"modulate",Color.WHITE,0.18)
-		tween.tween_property(impact_feedback,"scale",Vector2.ONE,0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		impact_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS).set_parallel(true)
+		impact_tween.tween_property(impact_feedback,"modulate",Color.WHITE,0.18)
+		impact_tween.tween_property(impact_feedback,"scale",Vector2.ONE,0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	impact_remaining = 3.8
 
 func style_action_button(button: Button, color: Color) -> void:
@@ -1190,6 +1209,7 @@ func open_side_panel(panel: Panel) -> void:
 	toggle_modal_panel(panel)
 
 func close_modal_panels() -> void:
+	stop_panel_motion()
 	inventory_panel.visible = false
 	journal_panel.visible = false
 	progression_panel.visible = false
@@ -1214,6 +1234,15 @@ func toggle_modal_panel(panel: Control) -> void:
 
 func set_motion_enabled(value: bool) -> void:
 	motion_enabled = value
+	if not value:
+		stop_panel_motion()
+		if impact_tween != null and impact_tween.is_valid(): impact_tween.kill()
+		if impact_feedback != null:
+			impact_feedback.modulate = Color.WHITE
+			impact_feedback.scale = Vector2.ONE
+		for panel in [trade_panel,world_map_panel,quest_log_panel,progression_panel,story_arc_panel]:
+			if panel != null and panel.has_method("set_visible_with_motion"):
+				panel.set_visible_with_motion(panel.visible,false)
 	SaveManager.set_preference("motion",value)
 	sync_motion_controls()
 	request_ui_refresh(UiRefreshSchedulerScript.TIME,"motion preference changed")
@@ -1224,12 +1253,23 @@ func sync_motion_controls() -> void:
 	if pause_motion_button != null:
 		pause_motion_button.text = "動態效果：開" if motion_enabled else "動態效果：關"
 
+func stop_panel_motion() -> void:
+	for panel in panel_motion_tweens.keys():
+		var tween: Tween = panel_motion_tweens[panel]
+		if tween != null and tween.is_valid(): tween.kill()
+		if is_instance_valid(panel):
+			panel.modulate = Color.WHITE
+			panel.scale = Vector2.ONE
+	panel_motion_tweens.clear()
+
 func animate_panel_in(panel: Control) -> void:
+	stop_panel_motion()
 	if not motion_enabled: return
 	panel.pivot_offset = panel.size * 0.5
 	panel.modulate = Color(1,1,1,0.0)
 	panel.scale = Vector2(0.97,0.97)
-	var tween := create_tween().set_parallel(true)
+	var tween := create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS).set_parallel(true)
+	panel_motion_tweens[panel] = tween
 	tween.tween_property(panel,"modulate",Color.WHITE,0.18)
 	tween.tween_property(panel,"scale",Vector2.ONE,0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
@@ -1276,7 +1316,7 @@ func refresh_player_ui() -> void:
 func refresh_world_ui() -> void:
 	var progress: Dictionary = GameManager.community_progress()
 	event_label.text = "事件：" + str(GameManager.active_event.get("display_name","平靜的村落"))
-	pulse_label.text = "居民運作中：%d / 5\n當前事件：%s\n模擬速度：×%.0f\n編年進度：%d / 3\n\nE 選取村民，查看關係與記憶。" % [GameManager.npcs.size(),str(GameManager.active_event.get("display_name","平靜的村落")),GameTime.time_scale,int(progress["unlocked"])]
+	pulse_label.text = "居民運作中：%d / 5\n當前事件：%s\n模擬速度：×%.0f\n編年進度：%d / 3" % [GameManager.npcs.size(),str(GameManager.active_event.get("display_name","平靜的村落")),GameTime.time_scale,int(progress["unlocked"])]
 	world_map_panel.set_locations(GameManager.location_defs,GameManager.current_location,GameManager.discovered_locations)
 
 func refresh_log_ui() -> void:
@@ -1458,20 +1498,20 @@ func inventory_summary() -> String:
 func craft_forest_remedy() -> void:
 	var result: Dictionary = GameManager.craft_recipe("forest_remedy")
 	var response := "製作完成：月光藥草 ×2 → 藥品 ×1。" if bool(result.get("ok",false)) else str(result.get("reason","目前無法製作。"))
-	show_interaction_feedback("craft",response)
-	SoundManager.play_interaction("craft")
+	show_interaction_feedback("craft",response,result)
+	if bool(result.get("ok",false)): SoundManager.play_interaction("craft")
 	refresh_ui()
 
 func gather_forest_herb() -> void:
 	var result: Dictionary = GameManager.gather_location_resource("herb")
 	var response := "採集完成：月光藥草 ×1，這片藥草地尚可採集 %d 次。" % int(result.get("remaining",0)) if bool(result.get("ok",false)) else str(result.get("reason","目前無法採集。"))
-	show_interaction_feedback("gather",response)
-	SoundManager.play_interaction("gather")
+	show_interaction_feedback("gather",response,result)
+	if bool(result.get("ok",false)): SoundManager.play_interaction("gather")
 	refresh_ui()
 
 func open_trade_panel() -> void:
 	if selected_id == "" or not GameManager.npcs.has(selected_id):
-		show_interaction_feedback("trade","請先靠近一位居民並按 E 選取。")
+		show_interaction_feedback("trade","請先靠近一位居民並按 E 選取。",{"ok":false})
 		return
 	refresh_trade_panel()
 	close_modal_panels()
@@ -1498,13 +1538,13 @@ func refresh_trade_panel() -> void:
 
 func handle_buy_request(item_id: String) -> void:
 	var result: Dictionary = GameManager.buy_item(selected_id,item_id,1)
-	show_interaction_feedback("trade","買入完成。" if bool(result.get("ok",false)) else str(result.get("reason","無法買入。")))
+	show_interaction_feedback("trade","買入完成。" if bool(result.get("ok",false)) else str(result.get("reason","無法買入。")),result)
 	refresh_trade_panel()
 	refresh_ui()
 
 func handle_sell_request(item_id: String) -> void:
 	var result: Dictionary = GameManager.sell_item(selected_id,item_id,1)
-	show_interaction_feedback("trade","出售完成。" if bool(result.get("ok",false)) else str(result.get("reason","無法出售。")))
+	show_interaction_feedback("trade","出售完成。" if bool(result.get("ok",false)) else str(result.get("reason","無法出售。")),result)
 	refresh_trade_panel()
 	refresh_ui()
 

@@ -1,5 +1,7 @@
 extends Panel
 
+var _visibility_tween: Tween
+
 const VillageTheme = preload("res://scripts/ui/ui_theme.gd")
 
 signal choice_requested(arc_id: String, choice_id: String)
@@ -15,6 +17,7 @@ var _last_fingerprint := ""
 var _snapshot: Dictionary = {}
 
 func _ready() -> void:
+	visibility_changed.connect(_on_panel_visibility_changed)
 	position = Vector2(250,92)
 	size = Vector2(780,540)
 	add_theme_stylebox_override("panel",VillageTheme.card_style(VillageTheme.CREAM,VillageTheme.LILAC))
@@ -139,15 +142,30 @@ func _status_text(status: String) -> String:
 func _clear_container(container: Node) -> void:
 	for child in container.get_children(): child.queue_free()
 
+func _stop_visibility_motion() -> void:
+	if _visibility_tween != null and _visibility_tween.is_valid():
+		_visibility_tween.kill()
+	_visibility_tween = null
+	modulate = Color.WHITE
+	scale = Vector2.ONE
+
+func _on_panel_visibility_changed() -> void:
+	if not visible:
+		_stop_visibility_motion()
+
+func _exit_tree() -> void:
+	_stop_visibility_motion()
+
 func set_visible_with_motion(value: bool, motion_enabled: bool) -> void:
+	_stop_visibility_motion()
 	visible = value
 	if not value or not motion_enabled: return
 	modulate = Color(1,1,1,0)
 	scale = Vector2(0.97,0.97)
 	pivot_offset = size * 0.5
-	var tween := create_tween().set_parallel(true)
-	tween.tween_property(self,"modulate",Color.WHITE,0.18)
-	tween.tween_property(self,"scale",Vector2.ONE,0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_visibility_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS).set_parallel(true)
+	_visibility_tween.tween_property(self,"modulate",Color.WHITE,0.18)
+	_visibility_tween.tween_property(self,"scale",Vector2.ONE,0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 func _make_label(node_name: String, at: Vector2, extent: Vector2, font_size: int, color: Color, text_value: String) -> Label:
 	return _make_label_on(self,node_name,at,extent,font_size,color,text_value)

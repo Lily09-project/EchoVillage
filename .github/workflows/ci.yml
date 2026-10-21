@@ -35,7 +35,7 @@ jobs:
   quality:
     name: Echo Village CI
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -129,6 +129,54 @@ jobs:
           & git diff --check
           if ($LASTEXITCODE -ne 0) { throw 'Repository whitespace check failed.' }
 
+      - name: Install verified Windows export templates
+        shell: pwsh
+        env:
+          TEMPLATE_SHA256: ea50e5183f057d42b22120d0d0340205b98f51f8ff13c33c70fd4ac9077d2019
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $archive = Join-Path $env:RUNNER_TEMP 'godot-4.5.2-export-templates.tpz'
+          Invoke-WebRequest -Uri 'https://github.com/godotengine/godot-builds/releases/download/4.5.2-stable/Godot_v4.5.2-stable_export_templates.tpz' -OutFile $archive
+          $actual = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $env:TEMPLATE_SHA256) { throw 'Export templates checksum mismatch.' }
+          $target = Join-Path $env:APPDATA 'Godot/export_templates/4.5.2.stable'
+          New-Item -ItemType Directory -Path $target -Force | Out-Null
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $zip = [System.IO.Compression.ZipFile]::OpenRead($archive)
+          try {
+            foreach ($name in @('windows_release_x86_64.exe', 'windows_debug_x86_64.exe', 'version.txt')) {
+              $entry = $zip.GetEntry("templates/$name")
+              if ($null -eq $entry) { throw "Export template is missing: $name" }
+              [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, (Join-Path $target $name), $true)
+            }
+          } finally { $zip.Dispose() }
+          if ((Get-Content -Raw (Join-Path $target 'version.txt')).Trim() -ne '4.5.2.stable') { throw 'Unexpected export template version.' }
+
+      - name: Validate portable release builder contract
+        shell: pwsh
+        run: ./tools/test_release_builder_contract.ps1
+
+      - name: Build and smoke-test Windows portable candidate
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & cmd.exe /d /c 'build_release.bat'
+          if ($LASTEXITCODE -ne 0) { throw 'Portable candidate build failed.' }
+          ./tools/test_portable_candidate.ps1
+
+      - name: Upload unapproved portable candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: echo-village-windows-candidate
+          path: |
+            release/EchoVillage/EchoVillage.exe
+            release/EchoVillage/EchoVillage.pck
+            release/EchoVillage/README.txt
+            release/EchoVillage/THIRD_PARTY_NOTICES.txt
+            release/EchoVillage/candidate-manifest.json
+            release/EchoVillage/SHA256SUMS.txt
+          if-no-files-found: error
+
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -164,6 +212,14 @@ jobs:
           executable="$install/Godot_v4.5.2-stable_linux.x86_64"
           test -x "$executable"
           echo "GODOT_EXECUTABLE=$executable" >> "$GITHUB_ENV"
+
+      - name: Install CJK fallback fonts for readable evidence
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends fonts-noto-cjk
+          fc-match "Noto Sans CJK TC"
+          test -n "$(fc-list :lang=zh-tw family | head -n 1)"
 
       - name: Run visual QA at four resolutions
         shell: bash

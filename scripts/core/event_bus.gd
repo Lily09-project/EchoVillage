@@ -17,3 +17,5 @@ signal story_arc_updated(arc_id: String, stage_id: String, consequence: Dictiona
 func log_event(timestamp: String, message: String) -> void:
 
 	event_logged.emit(timestamp, message)
+
+signal save_failed(kind: String, reason: String)

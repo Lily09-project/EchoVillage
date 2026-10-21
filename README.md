@@ -33,13 +33,17 @@ powershell -NoProfile -ExecutionPolicy Bypass -File quality\run_acceptance.ps1 q
 powershell -NoProfile -ExecutionPolicy Bypass -File quality\run_acceptance.ps1 release
 ```
 
-Windows portable release：
+Windows portable candidate（另需安裝 Godot 4.5.2 stable 的官方 export templates）：
 
 ```powershell
 .\build_release.bat
 ```
 
-產物位於 `release/EchoVillage/`，不提交 Godot engine、`.godot` cache、release artifacts 或使用者存檔。也可從 [GitHub Releases](https://github.com/Lily09-project/EchoVillage/releases/latest) 下載。
+匯出使用 `Windows Portable` preset 與正式 release template，不把 editor 重新命名成遊戲。產物位於 `release/EchoVillage/`，不提交 Godot engine、`.godot` cache、release artifacts 或使用者存檔。也可從 [GitHub Releases](https://github.com/Lily09-project/EchoVillage/releases/latest) 下載。
+
+PR CI 的 `echo-village-windows-candidate` 是待驗收測試產物，不是正式 Release；內含來源 SHA、校驗碼與未完成的人工驗收狀態。
+
+已發布套件為 v1.4.0；本分支後續修補尚未包含於該下載包。請以 Release 標籤與附件版本為準。
 
 ## Scope & security
 
