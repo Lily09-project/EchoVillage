@@ -41,6 +41,8 @@ Windows portable release：
 
 產物位於 `release/EchoVillage/`，不提交 Godot engine、`.godot` cache、release artifacts 或使用者存檔。也可從 [GitHub Releases](https://github.com/Lily09-project/EchoVillage/releases/latest) 下載。
 
+已發布套件為 v1.4.0；本分支後續修補尚未包含於該下載包。請以 Release 標籤與附件版本為準。
+
 ## Scope & security
 
 目前公開交付是 Windows 桌面版本；若要提供瀏覽器網址，需另外製作並驗證 Godot Web export。安全規則見 [SECURITY.md](SECURITY.md)，遊戲設計見 [docs/game_design.md](docs/game_design.md)。
