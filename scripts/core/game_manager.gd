@@ -873,25 +873,73 @@ func _valid_extension_state(data: Dictionary) -> bool:
 		if not (entry is Dictionary): return false
 	return true
 
+func _valid_inventory(value: Variant) -> bool:
+	if not (value is Dictionary): return false
+	for item_id in value:
+		if not (item_id is String) or not item_defs.has(item_id): return false
+		if not _valid_integer(value[item_id],0,1000000000): return false
+	return true
+
+func _known_npc_id(id: Variant) -> bool:
+	if not (id is String): return false
+	for profile in npc_profiles.get("npcs",[]):
+		if profile.get("id","") == id: return true
+	return false
+
 func _valid_player_state(value: Variant) -> bool:
 	if not (value is Dictionary): return false
 	var state: Dictionary = value
-	if not state.has("inventory") or not _valid_numeric_map(state.get("inventory")): return false
-	for key in ["position","target"]:
-		if state.has(key) and not (state[key] is Vector2): return false
-	if state.has("coin") and not _valid_number(state.get("coin"),0.0,1000000000.0): return false
+	if not _valid_inventory(state.get("inventory")): return false
+	if not (state.get("position") is Vector2): return false
+	if state.has("target") and not (state["target"] is Vector2): return false
+	if not _valid_integer(state.get("coin"),0,1000000000): return false
 	return true
 
 func _valid_npc_state(value: Variant) -> bool:
 	if not (value is Dictionary) or value.size() > 64: return false
-	for npc_value in value.values():
-		if not (npc_value is Dictionary): return false
-		var npc: Dictionary = npc_value
-		if npc.has("inventory") and not _valid_numeric_map(npc.get("inventory")): return false
-		if npc.has("relationships") and not (npc.get("relationships") is Dictionary): return false
-		if npc.has("memories") and (not (npc.get("memories") is Array) or npc.get("memories").size() > MAX_MEMORIES_PER_NPC): return false
-		for key in ["position","target","current_target"]:
-			if npc.has(key) and not (npc[key] is Vector2): return false
+	for npc_id in value:
+		if not _known_npc_id(npc_id) or not (value[npc_id] is Dictionary): return false
+		var npc: Dictionary = value[npc_id]
+		if npc.get("id") != npc_id: return false
+		for key in ["display_name","occupation","home_location","work_location","mood","action","state","goal"]:
+			if not (npc.get(key) is String): return false
+		if not _valid_inventory(npc.get("inventory")): return false
+		if not _valid_integer(npc.get("coin"),0,1000000000): return false
+		for key in ["position","target"]:
+			if not (npc.get(key) is Vector2): return false
+		if npc.has("current_target") and not (npc["current_target"] is Vector2): return false
+		var needs = npc.get("needs")
+		if not (needs is Dictionary): return false
+		for key in ["hunger","energy","social","safety"]:
+			if not _valid_number(needs.get(key),0.0,100.0): return false
+		var personality = npc.get("personality")
+		if not (personality is Dictionary): return false
+		for key in ["sociability","kindness","greed","bravery","discipline"]:
+			if not _valid_number(personality.get(key),0.0,1.0): return false
+		var relationships = npc.get("relationships")
+		if not (relationships is Dictionary): return false
+		for target_id in relationships:
+			if target_id != "player" and not _known_npc_id(target_id): return false
+			var relation = relationships[target_id]
+			if not (relation is Dictionary): return false
+			for key in ["affinity","trust","fear","respect"]:
+				if relation.has(key) and not _valid_number(relation[key],-100.0,100.0): return false
+		var memories = npc.get("memories")
+		if not (memories is Array) or memories.size() > MAX_MEMORIES_PER_NPC: return false
+		for memory in memories:
+			if not (memory is Dictionary): return false
+			if not (memory.get("description") is String): return false
+			if not _valid_integer(memory.get("importance"),0,1000000000): return false
+			if not _valid_number(memory.get("emotional_value"),-1000000000.0,1000000000.0): return false
+		for key in ["last_decision","action_started_minute","state_entered_minute"]:
+			if npc.has(key) and not _valid_integer(npc[key],-1000000000,1000000000): return false
+		for key in ["decision","scores","action_cooldowns"]:
+			if npc.has(key) and not (npc[key] is Dictionary): return false
+		var schedule = npc.get("base_schedule",[])
+		if not (schedule is Array): return false
+		for entry in schedule:
+			if not (entry is Dictionary): return false
+			if not _valid_integer(entry.get("hour"),0,23) or not (entry.get("action") is String): return false
 	return true
 
 func _valid_numeric_map(value: Variant) -> bool:

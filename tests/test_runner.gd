@@ -236,7 +236,11 @@ func save_backup_preservation_test() -> bool:
 	if not FileAccess.file_exists(backup): return false
 	var first_corruption := FileAccess.open(primary,FileAccess.WRITE)
 	if first_corruption == null: return false
-	first_corruption.store_string("{ malformed primary")
+	# Structurally valid JSON with invalid nested runtime content must not
+	# rotate over the last good backup.
+	var invalid_primary: Dictionary = GameManager.serialize()
+	invalid_primary["npcs"]["alice"]["needs"] = {}
+	first_corruption.store_string(JSON.stringify({"save_version":2,"time":GameTime.serialize(),"world_state":invalid_primary}))
 	first_corruption.close()
 	GameManager.player["coin"] = 777
 	if not SaveManager.save_game("manual"): return false
@@ -712,6 +716,25 @@ func save_envelope_validation_test() -> bool:
 	for changes in nested_cases:
 		var invalid_state: Dictionary = before.duplicate(true)
 		for key in changes: invalid_state[key] = changes[key]
+		if GameManager.validate_serialized_state(invalid_state) or GameManager.deserialize(invalid_state): return false
+		if GameManager.serialize() != before: return false
+	# Runtime-required NPC fields must be rejected before any live-state mutation.
+	var npc_corruptions := [
+		{"needs":{"hunger":"bad","energy":80,"social":20,"safety":5}},
+		{"needs":{}}, {"memories":["invalid"]},
+		{"memories":[{"description":"bad","importance":"bad","emotional_value":0}]},
+		{"relationships":{"player":[]}}, {"personality":{}},
+		{"id":"unknown"}, {"inventory":{"unknown_item":1}},
+		{"base_schedule":[{"hour":"bad","action":"Work"}]}
+	]
+	for changes in npc_corruptions:
+		var invalid_state: Dictionary = before.duplicate(true)
+		for key in changes: invalid_state["npcs"]["alice"][key] = changes[key]
+		if GameManager.validate_serialized_state(invalid_state) or GameManager.deserialize(invalid_state): return false
+		if GameManager.serialize() != before: return false
+	for required_key in ["needs","position","inventory","memories","display_name"]:
+		var invalid_state: Dictionary = before.duplicate(true)
+		invalid_state["npcs"]["alice"].erase(required_key)
 		if GameManager.validate_serialized_state(invalid_state) or GameManager.deserialize(invalid_state): return false
 		if GameManager.serialize() != before: return false
 	var temp_path := SaveManager._storage_path("echo_village_oversized_test.tmp","user://echo_village_oversized_test.tmp")
