@@ -15,3 +15,9 @@ foreach ($source in @('RELEASE_README.txt', 'THIRD_PARTY_NOTICES.txt')) {
     if ($builder -notmatch $pattern) { throw "Notice copy must fail immediately: $source" }
 }
 Write-Output 'PASS: release export, bounded smoke and notice-copy contracts.'
+
+$preset = Get-Content -Raw -Encoding UTF8 -LiteralPath (Join-Path $root 'export_presets.cfg')
+if ($preset -notmatch 'include_filter="\*\.json"') { throw 'Export must include game JSON data.' }
+foreach ($folder in @('tests', 'docs', 'tools', 'quality', 'release')) {
+    if ($preset -notmatch ([regex]::Escape($folder + '/*'))) { throw "Export must exclude $folder artifacts." }
+}
