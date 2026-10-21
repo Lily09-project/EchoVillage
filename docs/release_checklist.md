@@ -2,6 +2,17 @@
 
 這份 checklist 用於可重現的版本交付。v1.4.0 的驗收已完成；下方保留勾選結果作為 release evidence。GitHub Release 與 deployment 不包含在本機驗收範圍內。
 
+## 目前候選修補（尚未發布）
+
+歷史 v1.4.0 的勾選結果不適用於目前 PR。候選自動測試契約為 105 tests、0 failures，並保留 secret scan、安全掃描與四解析度視覺檢查。
+
+- [ ] 最新 SHA 的 CI 全成功，portable candidate 使用已校驗的官方 4.5.2 export templates。
+- [ ] 核對 candidate-manifest.json 的 source_sha 與 SHA256SUMS.txt。
+- [ ] 在未安裝 Godot 的乾淨 Windows 10/11 開啟候選 EXE，完成首次導覽、探索、交易、任務、設定與鍵盤操作。
+- [ ] 使用新資料目錄驗證存檔、重開後讀檔、壞檔與備份復原、無法寫入時的錯誤回饋。
+- [ ] 人工確認 1280×720、1366×768、1600×900、1920×1080 無遮擋、截斷或不可操作控制項。
+- [ ] 審查新套件檔案、來源、版號、第三方聲明與安全結果後才建立正式 Release；CI artifact 的 headless 啟動成功不等於 GUI 驗收通過。
+
 ## Source readiness
 
 - [x] `project.godot`、README、CHANGELOG、`RELEASE_README.txt` 版本一致為 `1.4.0`。
@@ -34,6 +45,8 @@ tools\godot\Godot_v4.5.2-stable_win64.exe --path .
 ```bat
 build_release.bat
 ```
+
+先在 editor 安裝對應 4.5.2 stable 的官方 export templates；腳本使用 `--export-release`，不再接受 `GODOT_RUNTIME` 任意指定執行檔。每個 notice 複製失敗與 packaged smoke test 超時都必須阻止交付。
 
 確認 `release/EchoVillage/` 內有 `EchoVillage.exe`、`EchoVillage.pck`、`README.txt` 與 `THIRD_PARTY_NOTICES.txt`，再執行 packaged smoke test。不要把 `release/` 加入 Git。
 

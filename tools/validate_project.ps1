@@ -74,7 +74,7 @@ if(Test-Path -LiteralPath $launcherPath -PathType Leaf){
 $releasePath = Join-Path $root 'build_release.bat'
 if(Test-Path -LiteralPath $releasePath -PathType Leaf){
   $releaseText = Get-Content -Raw -Encoding UTF8 -LiteralPath $releasePath
-  foreach($token in @('GODOT_EXECUTABLE','GODOT_RUNTIME','--export-pack','SMOKE_LOG','Invalid wrapper executable name')){ if($releaseText -notmatch [regex]::Escape($token)){ $issues += "Release builder lacks delivery contract: $token" } }
+  foreach($token in @('GODOT_EXECUTABLE','--export-release','SMOKE_LOG','Invalid wrapper executable name')){ if($releaseText -notmatch [regex]::Escape($token)){ $issues += "Release builder lacks delivery contract: $token" } }
 }
 $qualityDirectory = Join-Path $root 'quality'
 Get-ChildItem -LiteralPath $qualityDirectory -Filter *.json -File | ForEach-Object {
