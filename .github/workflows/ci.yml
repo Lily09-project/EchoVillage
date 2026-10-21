@@ -165,6 +165,14 @@ jobs:
           test -x "$executable"
           echo "GODOT_EXECUTABLE=$executable" >> "$GITHUB_ENV"
 
+      - name: Install CJK fallback fonts for readable evidence
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends fonts-noto-cjk
+          fc-match "Noto Sans CJK TC"
+          test -n "$(fc-list :lang=zh-tw family | head -n 1)"
+
       - name: Run visual QA at four resolutions
         shell: bash
         run: xvfb-run --auto-servernum pwsh -File ./tools/run_visual_qa_matrix.ps1 -GodotExecutable "$GODOT_EXECUTABLE" -OutputRoot "${{ github.workspace }}/reports/visual_qa/matrix"
