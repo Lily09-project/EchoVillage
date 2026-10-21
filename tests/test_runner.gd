@@ -933,6 +933,13 @@ func trade_ui_structure_test() -> bool:
 	instance.motion_enabled = false
 	instance.show_interaction_feedback("trade","無動畫",{"ok":true})
 	result = trade_feedback_probe("motion-disabled-final-state",instance.impact_feedback.modulate == Color.WHITE and instance.impact_feedback.scale == Vector2.ONE,instance) and result
+	for response in ["成就解鎖：慷慨之心\n以分享讓善意留在村民記憶中。","儲存失敗，請確認可用空間與寫入權限後再按 F5 重試；先前存檔未刪除。"]:
+		instance.show_interaction_feedback("progression",response)
+		await get_tree().process_frame
+		var body_bottom: float = instance.impact_body.position.y + instance.impact_body.size.y
+		result = trade_feedback_probe("wrapped-feedback-contained",body_bottom <= instance.impact_feedback.size.y - 8.0,instance) and result
+		result = trade_feedback_probe("feedback-above-log",instance.impact_feedback.position.y + instance.impact_feedback.size.y <= 590.0,instance) and result
+	result = result and not instance.pulse_label.text.contains("E 選取村民")
 	instance.queue_free()
 	GameManager.new_game()
 	return result

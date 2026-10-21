@@ -1135,8 +1135,11 @@ func show_interaction_feedback(action: String, response: String, outcome: Dictio
 		impact_tween.kill()
 	impact_title.text = interaction_feedback_title(action,outcome)
 	impact_body.text = response
-	impact_feedback.size.y = 100.0 if action == "save" else 50.0
-	impact_body.size.y = 70.0 if action == "save" else 22.0
+	# Measure wrapped content for every feedback type, not only save errors.
+	impact_body.size.y = 0.0
+	impact_body.size.y = maxf(22.0,impact_body.get_minimum_size().y)
+	impact_feedback.size.y = maxf(50.0,impact_body.position.y + impact_body.size.y + 10.0)
+	impact_feedback.position.y = minf(478.0,590.0 - impact_feedback.size.y)
 	impact_feedback.visible = true
 	impact_feedback.modulate = Color(1,1,1,0.0) if motion_enabled else Color.WHITE
 	impact_feedback.scale = Vector2(0.96,0.96) if motion_enabled else Vector2.ONE
@@ -1313,7 +1316,7 @@ func refresh_player_ui() -> void:
 func refresh_world_ui() -> void:
 	var progress: Dictionary = GameManager.community_progress()
 	event_label.text = "事件：" + str(GameManager.active_event.get("display_name","平靜的村落"))
-	pulse_label.text = "居民運作中：%d / 5\n當前事件：%s\n模擬速度：×%.0f\n編年進度：%d / 3\n\nE 選取村民，查看關係與記憶。" % [GameManager.npcs.size(),str(GameManager.active_event.get("display_name","平靜的村落")),GameTime.time_scale,int(progress["unlocked"])]
+	pulse_label.text = "居民運作中：%d / 5\n當前事件：%s\n模擬速度：×%.0f\n編年進度：%d / 3" % [GameManager.npcs.size(),str(GameManager.active_event.get("display_name","平靜的村落")),GameTime.time_scale,int(progress["unlocked"])]
 	world_map_panel.set_locations(GameManager.location_defs,GameManager.current_location,GameManager.discovered_locations)
 
 func refresh_log_ui() -> void:
