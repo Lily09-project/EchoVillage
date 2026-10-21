@@ -88,6 +88,8 @@ func _read_save_candidate(path: String) -> Dictionary:
 	if not (data is Dictionary): return {"ok":false,"reason":"存檔內容不是有效 JSON。"}
 	var migration: Dictionary = SaveMigrationService.migrate(data)
 	if not bool(migration.get("ok",false)): return migration
+	if not GameManager.validate_serialized_state(migration["data"].get("world_state",{})):
+		return {"ok":false,"reason":"存檔世界內容無法安全套用。"}
 	return {"ok":true,"data":migration["data"]}
 
 func _promote_backup(path: String) -> bool:
@@ -111,7 +113,11 @@ func _promote_backup(path: String) -> bool:
 func save_game(kind: String = "manual") -> bool:
 	var save_path := _storage_path("echo_village_save.json",SAVE_PATH)
 	var payload := JSON.stringify({"save_version":2,"time":GameTime.serialize(),"world_state":GameManager.serialize()},"\t")
-	if not _write_save_atomically(save_path,payload): return false
+	if not _write_save_atomically(save_path,payload):
+		var reason := "儲存失敗，請確認可用空間與寫入權限後再按 F5 重試；先前存檔未刪除。"
+		GameManager.add_log(reason)
+		EventBus.save_failed.emit(kind,reason)
+		return false
 	last_save_kind = kind
 	last_load_recovered = false
 	last_recovery_reason = ""

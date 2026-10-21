@@ -740,7 +740,43 @@ func serialize() -> Dictionary:
 	state["timeline_events"] = timeline_events.duplicate(true)
 	state["timeline_sequence"] = timeline_sequence
 	return state
+func validate_serialized_state(data: Dictionary) -> bool:
+	if not (data is Dictionary): return false
+	if not _valid_extension_state(data): return false
+	var candidate_player = decode_value(data.get("player",player))
+	var candidate_npcs = decode_value(data.get("npcs",npcs))
+	if not _valid_player_state(candidate_player): return false
+	if not _valid_npc_state(candidate_npcs): return false
+	var candidate_economy = data.get("economy",economy)
+	var candidate_event = data.get("active_event",{})
+	var candidate_event_log = data.get("event_log",[])
+	var candidate_memory_sequence = data.get("memory_sequence",0)
+	var candidate_community = data.get("community",{"renown":0,"kindness":false,"rumor":false,"crisis":false,"entries":[]})
+	var candidate_location = data.get("current_location","village_square")
+	var candidate_discovered = data.get("discovered_locations",["village_square"])
+	var candidate_active_quests = data.get("active_quests",{})
+	var candidate_completed = data.get("completed_quests",[])
+	var candidate_flags = data.get("world_flags",{})
+	var candidate_progression = data.get("progression",progression_service.default_state())
+	var candidate_story = data.get("story_progression",story_service.default_state())
+	var candidate_timeline = data.get("timeline_events",[])
+	var candidate_timeline_sequence = data.get("timeline_sequence",candidate_timeline.size() if candidate_timeline is Array else 0)
+	if not _valid_numeric_map(candidate_economy) or not (candidate_event is Dictionary): return false
+	if not (candidate_event_log is Array) or candidate_event_log.size() > 512: return false
+	if not _valid_integer(candidate_memory_sequence,0,1000000000): return false
+	if not (candidate_community is Dictionary) or not (candidate_location is String): return false
+	if not (candidate_discovered is Array) or candidate_discovered.size() > 512: return false
+	if not (candidate_active_quests is Dictionary) or not (candidate_completed is Array) or candidate_completed.size() > 512: return false
+	if not (candidate_flags is Dictionary) or not (candidate_progression is Dictionary): return false
+	if not story_service.validate_state(candidate_story): return false
+	if not (candidate_timeline is Array) or candidate_timeline.size() > 512: return false
+	for value in candidate_timeline:
+		if not causality_history_service.validate_event(value): return false
+	if not _valid_integer(candidate_timeline_sequence,0,1000000000): return false
+	return true
+
 func deserialize(data: Dictionary) -> bool:
+	if not validate_serialized_state(data): return false
 	if not (data is Dictionary): return false
 	var candidate_player = decode_value(data.get("player",player))
 	var candidate_npcs = decode_value(data.get("npcs",npcs))
@@ -792,6 +828,49 @@ func deserialize(data: Dictionary) -> bool:
 	var first_timeline_index := maxi(0,candidate_timeline.size() - 160)
 	for index in range(first_timeline_index,candidate_timeline.size()): timeline_events.append(candidate_timeline[index].duplicate(true))
 	timeline_sequence = int(candidate_timeline_sequence)
+	return true
+
+
+func _valid_extension_state(data: Dictionary) -> bool:
+	var location = data.get("current_location","village_square")
+	if not (location is String) or not location_defs.has(location): return false
+	for field in ["discovered_locations","completed_quests"]:
+		var entries = data.get(field,[])
+		if not (entries is Array) or entries.size() > 512: return false
+		for entry in entries:
+			if not (entry is String): return false
+			if field == "discovered_locations" and not location_defs.has(entry): return false
+			if field == "completed_quests" and not quest_defs.has(entry): return false
+	var quests = data.get("active_quests",{})
+	if not (quests is Dictionary) or quests.size() > 128: return false
+	for quest_id in quests:
+		if not (quest_id is String) or not quest_defs.has(quest_id): return false
+		var runtime = quests[quest_id]
+		if not (runtime is Dictionary): return false
+		if runtime.get("quest_id",quest_id) != quest_id or runtime.get("status","active") != "active": return false
+		var objectives: Array = quest_defs[quest_id].get("objectives",[])
+		if not _valid_integer(runtime.get("objective_index",0),0,objectives.size() - 1): return false
+		var objective: Dictionary = objectives[int(runtime.get("objective_index",0))]
+		if not _valid_integer(runtime.get("progress",0),0,maxi(0,int(objective.get("amount",1)) - 1)): return false
+	var saved_progression = data.get("progression",{})
+	if not (saved_progression is Dictionary): return false
+	var ids = saved_progression.get("unlocked_ids",[])
+	var unlocked_at = saved_progression.get("unlocked_at",{})
+	var stats = saved_progression.get("stats",{})
+	if not (ids is Array) or ids.size() > 512 or not (unlocked_at is Dictionary) or not (stats is Dictionary): return false
+	for id in ids:
+		if not (id is String): return false
+	for timestamp in unlocked_at.values():
+		if not (timestamp is String): return false
+	for stat in stats.values():
+		if not _valid_integer(stat,0,1000000000): return false
+	var saved_community = data.get("community",{})
+	if not (saved_community is Dictionary): return false
+	if saved_community.has("renown") and not _valid_number(saved_community["renown"],-1000000000.0,1000000000.0): return false
+	var community_entries = saved_community.get("entries",[])
+	if not (community_entries is Array) or community_entries.size() > 512: return false
+	for entry in community_entries:
+		if not (entry is Dictionary): return false
 	return true
 
 func _valid_player_state(value: Variant) -> bool:

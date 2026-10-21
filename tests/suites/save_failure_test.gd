@@ -35,7 +35,19 @@ func run_failure_case(root: String, failure: String) -> bool:
 		primary_before = read_limited_text(primary,MAX_SAVE_BYTES)
 		result = load_game() and last_load_recovered and int(GameManager.player["coin"]) == 91
 	else:
+		var notifications: Array = []
+		var on_failure := func(kind: String, reason: String): notifications.append({"kind":kind,"reason":reason})
+		var on_success := func(_path: String): notifications.append({"success":true})
+		EventBus.save_failed.connect(on_failure)
+		EventBus.save_completed.connect(on_success)
 		var saved := save_game()
+		EventBus.save_failed.disconnect(on_failure)
+		EventBus.save_completed.disconnect(on_success)
+		if notifications.size() != 1: return false
+		if failure == "backup":
+			if not bool(notifications[0].get("success",false)): return false
+		else:
+			if notifications[0].get("kind","") != "manual" or not str(notifications[0].get("reason","")).contains("F5"): return false
 		if failure == "backup":
 			result = saved and bool(_read_save_candidate(primary).get("ok",false)) and read_limited_text(primary,MAX_SAVE_BYTES) != primary_before
 		else:

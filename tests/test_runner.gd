@@ -700,6 +700,20 @@ func save_envelope_validation_test() -> bool:
 	GameManager.new_game()
 	if malformed_state_accepted: return false
 	if not bool(migration.migrate({"save_version":2,"world_state":GameManager.serialize()}).get("ok",false)): return false
+	var before: Dictionary = GameManager.serialize()
+	var nested_cases := [
+		{"active_quests":{"forest_echo":"invalid"}},
+		{"active_quests":{"unknown":{"objective_index":0}}},
+		{"active_quests":{"forest_echo":{"quest_id":"forest_echo","objective_index":999,"progress":0}}},
+		{"progression":{"stats":{"interactions":"invalid"}}},
+		{"community":{"entries":["invalid"]}},
+		{"current_location":"unknown"}
+	]
+	for changes in nested_cases:
+		var invalid_state: Dictionary = before.duplicate(true)
+		for key in changes: invalid_state[key] = changes[key]
+		if GameManager.validate_serialized_state(invalid_state) or GameManager.deserialize(invalid_state): return false
+		if GameManager.serialize() != before: return false
 	var temp_path := SaveManager._storage_path("echo_village_oversized_test.tmp","user://echo_village_oversized_test.tmp")
 	var temp_file := FileAccess.open(temp_path,FileAccess.WRITE)
 	if temp_file == null: return false
@@ -1159,9 +1173,14 @@ func motion_preference_sync_test() -> bool:
 	var disabled_state: bool = not instance.motion_enabled and pause_button != null and pause_button.text.contains("關") and settings_toggle != null and not settings_toggle.button_pressed
 	instance.set_motion_enabled(true)
 	var enabled_state := bool(SaveManager.get_preference("motion",false)) and pause_button.text.contains("開") and settings_toggle.button_pressed
+	instance.animate_panel_in(instance.inventory_panel)
+	instance.show_interaction_feedback("talk","測試")
+	instance.set_motion_enabled(false)
+	var immediate_stop: bool = instance.panel_motion_tweens.is_empty() and instance.inventory_panel.scale == Vector2.ONE and instance.impact_feedback.scale == Vector2.ONE
+	if instance.impact_tween != null and instance.impact_tween.is_valid(): immediate_stop = false
 	instance.queue_free()
 	SaveManager.set_preference("motion",previous)
-	return disabled_state and enabled_state
+	return disabled_state and enabled_state and immediate_stop
 
 func quest_log_copy_test() -> bool:
 	GameManager.new_game()
