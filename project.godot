@@ -5,7 +5,7 @@ config/name="Echo Village"
 config/description="AI-Driven NPC Life Simulation RPG"
 config/version="1.4.0"
 run/main_scene="res://scenes/main/Main.tscn"
-config/features=PackedStringArray("4.2")
+config/features=PackedStringArray("4.5", "GL Compatibility")
 config/icon="res://assets/portfolio/echo_village_cover.svg"
 
 [autoload]

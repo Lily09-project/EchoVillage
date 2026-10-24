@@ -41,7 +41,7 @@ foreach ($relative in $tracked) {
 	if ($forbiddenExtensions -contains $extension) { Add-Finding 'tracked_binary_or_private_key_artifact' $normalized }
 
 	if ($textExtensions -contains $extension -and (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
-		$length = (Get-Item -LiteralPath $fullPath).Length
+		$length = (Get-Item -Force -LiteralPath $fullPath).Length
 		if ($length -le 5242880) {
 			$content = [IO.File]::ReadAllText($fullPath)
 			foreach ($rule in $secretPatterns.Keys) {
