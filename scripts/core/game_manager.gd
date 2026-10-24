@@ -16,6 +16,15 @@ const RelationshipServiceScript = preload("res://scripts/relationship/relationsh
 const ProgressionServiceScript = preload("res://scripts/progression/progression_service.gd")
 const StoryArcServiceScript = preload("res://scripts/story/story_arc_service.gd")
 const CausalityHistoryServiceScript = preload("res://scripts/history/causality_history_service.gd")
+const RumorServiceScript = preload("res://scripts/rumor/rumor_service.gd")
+const EmergentQuestServiceScript = preload("res://scripts/quests/emergent_quest_service.gd")
+const DialogueGrammarScript = preload("res://scripts/dialogue/dialogue_grammar.gd")
+const JournalServiceScript = preload("res://scripts/journal/journal_service.gd")
+const WORLD_SEED := 20261024
+const GOSSIP_INTERVAL_MINUTES := 360
+const MAX_RUMOR_LOG := 80
+const MAX_JOURNAL_DAYS := 30
+const MAX_EMERGENT_DEFINITIONS := 12
 var npc_profiles: Dictionary = {}
 var dialogues: Dictionary = {}
 var event_defs: Dictionary = {}
@@ -52,6 +61,15 @@ var relationship_service = RelationshipServiceScript.new()
 var progression_service = ProgressionServiceScript.new()
 var story_service = StoryArcServiceScript.new()
 var causality_history_service = CausalityHistoryServiceScript.new()
+var rumor_service = RumorServiceScript.new()
+var emergent_quest_service = EmergentQuestServiceScript.new()
+var dialogue_grammar = DialogueGrammarScript.new()
+var journal_service = JournalServiceScript.new()
+var rumor_log: Array = []
+var emergent_offers: Array = []
+var emergent_definitions: Dictionary = {}
+var journal_entries: Dictionary = {}
+var gossip_round := 0
 
 func _ready() -> void:
 	load_data()
@@ -76,6 +94,8 @@ func load_data() -> void:
 	economy_service = EconomyServiceScript.new(recipe_defs)
 	if not story_service.configure(self,read_json("stories/story_arcs.json")):
 		push_error("Story arc data failed validation.")
+	if not dialogue_grammar.configure(read_json("dialogue/grammar.json")):
+		push_error("Dialogue grammar data failed validation.")
 
 func index_by_id(entries: Array) -> Dictionary:
 	var result := {}
@@ -105,6 +125,13 @@ func new_game() -> void:
 	story_service.reset()
 	story_progression = story_service.serialize()
 	progression = progression_service.default_state()
+	rumor_service.reset()
+	rumor_log.clear()
+	emergent_offers.clear()
+	for quest_id in emergent_definitions: quest_defs.erase(quest_id)
+	emergent_definitions.clear()
+	journal_entries.clear()
+	gossip_round = 0
 	for raw in npc_profiles.get("npcs", []):
 		var npc: Dictionary = raw.duplicate(true)
 		var spawn: Array = npc.get("spawn", [620,360])
@@ -153,9 +180,12 @@ func _on_minute(_minute: int, _hour: int) -> void:
 		move_npc(npc)
 	if active_event.get("id","") == "minor_danger" and not bool(active_event.get("consequence_resolved",false)):
 		resolve_danger_actions()
+	if GameTime.minute % GOSSIP_INTERVAL_MINUTES == 0: run_gossip_round()
 
-func _on_day_changed(_day: int, _day_of_week: int) -> void:
+func _on_day_changed(day: int, _day_of_week: int) -> void:
 	for npc in npcs.values(): decay_memories(npc,1)
+	if day > 1: archive_journal(day - 1)
+	refresh_emergent_offers()
 
 func update_needs(npc: Dictionary) -> void:
 	needs_service.update(npc,str(active_event.get("id","")))
@@ -274,6 +304,11 @@ func share_memory(source: Dictionary, receiver: Dictionary) -> void:
 			receiver["memories"].append(heard)
 			trim_memories(receiver)
 			memory["shared"] = true
+			if memory.has("rumor_id"):
+				var rng := RandomNumberGenerator.new()
+				rng.seed = absi(WORLD_SEED + memory_sequence * 31 + receiver["memories"].size())
+				var transmission: Dictionary = rumor_service.transmit(rumor_service.find(str(memory["rumor_id"])),str(source["id"]),str(receiver["id"]),GameTime.day,rng)
+				if not transmission.is_empty(): _log_rumor_transmission(transmission)
 			if memory["subject_id"] == "player": change_relationship(receiver,"player",{"trust":float(memory["emotional_value"]) * 0.35,"affinity":float(memory["emotional_value"]) * 0.2})
 			add_log("%s 將一段記憶告訴了 %s。" % [source["display_name"],receiver["display_name"]])
 			return
@@ -282,6 +317,8 @@ func create_memory(npc_id: String, kind: String, description: String, emotion: f
 	if not npcs.has(npc_id): return
 	memory_sequence += 1
 	var memory := {"id":"memory_%d" % memory_sequence,"event_type":kind,"subject_id":subject_id,"object_id":object_id,"location":current_location,"timestamp":GameTime.formatted_time(),"description":description,"importance":importance,"emotional_value":emotion,"metadata":metadata.duplicate(true),"shared":false}
+	var rumor: Dictionary = rumor_service.seed_from_memory(npc_id,memory,GameTime.day)
+	if not rumor.is_empty(): memory["rumor_id"] = str(rumor["id"])
 	npcs[npc_id]["memories"].append(memory)
 	trim_memories(npcs[npc_id])
 	EventBus.memory_created.emit(npc_id, memory)
@@ -338,6 +375,7 @@ func interact(npc_id: String, intent: String) -> String:
 			create_memory(npc_id,"player_gave_item","玩家在我需要時送了我麵包。",20,45)
 			change_relationship(npc,"player",{"affinity":5.0,"trust":2.0})
 			record_community("kindness",3,"善意留下回音","你在需要時分享麵包，艾莉絲將這份善意記在心裡。")
+			notify_quest("deliver_item","bread",1,npc_id)
 			return "%s 收下了麵包，信任提升。" % npc["display_name"]
 		return "你的背包裡沒有麵包。"
 	if intent == "steal_food":
@@ -390,13 +428,29 @@ func gather_location_resource(item_id: String) -> Dictionary:
 	return {"ok":true,"item_id":item_id,"amount":1,"remaining":3 - int(world_flags["forest_herbs_gathered"])}
 
 func dialogue(npc: Dictionary) -> String:
-	var relation: Dictionary = npc["relationships"].get("player", {"trust":0.0})
-	if float(relation.get("trust",0.0)) < -15.0: return str(dialogues.get("distrust","你想做什麼？"))
-	if npc["memories"].size() > 0:
-		var last: Dictionary = npc["memories"].back()
-		if float(last["emotional_value"]) < -10.0: return "我仍記得你做過的事。"
-		if float(last["emotional_value"]) > 10.0: return "很高興再見到你。我記得你的善意。"
-	return str(dialogues.get(str(npc["mood"]).to_lower(),"早安。"))
+	return str(dialogue_line(npc).get("text","早安。"))
+
+## Grammar-generated line plus the memories and rumours it cites.
+func dialogue_line(npc: Dictionary) -> Dictionary:
+	var npc_id := str(npc.get("id",""))
+	var seed: int = WORLD_SEED + GameTime.day * 97 + npc.get("memories",[]).size() * 13 + npc_id.hash() % 1000
+	return dialogue_grammar.generate(npc,dialogue_context(npc_id),seed)
+
+func dialogue_context(npc_id: String) -> Dictionary:
+	var names := actor_names()
+	var heard: Array = []
+	for rumor in rumor_service.snapshot(names):
+		if bool(rumor.get("debunked",false)) or str(rumor.get("origin_npc","")) == npc_id: continue
+		for holder in rumor.get("holders",[]):
+			if str(holder.get("id","")) != npc_id: continue
+			heard.append({"id":rumor["id"],"text":holder["text"],"teller_id":holder["heard_from"],"credibility":holder["credibility"],"strength":holder["strength"]})
+	heard.sort_custom(func(a, b): return float(a["strength"]) > float(b["strength"]))
+	return {"names":names,"rumors":heard}
+
+func actor_names() -> Dictionary:
+	var names := {"player":"玩家"}
+	for npc_id in npcs: names[str(npc_id)] = str(npcs[npc_id].get("display_name",npc_id))
+	return names
 
 func trade_price(npc_id: String, item_id: String) -> int:
 	if not npcs.has(npc_id) or not item_defs.has(item_id): return 0
@@ -673,8 +727,8 @@ func active_quest_snapshot() -> Array[Dictionary]:
 func is_quest_completed(quest_id: String) -> bool:
 	return quest_id in completed_quests
 
-func notify_quest(kind: String, target_id: String, amount: int = 1) -> Dictionary:
-	var progress: Dictionary = quest_service.notify(active_quests,completed_quests,kind,target_id,amount)
+func notify_quest(kind: String, target_id: String, amount: int = 1, recipient_id: String = "") -> Dictionary:
+	var progress: Dictionary = quest_service.notify(active_quests,completed_quests,kind,target_id,amount,recipient_id)
 	for quest_id in progress.get("completed",[]): award_quest(str(quest_id))
 	if not progress.get("changed",[]).is_empty(): EventBus.quest_changed.emit(active_quest_snapshot())
 	return progress
@@ -687,6 +741,7 @@ func award_quest(quest_id: String) -> void:
 		if str(item_id) not in ["coin","renown"]: add_item(player["inventory"],str(item_id),int(rewards[item_id]))
 	community["renown"] = int(community.get("renown",0)) + int(rewards.get("renown",0))
 	for flag in definition.get("on_complete_flags",[]): world_flags[str(flag)] = true
+	apply_quest_effects(definition)
 	create_memory(str(definition.get("giver_id","alice")),"quest_completed","玩家完成了「%s」。" % str(definition.get("title",quest_id)),24,55)
 	add_log("完成任務：「%s」" % str(definition.get("title",quest_id)))
 	EventBus.inventory_changed.emit(player["inventory"].duplicate(true))
@@ -739,7 +794,19 @@ func serialize() -> Dictionary:
 	state["story_progression"] = story_service.serialize()
 	state["timeline_events"] = timeline_events.duplicate(true)
 	state["timeline_sequence"] = timeline_sequence
+	state["save_version"] = 4
+	state["rumors"] = rumor_service.serialize()
+	state["rumor_log"] = rumor_log.duplicate(true)
+	state["emergent_definitions"] = emergent_definitions.duplicate(true)
+	state["emergent_offers"] = emergent_offers.duplicate(true)
+	state["journal_entries"] = _journal_entries_for_save()
+	state["gossip_round"] = gossip_round
 	return state
+
+func _journal_entries_for_save() -> Dictionary:
+	var result := {}
+	for day in journal_entries: result[str(day)] = journal_entries[day].duplicate(true)
+	return result
 func deserialize(data: Dictionary) -> bool:
 	if not (data is Dictionary): return false
 	var candidate_player = decode_value(data.get("player",player))
@@ -772,6 +839,20 @@ func deserialize(data: Dictionary) -> bool:
 	for value in candidate_timeline:
 		if not causality_history_service.validate_event(value): return false
 	if not _valid_integer(candidate_timeline_sequence,0,1000000000): return false
+	# Version 4 additions; older saves start with an empty rumour network.
+	var candidate_rumors = data.get("rumors",{"schema_version":1,"sequence":0,"rumors":[]})
+	var candidate_rumor_log = data.get("rumor_log",[])
+	var candidate_emergent = data.get("emergent_definitions",{})
+	var candidate_offers = data.get("emergent_offers",[])
+	var candidate_journal = data.get("journal_entries",{})
+	var candidate_gossip = data.get("gossip_round",0)
+	if not rumor_service.validate_state(candidate_rumors): return false
+	if not (candidate_rumor_log is Array) or candidate_rumor_log.size() > MAX_RUMOR_LOG: return false
+	if not _valid_emergent_definitions(candidate_emergent) or not (candidate_offers is Array) or candidate_offers.size() > 8: return false
+	for offer in candidate_offers:
+		if not _valid_emergent_definition(offer): return false
+	if not (candidate_journal is Dictionary) or candidate_journal.size() > MAX_JOURNAL_DAYS: return false
+	if not _valid_integer(candidate_gossip,0,1000000000): return false
 	player = candidate_player
 	npcs = candidate_npcs
 	economy = candidate_economy.duplicate(true)
@@ -792,6 +873,34 @@ func deserialize(data: Dictionary) -> bool:
 	var first_timeline_index := maxi(0,candidate_timeline.size() - 160)
 	for index in range(first_timeline_index,candidate_timeline.size()): timeline_events.append(candidate_timeline[index].duplicate(true))
 	timeline_sequence = int(candidate_timeline_sequence)
+	rumor_service.load_state(candidate_rumors)
+	rumor_log = candidate_rumor_log.duplicate(true)
+	for quest_id in emergent_definitions: quest_defs.erase(quest_id)
+	emergent_definitions = candidate_emergent.duplicate(true)
+	for quest_id in emergent_definitions: quest_defs[quest_id] = emergent_definitions[quest_id].duplicate(true)
+	emergent_offers = candidate_offers.duplicate(true)
+	journal_entries.clear()
+	for key in candidate_journal:
+		if str(key).is_valid_int() and candidate_journal[key] is Dictionary: journal_entries[int(str(key))] = candidate_journal[key].duplicate(true)
+	gossip_round = int(candidate_gossip)
+	return true
+
+func _valid_emergent_definitions(value: Variant) -> bool:
+	if not (value is Dictionary) or value.size() > 64: return false
+	for quest_id in value:
+		if not str(quest_id).begins_with("emergent_") or not _valid_emergent_definition(value[quest_id]): return false
+	return true
+
+func _valid_emergent_definition(value: Variant) -> bool:
+	if not (value is Dictionary): return false
+	var quest: Dictionary = value
+	if not str(quest.get("id","")).begins_with("emergent_") or not (quest.get("title","") is String): return false
+	if not (quest.get("objectives",[]) is Array) or quest.get("objectives",[]).is_empty() or quest.get("objectives",[]).size() > 4: return false
+	for objective in quest.get("objectives",[]):
+		if not (objective is Dictionary) or str(objective.get("kind","")) not in ["talk_to_npc","deliver_item"]: return false
+	if not (quest.get("effects",[]) is Array) or quest.get("effects",[]).size() > 8: return false
+	for effect in quest.get("effects",[]):
+		if not (effect is Dictionary) or str(effect.get("kind","")) not in ["relationship","debunk_rumor","feed"]: return false
 	return true
 
 func _valid_player_state(value: Variant) -> bool:
@@ -940,3 +1049,129 @@ func daily_summary(target_day: int = -1, category: String = "all") -> Dictionary
 func add_log(message: String, details: Dictionary = {}) -> void:
 	record_timeline_event(message,details)
 	EventBus.log_event(GameTime.formatted_time(),message)
+
+# --- Rumour network -------------------------------------------------------
+
+## One gossip round: every rumour holder may retell what they heard.
+func run_gossip_round() -> Array:
+	gossip_round += 1
+	var transmissions: Array = rumor_service.propagate_round(npcs,GameTime.day,WORLD_SEED + gossip_round)
+	for transmission in transmissions: apply_rumor_transmission(transmission)
+	if not transmissions.is_empty(): refresh_emergent_offers()
+	return transmissions
+
+## The listener remembers the (possibly distorted) story and adjusts how they
+## feel about its subject, scaled by how strong and believable it still is.
+func apply_rumor_transmission(transmission: Dictionary) -> void:
+	var rumor: Dictionary = rumor_service.find(str(transmission.get("rumor_id","")))
+	var to_id := str(transmission.get("to",""))
+	var from_id := str(transmission.get("from",""))
+	if rumor.is_empty() or not npcs.has(to_id): return
+	var names := actor_names()
+	var receiver: Dictionary = npcs[to_id]
+	var text: String = rumor_service.describe(rumor,int(transmission.get("version",0)),names)
+	var weight := float(transmission.get("strength",0.0)) / 100.0 * float(transmission.get("credibility",1.0))
+	var emotion := float(rumor.get("emotion",0.0)) * weight
+	memory_sequence += 1
+	var heard := {
+		"id":"heard_%s_%s" % [str(rumor["id"]),to_id],"event_type":"heard_" + str(rumor["kind"]),
+		"subject_id":str(rumor.get("subject_id","")),"object_id":str(rumor.get("object_id","")),"location":current_location,
+		"timestamp":GameTime.formatted_time(),"description":"%s告訴我：%s" % [str(names.get(from_id,from_id)),text],
+		"importance":maxi(20,int(float(rumor.get("importance",30)) * float(transmission.get("strength",0.0)) / 100.0)),
+		"emotional_value":emotion,"metadata":{"rumor_id":str(rumor["id"]),"from":from_id,"version":int(transmission.get("version",0))},"shared":true
+	}
+	receiver["memories"].append(heard)
+	trim_memories(receiver)
+	var subject := str(rumor.get("subject_id",""))
+	if subject == "player":
+		change_relationship(receiver,"player",{"trust":emotion * 0.35,"affinity":emotion * 0.2})
+	elif npcs.has(subject) and subject != to_id:
+		change_relationship(receiver,subject,{"trust":emotion * 0.25,"affinity":emotion * 0.15})
+	_log_rumor_transmission(transmission)
+
+func _log_rumor_transmission(transmission: Dictionary) -> void:
+	var entry: Dictionary = transmission.duplicate(true)
+	entry["day"] = GameTime.day
+	rumor_log.append(entry)
+	while rumor_log.size() > MAX_RUMOR_LOG: rumor_log.pop_front()
+	var names := actor_names()
+	add_log("%s 把一則傳聞告訴了 %s%s。" % [str(names.get(str(entry["from"]),entry["from"])),str(names.get(str(entry["to"]),entry["to"])),"（內容已走樣）" if bool(entry.get("distorted",false)) else ""],{
+		"effect_kind":"rumor","actors":[str(entry["from"]),str(entry["to"])],
+		"effect":{"rumor_id":str(entry["rumor_id"]),"from":str(entry["from"]),"to":str(entry["to"]),"version":int(entry.get("version",0)),"strength":float(entry.get("strength",0.0)),"distorted":bool(entry.get("distorted",false))}
+	})
+
+func rumor_network_snapshot() -> Array:
+	return rumor_service.snapshot(actor_names())
+
+func rumor_trace(rumor_id: String, npc_id: String) -> Array:
+	return rumor_service.trace(rumor_id,npc_id)
+
+# --- Emergent commissions -------------------------------------------------
+
+func emergent_world_state() -> Dictionary:
+	var npc_state := {}
+	for npc_id in npcs:
+		var npc: Dictionary = npcs[npc_id]
+		npc_state[npc_id] = {"display_name":npc.get("display_name",npc_id),"needs":npc.get("needs",{}).duplicate(true),"inventory":npc.get("inventory",{}).duplicate(true),"relationships":npc.get("relationships",{}).duplicate(true)}
+	var taken: Array = active_quests.keys() + completed_quests
+	return {"day":GameTime.day,"npcs":npc_state,"rumors":rumor_network_snapshot(),"player_inventory":player.get("inventory",{}).duplicate(true),"item_ids":item_defs.keys(),"taken":taken,"active":active_quests.keys()}
+
+func refresh_emergent_offers() -> Array:
+	emergent_offers = emergent_quest_service.generate(emergent_world_state())
+	EventBus.quest_changed.emit(active_quest_snapshot())
+	return emergent_offers.duplicate(true)
+
+func accept_emergent_quest(quest_id: String) -> Dictionary:
+	var offer: Dictionary = {}
+	for value in emergent_offers:
+		if str(value.get("id","")) == quest_id: offer = value
+	if offer.is_empty(): return {"ok":false,"reason":"這項委託已經失效。"}
+	if not emergent_quest_service.validate(offer,emergent_world_state()): return {"ok":false,"reason":"情況已經改變，這項委託無法完成。"}
+	quest_defs[quest_id] = offer.duplicate(true)
+	emergent_definitions[quest_id] = offer.duplicate(true)
+	var result := accept_quest(quest_id)
+	if not bool(result.get("ok",false)):
+		quest_defs.erase(quest_id)
+		emergent_definitions.erase(quest_id)
+		return result
+	emergent_offers = emergent_offers.filter(func(o): return str(o.get("id","")) != quest_id)
+	_prune_emergent_definitions()
+	return result
+
+## Finished commissions only need their id in `completed_quests`; keep the
+## definitions of the most recent ones so long games do not grow the save.
+func _prune_emergent_definitions() -> void:
+	var finished: Array = emergent_definitions.keys().filter(func(id): return not active_quests.has(id))
+	while emergent_definitions.size() > MAX_EMERGENT_DEFINITIONS and not finished.is_empty():
+		var oldest := str(finished.pop_front())
+		emergent_definitions.erase(oldest)
+		quest_defs.erase(oldest)
+
+## Effects a generated commission promises on completion.
+func apply_quest_effects(definition: Dictionary) -> void:
+	for effect in definition.get("effects",[]):
+		match str(effect.get("kind","")):
+			"relationship":
+				var npc_id := str(effect.get("npc_id",""))
+				if npcs.has(npc_id): change_relationship(npcs[npc_id],str(effect.get("target_id","")),effect.get("changes",{}))
+			"debunk_rumor":
+				if rumor_service.debunk(str(effect.get("rumor_id",""))): add_log("流言已被澄清，不會再繼續傳播。")
+			"feed":
+				var fed := str(effect.get("npc_id",""))
+				if npcs.has(fed): npcs[fed]["needs"]["hunger"] = maxf(0.0,float(npcs[fed]["needs"]["hunger"]) - 40.0)
+
+# --- Village journal ------------------------------------------------------
+
+func journal_for_day(day: int) -> Dictionary:
+	if journal_entries.has(day): return journal_entries[day].duplicate(true)
+	var texts := {}
+	var names := actor_names()
+	for rumor in rumor_service.rumors: texts[str(rumor["id"])] = rumor_service.describe(rumor,0,names)
+	return journal_service.compose(day,timeline_events,rumor_log,names,texts)
+
+func archive_journal(day: int) -> void:
+	journal_entries[day] = journal_for_day(day)
+	var days: Array = journal_entries.keys()
+	days.sort()
+	while days.size() > MAX_JOURNAL_DAYS:
+		journal_entries.erase(days.pop_front())

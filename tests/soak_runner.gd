@@ -21,6 +21,9 @@ func run() -> void:
 	var checkpoints: Array[Dictionary] = []
 
 	for day_index in DAYS:
+		# Keep the rumour mill busy: a kind or unkind act every few days.
+		if day_index % 3 == 0: GameManager.interact(["alice","bob","charlie","diana","eric"][day_index % 5],"give_bread" if day_index % 2 == 0 else "steal_food")
+		if day_index % 7 == 0 and not GameManager.emergent_offers.is_empty(): GameManager.accept_emergent_quest(str(GameManager.emergent_offers[0]["id"]))
 		for _minute in MINUTES_PER_DAY:
 			GameTime.advance_minute()
 		if (day_index + 1) % 30 == 0:
@@ -53,7 +56,9 @@ func run() -> void:
 		"needs_in_range": needs_valid,
 		"agents_responsive": agents_valid,
 		"event_completed": GameManager.active_event.is_empty(),
-		"save_schema_valid": int(final_snapshot.get("save_version", 0)) >= 3 and final_snapshot.has("npcs") and final_snapshot.has("progression"),
+		"save_schema_valid": int(final_snapshot.get("save_version", 0)) >= 4 and final_snapshot.has("npcs") and final_snapshot.has("progression") and final_snapshot.has("rumors"),
+		"rumors_spread": GameManager.rumor_log.size() > 0 and not GameManager.journal_entries.is_empty(),
+		"living_village_bounded": GameManager.rumor_service.rumors.size() <= RumorService.MAX_RUMORS and GameManager.rumor_log.size() <= GameManager.MAX_RUMOR_LOG and GameManager.journal_entries.size() <= GameManager.MAX_JOURNAL_DAYS and GameManager.emergent_offers.size() <= 3,
 		"save_size_bounded": save_bytes <= MAX_SAVE_BYTES,
 		"memory_growth_bounded": final_memory - initial_memory <= MAX_MEMORY_GROWTH_BYTES,
 		"performance_drift_bounded": segment_ratio <= MAX_FINAL_SEGMENT_RATIO

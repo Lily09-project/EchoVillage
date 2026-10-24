@@ -35,9 +35,13 @@
 | `StoryArcService` | 驗證故事定義、評估觸發、分支選擇、後果套用與序列化狀態 |
 | `CausalityHistoryService` | 因果事件 metadata 正規化、存檔驗證、居民／類型查詢、中文摘要與深拷貝邊界 |
 | `UiRefreshScheduler` | 合併 TIME／PLAYER／WORLD／NPC／QUEST／PROGRESSION／LOG／CONTEXT／DEBUG dirty mask，提供刷新與合併次數供測試驗證 |
-| `SaveManager` | v3 世界狀態、自動存檔、偏好、舊版遷移與 `.bak` recovery |
+| `RumorService` | 把重要記憶變成傳聞，依信任門檻與好感在村民間傳播；每次轉述強度與可信度遞減、可能走樣，記錄完整傳播鏈；固定種子可重現，最多 12 則傳聞 |
+| `EmergentQuestService` | 依居民飢餓、彼此爭執與走樣傳聞產生委託（送麵包、調解、澄清流言），先驗證引用的居民與物品都存在、委託可完成且不重複 |
+| `DialogueGrammar` | 以 `data/dialogue/grammar.json` 的文法組句：開頭依情緒、主體依記憶／傳聞／需求、結尾依語氣；只引用居民真的記得或聽過的事，最長 90 字 |
+| `JournalService` | 每日根據因果事件與傳聞轉述寫出當日故事，只引用當天發生的事；沒有事件時回傳明確的空狀態 |
+| `SaveManager` | v4 世界狀態（含傳聞、委託、日誌）、自動存檔、偏好（含色盲配色與 100／115／130% 字級）、舊版遷移與 `.bak` recovery |
 | `SaveMigration` | 在載入前驗證 envelope／world state 型別、陣列數量上限與版本相容性，拒絕損壞或竄改資料 |
-| `Main` onboarding UI | 首次旅程三步驟、模態暫停、Esc／略過、F1 重開；只保存 `onboarding_seen` 偏好，不寫入世界狀態 |
+| `Main` onboarding UI | 首次旅程五步驟（含傳聞、委託與日誌）、模態暫停、Esc／略過、F1 重開；只保存 `onboarding_seen` 偏好，不寫入世界狀態 |
 | `SoundManager` | 可關閉的程式化 UI／互動提示音 |
 | `AIService`（Optional） | 結構化文本、記憶摘要、建議目標與模板 fallback；不改權威狀態 |
 
@@ -54,7 +58,29 @@
 
 ### 首次旅程導覽狀態
 
-新遊戲建立後，`Main.start_new_game()` 依 `SaveManager.preferences.onboarding_seen` 顯示三步驟導覽。導覽是純 presentation state：`OnboardingBackdrop` 攔截輸入、`OnboardingPanel` 提供步驟內容，`GameTime.simulation_paused` 透過既有模態規則暫停。完成、略過或按 `Esc` 都會將偏好設為 `true`；暫停選單的 `GuideButton` 以 `force=true` 重開並重置步驟，不改變世界、NPC、任務或存檔版本。
+新遊戲建立後，`Main.start_new_game()` 依 `SaveManager.preferences.onboarding_seen` 顯示五步驟導覽。導覽是純 presentation state：`OnboardingBackdrop` 攔截輸入、`OnboardingPanel` 提供步驟內容，`GameTime.simulation_paused` 透過既有模態規則暫停。完成、略過或按 `Esc` 都會將偏好設為 `true`；暫停選單的 `GuideButton` 以 `force=true` 重開並重置步驟，不改變世界、NPC、任務或存檔版本。
+
+### 會說話的村落（2.0）
+
+```text
+玩家行為 ──► 記憶 ──► RumorService.seed_from_memory
+                         │ 每 6 遊戲小時一次閒聊回合（信任 ≥ 10 才會轉述）
+                         ▼
+               傳聞轉述（強度 ×0.72、可信度 ×0.88、30% 走樣）
+                 │            │                 │
+                 ▼            ▼                 ▼
+        聽者的 heard_ 記憶   因果時間軸（rumor）   EmergentQuestService
+                 │                                  │（走樣傳聞 → 澄清委託）
+                 ▼                                  ▼
+          DialogueGrammar 對話                  任務日誌「村民委託」
+                 └──────────► JournalService：每天結束寫成村落日誌
+```
+
+傳聞、委託定義、轉述紀錄（最多 80 筆）、日誌（最近 30 天）與閒聊回合都寫進 v4 存檔；讀取 v3 存檔時這些欄位給安全預設值，損壞的欄位會被拒絕而不是部分套用。完成的委託只保留最近 12 份定義，長時間遊玩時存檔不會無限成長。
+
+### 網頁版
+
+`export_presets.cfg` 的 `Web` 預設使用單執行緒模板，不需要 COOP／COEP 標頭，可以直接放在 GitHub Pages。瀏覽器拿不到系統字型，所以 `assets/fonts/NotoSansTC-EchoVillage.ttf` 內嵌了 Noto Sans TC 的子集（只含專案用到的字，約 300 KB，OFL 授權）；`tools/build_font_subset.py` 重新產生，`tests/test_runner.gd` 會檢查專案中每個字都在字型裡。`.github/workflows/web.yml` 下載固定雜湊的 Godot 與模板、匯出、用 Playwright 在 Chromium 啟動並確認畫面不是全黑，合併到 `master` 後部署到 Pages。
 
 ## 資料契約
 

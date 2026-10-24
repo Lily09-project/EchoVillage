@@ -1,7 +1,7 @@
 class_name CausalityHistoryService
 extends RefCounted
 
-const VALID_EFFECT_KINDS := ["relationship","memory","story","community","quest","world","economy","location","simulation"]
+const VALID_EFFECT_KINDS := ["relationship","memory","story","community","quest","world","economy","location","simulation","rumor"]
 const MAX_ACTORS := 4
 const MAX_ACTOR_ID_LENGTH := 64
 const MAX_EFFECT_KEYS := 16

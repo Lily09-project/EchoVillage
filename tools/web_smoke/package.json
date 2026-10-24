@@ -1,0 +1,12 @@
+{
+  "name": "echo-village-web-smoke",
+  "private": true,
+  "type": "module",
+  "description": "Boots the Web export in Chromium and checks that it renders.",
+  "scripts": {
+    "smoke": "node smoke.mjs ../../release/web ../../release/web-smoke.png"
+  },
+  "dependencies": {
+    "playwright": "1.63.0"
+  }
+}
