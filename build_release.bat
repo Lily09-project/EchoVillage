@@ -33,7 +33,7 @@ if not exist "%RUNTIME%" (
 )
 
 echo ============================================================
-echo   Echo Village 1.4.0 - Windows Portable Release Builder
+echo   Echo Village 2.0.0 - Windows Portable Release Builder
 echo ============================================================
 echo [1/4] Running the complete automated test suite...
 call run_echo_village.bat --test

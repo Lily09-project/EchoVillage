@@ -85,7 +85,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $expectedPassed = 105
+          $expectedPassed = 131
           $reportPath = Join-Path $env:GITHUB_WORKSPACE 'tests\simulation_test_report.json'
           if (-not (Test-Path -LiteralPath $reportPath -PathType Leaf)) { throw "Test report was not generated: $reportPath" }
           $report = Get-Content -Raw -Encoding UTF8 -LiteralPath $reportPath | ConvertFrom-Json
@@ -109,7 +109,8 @@ jobs:
             'consumer_trade.png', 'forest_echo_complete.png', 'npc_decision_explanation.png', 'quest_in_progress.png',
             'relationship_history.png', 'story_arc_active.png', 'storybook_event_danger.png', 'storybook_explore_dawn.png',
             'storybook_explore_night.png', 'storybook_explore_noon.png', 'storybook_intro.png',
-            'village_progression.png'
+            'village_progression.png', 'rumor_network.png', 'village_commissions.png', 'village_journal.png',
+            'accessibility_settings.png'
           )
           $root = Join-Path $env:GITHUB_WORKSPACE 'tests\visual_qa'
           foreach ($name in $expected) {

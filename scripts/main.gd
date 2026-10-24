@@ -8,6 +8,8 @@ const QuestLogPanelScene = preload("res://scenes/ui/QuestLogPanel.tscn")
 const TradePanelScene = preload("res://scenes/ui/TradePanel.tscn")
 const ProgressionPanelScene = preload("res://scenes/ui/ProgressionPanel.tscn")
 const StoryArcPanelScene = preload("res://scenes/ui/StoryArcPanel.tscn")
+const RumorNetworkPanelScene = preload("res://scenes/ui/RumorNetworkPanel.tscn")
+const VillageJournalPanelScene = preload("res://scenes/ui/VillageJournalPanel.tscn")
 const NavigationCoordinatorScript = preload("res://scripts/navigation/navigation_coordinator.gd")
 const UiRefreshSchedulerScript = preload("res://scripts/ui/ui_refresh_scheduler.gd")
 
@@ -64,7 +66,9 @@ var onboarding_step := 0
 const ONBOARDING_STEPS := [
 	{"title":"探索村落","body":"用 WASD 或方向鍵移動；時間與居民生活會持續前進。"},
 	{"title":"認識居民","body":"靠近居民按 E，再用 C 交談或 Q 詢問近況。"},
-	{"title":"留下回音","body":"贈禮、交易與任務選擇都會改變關係與村落故事。"}
+	{"title":"留下回音","body":"贈禮、交易與任務選擇都會改變關係與村落故事。"},
+	{"title":"傳聞與委託","body":"你的行為會變成傳聞在村民間流傳、越傳越走樣；按 U 看傳聞網路，K 接下村民自發的委託。"},
+	{"title":"村落日誌","body":"每天結束時，村子會把當天的事寫成故事；按 V 翻閱。設定裡可開啟色盲友善配色與放大字級。"}
 ]
 var time_panel: Panel
 var time_label: Label
@@ -84,6 +88,10 @@ var ambience_clock := 0.0
 var quest_tracker
 var world_map_panel
 var quest_log_panel
+var rumor_network_panel
+var village_journal_panel
+var colorblind_toggle: CheckButton
+var text_scale_buttons: Array[Button] = []
 var main_menu_panel: Panel
 var settings_panel: Panel
 var menu_status_label: Label
@@ -108,6 +116,8 @@ func _ready() -> void:
 	create_camera()
 	create_navigation()
 	create_ui()
+	apply_text_scale(canvas)
+	get_tree().node_added.connect(_on_canvas_node_added)
 	connect_ui_refresh_signals()
 	motion_enabled = SaveManager.get_preference("motion",true)
 	sync_motion_controls()
@@ -159,7 +169,11 @@ func capture_visual_qa() -> void:
 		{"file":"village_progression.png","minute":780,"intro":false,"scenario":"progression"},
 		{"file":"story_arc_active.png","minute":780,"intro":false,"scenario":"story_active"},
 		{"file":"relationship_history.png","minute":780,"intro":false,"scenario":"relationship_history"},
-		{"file":"consumer_onboarding.png","minute":780,"intro":false,"scenario":"onboarding"}
+		{"file":"consumer_onboarding.png","minute":780,"intro":false,"scenario":"onboarding"},
+		{"file":"rumor_network.png","minute":1020,"intro":false,"scenario":"rumor_network"},
+		{"file":"village_commissions.png","minute":780,"intro":false,"scenario":"commissions"},
+		{"file":"village_journal.png","minute":1260,"intro":false,"scenario":"village_journal"},
+		{"file":"accessibility_settings.png","minute":780,"intro":false,"scenario":"accessibility_settings"}
 	]
 	for capture in captures:
 		var file_name := str(capture["file"])
@@ -174,6 +188,8 @@ func capture_visual_qa() -> void:
 		story_arc_panel.visible = false
 		world_map_panel.visible = false
 		quest_log_panel.visible = false
+		rumor_network_panel.visible = false
+		village_journal_panel.visible = false
 		pause_panel.visible = false
 		onboarding_panel.visible = false
 		onboarding_backdrop.visible = false
@@ -196,17 +212,30 @@ func capture_visual_qa() -> void:
 			GameManager.interact("alice","give_bread")
 		if scenario == "relationship_history": GameManager.interact("alice","give_bread")
 		if scenario == "trade": GameManager.player["position"] = GameManager.npcs["alice"]["position"] + Vector2(-38,0)
+		if scenario in ["rumor_network","commissions","village_journal"]: stage_living_village_story(scenario)
+		if scenario == "accessibility_settings":
+			# Shown without persisting, so a visual QA run never changes the player's preferences.
+			SaveManager.preferences["colorblind"] = true
+			SaveManager.preferences["text_scale"] = 115
+			apply_text_scale(canvas)
 		showcase_panel.visible = bool(capture["intro"])
-		selected_id = "" if bool(capture["intro"]) or scenario in ["main_menu","settings"] else ("bob" if scenario == "danger" else ("diana" if scenario == "forest_complete" else "alice"))
-		info_panel.visible = not bool(capture["intro"]) and scenario not in ["main_menu","settings"]
+		selected_id = "" if bool(capture["intro"]) or scenario in ["main_menu","settings","accessibility_settings"] else ("bob" if scenario == "danger" else ("diana" if scenario == "forest_complete" else "alice"))
+		info_panel.visible = not bool(capture["intro"]) and scenario not in ["main_menu","settings","accessibility_settings"]
 		if selected_id != "": dialogue_label.text = GameManager.dialogue(GameManager.npcs[selected_id])
 		refresh_ui()
 		if scenario == "main_menu":
 			main_menu_panel.visible = true
 			refresh_main_menu()
-		if scenario == "settings":
+		if scenario in ["settings","accessibility_settings"]:
 			main_menu_panel.visible = true
 			open_settings()
+		if scenario == "rumor_network": open_rumor_network()
+		if scenario == "commissions":
+			refresh_quest_ui()
+			toggle_modal_panel(quest_log_panel)
+		if scenario == "village_journal":
+			open_village_journal()
+			village_journal_panel.show_day(1)
 		if scenario == "trade": open_trade_panel()
 		if scenario == "progression":
 			progression_panel.refresh(GameManager.progression_snapshot())
@@ -233,7 +262,7 @@ func capture_visual_qa() -> void:
 			show_interaction_feedback("give","任務完成：黛安娜收下麵包，森林記住了你的善意。")
 		queue_redraw()
 		await get_tree().process_frame
-		if scenario in ["danger","forest_complete","settings","trade","progression","story_active","relationship_history","onboarding"]: await get_tree().create_timer(0.24).timeout
+		if scenario in ["danger","forest_complete","settings","trade","progression","story_active","relationship_history","onboarding","rumor_network","commissions","village_journal","accessibility_settings"]: await get_tree().create_timer(0.24).timeout
 		await RenderingServer.frame_post_draw
 		var image := get_viewport().get_texture().get_image()
 		var result := image.save_png(visual_qa_output_path(file_name))
@@ -241,14 +270,33 @@ func capture_visual_qa() -> void:
 			push_error("無法輸出視覺 QA 截圖：" + file_name)
 			get_tree().quit(1)
 			return
+		GameTime.day = 1
+		if scenario == "accessibility_settings":
+			SaveManager.load_preferences()
+			apply_text_scale(canvas)
 		print("VISUAL_CAPTURE " + file_name + " size=" + str(image.get_width()) + "x" + str(image.get_height()))
 	get_tree().quit(0)
 
 func visual_qa_capture_names() -> Array:
-	return ["storybook_intro.png","storybook_explore_dawn.png","storybook_explore_noon.png","npc_decision_explanation.png","storybook_explore_night.png","storybook_event_danger.png","quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","village_progression.png","story_arc_active.png","relationship_history.png","consumer_onboarding.png"]
+	return ["storybook_intro.png","storybook_explore_dawn.png","storybook_explore_noon.png","npc_decision_explanation.png","storybook_explore_night.png","storybook_event_danger.png","quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","village_progression.png","story_arc_active.png","relationship_history.png","consumer_onboarding.png","rumor_network.png","village_commissions.png","village_journal.png","accessibility_settings.png"]
+
+## A short, reproducible day in the living village for the visual QA captures:
+## a theft and a gift become rumours, travel for a few gossip rounds and give
+## villagers something to ask the player for.
+func stage_living_village_story(scenario: String) -> void:
+	GameManager.interact("bob","steal_food")
+	GameManager.interact("alice","give_bread")
+	# Two nights pass, so the rumours have time to travel and change.
+	for offset in 3:
+		if offset > 0: GameTime.day += 1
+		GameManager.run_gossip_round()
+	if scenario == "commissions":
+		GameManager.npcs["eric"]["needs"]["hunger"] = 88.0
+		GameManager.npcs["eric"]["inventory"]["bread"] = 0
+		GameManager.refresh_emergent_offers()
 
 func create_input_map() -> void:
-	var bindings := {"interact":KEY_E,"talk":KEY_C,"give":KEY_G,"steal":KEY_X,"trade":KEY_T,"ask":KEY_Q,"cancel":KEY_ESCAPE,"guide":KEY_F1,"debug":KEY_F3,"inventory":KEY_I,"journal":KEY_J,"daily_summary":KEY_L,"relationship_history":KEY_Y,"story_arcs":KEY_O,"progression":KEY_P,"world_map":KEY_M,"quest_log":KEY_K,"speed_normal":KEY_1,"speed_2x":KEY_2,"speed_5x":KEY_5,"speed_10x":KEY_0,"save_game":KEY_F5,"load_game":KEY_F9,"event_rain":KEY_R,"event_festival":KEY_F,"event_shortage":KEY_H,"event_danger":KEY_B,"event_injury":KEY_N}
+	var bindings := {"interact":KEY_E,"talk":KEY_C,"give":KEY_G,"steal":KEY_X,"trade":KEY_T,"ask":KEY_Q,"cancel":KEY_ESCAPE,"guide":KEY_F1,"debug":KEY_F3,"inventory":KEY_I,"journal":KEY_J,"daily_summary":KEY_L,"relationship_history":KEY_Y,"story_arcs":KEY_O,"progression":KEY_P,"world_map":KEY_M,"quest_log":KEY_K,"rumor_network":KEY_U,"village_journal":KEY_V,"speed_normal":KEY_1,"speed_2x":KEY_2,"speed_5x":KEY_5,"speed_10x":KEY_0,"save_game":KEY_F5,"load_game":KEY_F9,"event_rain":KEY_R,"event_festival":KEY_F,"event_shortage":KEY_H,"event_danger":KEY_B,"event_injury":KEY_N}
 	for action in bindings:
 		if not InputMap.has_action(action):
 			InputMap.add_action(action)
@@ -360,6 +408,10 @@ func handle_shortcuts() -> void:
 		toggle_modal_panel(world_map_panel)
 	if Input.is_action_just_pressed("quest_log"):
 		toggle_modal_panel(quest_log_panel)
+	if Input.is_action_just_pressed("rumor_network"):
+		open_rumor_network()
+	if Input.is_action_just_pressed("village_journal"):
+		open_village_journal()
 	if Input.is_action_just_pressed("give"): perform("give_bread")
 	if Input.is_action_just_pressed("talk"): perform("talk")
 	if Input.is_action_just_pressed("steal"): perform("steal_food")
@@ -381,6 +433,10 @@ func handle_shortcuts() -> void:
 			trade_panel.visible = false
 		elif quest_log_panel.visible:
 			quest_log_panel.visible = false
+		elif rumor_network_panel.visible:
+			rumor_network_panel.visible = false
+		elif village_journal_panel.visible:
+			village_journal_panel.visible = false
 		elif world_map_panel.visible:
 			world_map_panel.visible = false
 		elif showcase_panel.visible:
@@ -570,8 +626,8 @@ func continue_game() -> void:
 func create_settings_panel() -> void:
 	settings_panel = Panel.new()
 	settings_panel.name = "SettingsPanel"
-	settings_panel.position = Vector2(420,136)
-	settings_panel.size = Vector2(440,448)
+	settings_panel.position = Vector2(420,72)
+	settings_panel.size = Vector2(440,576)
 	settings_panel.add_theme_stylebox_override("panel",VillageTheme.card_style(VillageTheme.CREAM,VillageTheme.TEAL))
 	canvas.add_child(settings_panel)
 	var title := make_panel_label(settings_panel,Vector2(24,20),Vector2(390,36),25,VillageTheme.INK)
@@ -587,9 +643,29 @@ func create_settings_panel() -> void:
 	motion_toggle.toggled.connect(func(value: bool): set_motion_enabled(value))
 	fullscreen_toggle.toggled.connect(apply_fullscreen)
 	audio_toggle.toggled.connect(func(value: bool): SoundManager.set_enabled(value))
+	colorblind_toggle = make_settings_toggle("ColorblindToggle",Vector2(24,354),"色盲友善配色（藍／橘取代紅／綠）")
+	colorblind_toggle.toggled.connect(set_colorblind_mode)
+	var scale_label := make_panel_label(settings_panel,Vector2(24,414),Vector2(110,40),15,VillageTheme.INK)
+	scale_label.name = "TextScaleLabel"
+	scale_label.text = "文字大小"
+	scale_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	text_scale_buttons.clear()
+	for index in SaveManager.TEXT_SCALES.size():
+		var percent: int = SaveManager.TEXT_SCALES[index]
+		var button := Button.new()
+		button.name = "TextScale%dButton" % percent
+		button.position = Vector2(134 + index * 94,410)
+		button.size = Vector2(86,46)
+		button.text = "%d%%" % percent
+		button.toggle_mode = true
+		button.tooltip_text = "文字大小 %d%%" % percent
+		style_action_button(button,VillageTheme.MOSS)
+		button.pressed.connect(func(): set_text_scale(percent))
+		settings_panel.add_child(button)
+		text_scale_buttons.append(button)
 	var close := Button.new()
 	close.name = "CloseButton"
-	close.position = Vector2(246,376)
+	close.position = Vector2(246,504)
 	close.size = Vector2(168,48)
 	close.text = "套用並返回"
 	style_action_button(close,VillageTheme.TEAL)
@@ -618,6 +694,8 @@ func open_settings() -> void:
 	sync_motion_controls()
 	fullscreen_toggle.button_pressed = SaveManager.get_preference("fullscreen",false)
 	audio_toggle.button_pressed = SaveManager.get_preference("audio",true)
+	colorblind_toggle.set_pressed_no_signal(SaveManager.get_preference("colorblind",false))
+	sync_text_scale_buttons()
 	SoundManager.play_ui()
 	settings_panel.visible = true
 	animate_panel_in(settings_panel)
@@ -676,7 +754,7 @@ func create_onboarding_panel() -> void:
 func show_onboarding(force: bool = false) -> void:
 	if not force and SaveManager.get_preference("onboarding_seen",false): return
 	onboarding_step = 0
-	for panel in [settings_panel,pause_panel,showcase_panel,inventory_panel,journal_panel,progression_panel,story_arc_panel,world_map_panel,quest_log_panel,trade_panel]:
+	for panel in [settings_panel,pause_panel,showcase_panel,inventory_panel,journal_panel,progression_panel,story_arc_panel,world_map_panel,quest_log_panel,rumor_network_panel,village_journal_panel,trade_panel]:
 		if panel != null: panel.visible = false
 	if main_menu_panel != null: main_menu_panel.visible = false
 	refresh_onboarding()
@@ -711,7 +789,7 @@ func apply_fullscreen(value: bool) -> void:
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN if value else DisplayServer.WINDOW_MODE_WINDOWED)
 
 func is_blocking_modal_open() -> bool:
-	return main_menu_panel.visible or settings_panel.visible or pause_panel.visible or onboarding_panel.visible or showcase_panel.visible or inventory_panel.visible or journal_panel.visible or progression_panel.visible or story_arc_panel.visible or world_map_panel.visible or quest_log_panel.visible or trade_panel.visible
+	return main_menu_panel.visible or settings_panel.visible or pause_panel.visible or onboarding_panel.visible or showcase_panel.visible or inventory_panel.visible or journal_panel.visible or progression_panel.visible or story_arc_panel.visible or world_map_panel.visible or quest_log_panel.visible or rumor_network_panel.visible or village_journal_panel.visible or trade_panel.visible
 
 func sync_simulation_pause() -> void:
 	GameTime.set_simulation_paused(is_blocking_modal_open())
@@ -723,17 +801,70 @@ func create_expansion_ui() -> void:
 	trade_panel = TradePanelScene.instantiate()
 	progression_panel = ProgressionPanelScene.instantiate()
 	story_arc_panel = StoryArcPanelScene.instantiate()
+	rumor_network_panel = RumorNetworkPanelScene.instantiate()
+	village_journal_panel = VillageJournalPanelScene.instantiate()
 	canvas.add_child(quest_tracker)
 	canvas.add_child(world_map_panel)
 	canvas.add_child(quest_log_panel)
 	canvas.add_child(trade_panel)
 	canvas.add_child(progression_panel)
 	canvas.add_child(story_arc_panel)
+	canvas.add_child(rumor_network_panel)
+	canvas.add_child(village_journal_panel)
+	quest_log_panel.accept_requested.connect(handle_commission_accept)
 	world_map_panel.travel_requested.connect(handle_travel_request)
 	trade_panel.buy_requested.connect(handle_buy_request)
 	trade_panel.sell_requested.connect(handle_sell_request)
 	story_arc_panel.choice_requested.connect(handle_story_choice)
 	story_arc_panel.refresh(GameManager.story_snapshot())
+
+func open_rumor_network() -> void:
+	if not rumor_network_panel.visible: refresh_rumor_network()
+	toggle_modal_panel(rumor_network_panel)
+
+func refresh_rumor_network() -> void:
+	rumor_network_panel.refresh(GameManager.rumor_network_snapshot(),GameManager.actor_names(),SaveManager.get_preference("colorblind",false))
+
+func open_village_journal() -> void:
+	if not village_journal_panel.visible: village_journal_panel.open_today(GameTime.day)
+	toggle_modal_panel(village_journal_panel)
+
+func handle_commission_accept(quest_id: String) -> void:
+	var result: Dictionary = GameManager.accept_emergent_quest(quest_id)
+	SoundManager.play_ui()
+	show_interaction_feedback("ask","已接下村民的委託。" if bool(result.get("ok",false)) else str(result.get("reason","這個委託已無法接受。")))
+	request_ui_refresh(UiRefreshSchedulerScript.ALL,"commission accepted")
+
+func set_colorblind_mode(value: bool) -> void:
+	SaveManager.set_preference("colorblind",value)
+	if rumor_network_panel.visible: refresh_rumor_network()
+
+func set_text_scale(percent: int) -> void:
+	SaveManager.set_text_scale(percent)
+	sync_text_scale_buttons()
+	apply_text_scale(canvas)
+
+func sync_text_scale_buttons() -> void:
+	var current := SaveManager.get_text_scale()
+	for index in text_scale_buttons.size():
+		var percent: int = SaveManager.TEXT_SCALES[index]
+		text_scale_buttons[index].set_pressed_no_signal(percent == current)
+		text_scale_buttons[index].text = ("✓ %d%%" if percent == current else "%d%%") % percent
+
+## Scale every text control under `root` from its original font size, so
+## repeated changes never compound.
+func apply_text_scale(root: Node) -> void:
+	var factor := SaveManager.get_text_scale() / 100.0
+	var pending: Array = [root]
+	while not pending.is_empty():
+		var node: Node = pending.pop_back()
+		if node is Control and node.has_theme_font_size_override("font_size"):
+			if not node.has_meta("base_font_size"): node.set_meta("base_font_size",node.get_theme_font_size("font_size"))
+			node.add_theme_font_size_override("font_size",roundi(int(node.get_meta("base_font_size")) * factor))
+		pending.append_array(node.get_children())
+
+func _on_canvas_node_added(node: Node) -> void:
+	if node is Control and SaveManager.get_text_scale() != 100 and canvas.is_ancestor_of(node): apply_text_scale.call_deferred(node)
 
 func open_story_panel() -> void:
 	story_arc_panel.refresh(GameManager.story_snapshot())
@@ -1196,6 +1327,8 @@ func close_modal_panels() -> void:
 	story_arc_panel.visible = false
 	world_map_panel.visible = false
 	quest_log_panel.visible = false
+	rumor_network_panel.visible = false
+	village_journal_panel.visible = false
 	trade_panel.visible = false
 	pause_panel.visible = false
 	showcase_panel.visible = false
@@ -1293,7 +1426,8 @@ func refresh_progression_ui() -> void:
 
 func refresh_quest_ui() -> void:
 	quest_tracker.refresh(GameManager.active_quest_snapshot())
-	quest_log_panel.refresh(GameManager.active_quest_snapshot(),GameManager.completed_quests)
+	quest_log_panel.refresh(GameManager.active_quest_snapshot(),GameManager.completed_quests,GameManager.emergent_offers)
+	if rumor_network_panel.visible: refresh_rumor_network()
 
 func refresh_npc_ui() -> void:
 	if selected_id != "" and GameManager.npcs.has(selected_id):

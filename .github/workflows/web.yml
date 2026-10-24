@@ -1,0 +1,105 @@
+name: Echo Village Web
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: echo-village-web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web-build:
+    name: Web export and browser smoke test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Godot 4.5.2 stable
+        env:
+          GODOT_URL: https://github.com/godotengine/godot-builds/releases/download/4.5.2-stable/Godot_v4.5.2-stable_linux.x86_64.zip
+          GODOT_SHA512: e3ce6194b6d4d2dcef5e5b5136752c084d9d8b9071c10bc2d2011b947ec7439a257c8d23c541cb30699f16d9edea6dff36e6e84d2bec14a8fe9b4e9aacbe5a8d
+        run: |
+          set -euo pipefail
+          curl -sSfL -o "$RUNNER_TEMP/godot.zip" "$GODOT_URL"
+          echo "$GODOT_SHA512  $RUNNER_TEMP/godot.zip" | sha512sum --check --strict
+          unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
+          echo "GODOT=$RUNNER_TEMP/godot/Godot_v4.5.2-stable_linux.x86_64" >> "$GITHUB_ENV"
+
+      - name: Install the single-threaded Web export template
+        run: python3 tools/fetch_web_template.py
+
+      - name: Import and export the Web build
+        run: |
+          set -euo pipefail
+          "$GODOT" --headless --path . --import
+          mkdir -p release/web
+          "$GODOT" --headless --path . --export-release "Web" release/web/index.html
+          for file in index.html index.js index.wasm index.pck; do test -s "release/web/$file"; done
+
+      - name: Record export size
+        run: |
+          {
+            echo "### Web export size"
+            echo "| File | Size |"
+            echo "| --- | ---: |"
+            for file in release/web/*; do printf '| %s | %s |\n' "$(basename "$file")" "$(du -h "$file" | cut -f1)"; done
+            printf '| **Total** | **%s** |\n' "$(du -sh release/web | cut -f1)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+
+      - name: Install the smoke test browser
+        working-directory: tools/web_smoke
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: Boot the game in Chromium
+        run: node tools/web_smoke/smoke.mjs release/web release/web-smoke.png
+
+      - name: Keep the smoke screenshot
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: web-smoke
+          path: release/web-smoke.png
+          if-no-files-found: ignore
+
+      - name: Upload the Pages artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
+        with:
+          path: release/web
+
+  deploy:
+    name: Deploy to GitHub Pages
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: web-build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

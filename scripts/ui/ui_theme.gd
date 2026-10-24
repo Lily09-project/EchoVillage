@@ -21,6 +21,15 @@ const SURFACE_NIGHT := Color("102b3a")
 const SURFACE_NIGHT_RAISED := Color("193c50")
 const BORDER_NIGHT := Color("4f6b7b")
 const SPACE_UNIT := 8.0
+# Colour-blind safe pair (blue / orange) used instead of green / red when enabled.
+const SAFE_POSITIVE := Color("1f6fb2")
+const SAFE_NEGATIVE := Color("d9781e")
+
+static func positive_color(colorblind: bool) -> Color:
+	return SAFE_POSITIVE if colorblind else MOSS
+
+static func negative_color(colorblind: bool) -> Color:
+	return SAFE_NEGATIVE if colorblind else BRICK
 
 static func panel_style(fill: Color = PAPER, border: Color = INK, radius: int = 10) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
