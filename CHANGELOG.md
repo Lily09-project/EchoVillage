@@ -8,7 +8,8 @@
 - 音效服務在停用與退出時主動停止播放並釋放動態 `AudioStreamWAV`，headless 驗證不再啟動無人使用的音訊播放；測試結束也會等待 deferred free 完成，品質閘門現在會把 `ObjectDB instances leaked at exit` 視為失敗，避免物件洩漏被綠色測試結果掩蓋。
 - 將 `UiRefreshScheduler` 正式接入主場景：同一幀的狀態事件會合併，並依 TIME／PLAYER／WORLD／NPC／QUEST／PROGRESSION／LOG／CONTEXT／DEBUG dirty mask 更新介面。
 - 移除 `_process()` 每幀重算完整 HUD；暫停閒置時不產生 UI flush，遊戲進行中只保留玩家／NPC 距離提示的逐幀更新。
-- 新增主場景整合回歸測試，驗證閒置幀零額外刷新，以及背包與任務事件同幀合併；加入玩家可見決策摘要後，完整驗收為 `99 passed / 0 failed`。
+- 新增主場景整合回歸測試，驗證閒置幀零額外刷新，以及背包與任務事件同幀合併；目前完整驗收為 `105 passed / 0 failed`，與 CI 的發布契約一致。
+- 補上 `save_failure_test.gd.uid`，Godot 執行測試後工作目錄不再出現未追蹤檔；`project.godot` 的 `config/features` 更新為實際使用的 4.5；`security_audit.ps1` 讀取檔案大小時加上 `-Force`，在 Linux／macOS 的 PowerShell 也能稽核 `.env.example` 等點開頭檔案。
 - 修正主畫面底部操作提示與事件紀錄在淺色天空上的低對比：加入固定深色可讀性底層、即時訊息描邊，以及 WCAG AA `4.5:1` 對比契約測試。
 - 修正 portable 隨附說明的 `J`／`K` 按鍵對照，並在 README 直接連結穩定版下載、區分公開 Release 與 post-release `master`。
 
