@@ -1263,8 +1263,8 @@ func interaction_feedback_title(action: String, outcome: Dictionary = {}) -> Str
 		"craft":{"success":"製作完成","failure":"製作未完成"},
 		"gather":{"success":"採集完成","failure":"採集未完成"},
 		"travel":{"success":"已抵達目的地","failure":"無法前往"},
-		"save":{"success":"存檔完成","failure":"存檔失敗"},
-		"load":{"success":"讀取完成","failure":"讀取失敗"}
+		"save":{"success":"存檔完成","failure":"存檔未完成"},
+		"load":{"success":"讀取完成","failure":"讀取未完成"}
 	}
 	if outcome.has("ok") and result_titles.has(action):
 		var titles: Dictionary = result_titles[action]
