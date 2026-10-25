@@ -1279,7 +1279,7 @@ func show_interaction_feedback(action: String, response: String, outcome: Dictio
 	impact_body.text = response
 	var estimated_lines := clampi(ceili(float(response.length()) / 28.0),1,4)
 	var body_height := float(estimated_lines * 22)
-	impact_feedback.size.y = 28.0 + body_height
+	impact_feedback.size.y = 31.0 + body_height
 	impact_feedback.position = Vector2(382.0,503.0 - impact_feedback.size.y * 0.5)
 	impact_body.size.y = body_height
 	impact_feedback.visible = true
