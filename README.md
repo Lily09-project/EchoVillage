@@ -1,10 +1,29 @@
 # Echo Village
 
+[![CI](https://github.com/Lily09-project/EchoVillage/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/Lily09-project/EchoVillage/actions/workflows/ci.yml)
+[![Web](https://github.com/Lily09-project/EchoVillage/actions/workflows/web.yml/badge.svg?branch=master)](https://github.com/Lily09-project/EchoVillage/actions/workflows/web.yml)
+
 **一個會傳八卦的村落。** 玩家的每個舉動都會變成居民的記憶，再透過閒聊變成傳聞，在村子裡越傳越走樣；居民會依聽到的版本改變對你的態度、開口提起這件事，甚至自發地請你幫忙澄清。每天結束時，村子會把當天的事寫成一段日誌。
 
 Godot 4.5.2 製作，支援 Windows 桌面版與**瀏覽器即點即玩的網頁版**。所有「AI」都是本地規則與固定種子：不需要 API 金鑰、可離線、同一個世界每次都會演出同樣的故事。
 
-▶ **線上試玩：** https://lily09-project.github.io/EchoVillage/ （合併後由 GitHub Pages 部署）
+▶ **線上試玩：** https://lily09-project.github.io/EchoVillage/ （瀏覽器直接開，不需安裝；每次合併到 `master` 由 GitHub Pages 自動部署）
+
+## 30 秒看懂這個專案
+
+| 如果你想看… | 證據在哪裡 |
+| --- | --- |
+| **遊戲／系統設計**：模擬能不能自己長出故事 | 玩家行為 → 記憶 → 傳聞 → 走樣 → 委託 → 對話 → 日誌，一條完整的因果鏈；每一次轉述都被記錄，可從任何聽者回溯到原始目擊者 |
+| **工程品質**：改動有沒有被保護 | 131 項自動測試（重做前 105 項）；同種子結果完全相同；90 天 soak 測試確認傳聞、記憶、日誌都有上限；存檔 v3 → v4 可相容升級、壞檔會降級 |
+| **跨平台交付**：做得出別人點開就能玩的東西 | Windows 版加上瀏覽器版，CI 用 Playwright 在 Chromium 啟動並確認畫面有內容；內嵌約 300 KB 的中文字型子集，避免瀏覽器缺字 |
+| **UI-UX／無障礙** | 4 個新面板、19 個畫面 × 4 種解析度的視覺 QA；色盲友善配色（藍／橘）、三段字級、減少動態；走樣用虛線與文字標示，不只靠顏色 |
+
+### 幾個刻意的設計取捨
+
+- **「AI」是規則加固定種子，不呼叫語言模型。** 結果可重現、可測試、可離線，也不需要金鑰；代價是句型變化要靠文法資料維護，所以對話只引用居民真的記得或聽過的事，並限制在 90 字內。
+- **傳聞要有衰減與上限。** 強度 ×0.72、可信度 ×0.88，最多同時 12 則傳聞；這讓傳播一定會停止，也讓存檔與 90 天的執行時間不會無限成長。soak 測試曾發現存檔變大讓每天自動存檔越來越慢，我據此調低上限並只保留最近完成的委託定義。
+- **委託先驗證再提供。** 產生委託時就檢查引用的居民與物品存在、委託可完成且不重複，玩家不會接到做不到的任務。
+- **網頁版使用單執行緒模式。** 不需要特殊的伺服器標頭，才能直接放在 GitHub Pages；瀏覽器沒有系統字型，所以字型是專案的一部分，並以測試保證每個字都在字型裡。
 
 ## 介面預覽
 
