@@ -807,7 +807,11 @@ func _journal_entries_for_save() -> Dictionary:
 	var result := {}
 	for day in journal_entries: result[str(day)] = journal_entries[day].duplicate(true)
 	return result
-func deserialize(data: Dictionary) -> bool:
+func validate_serialized_state(value: Variant) -> bool:
+	if not (value is Dictionary): return false
+	return deserialize(value,true)
+
+func deserialize(data: Dictionary, validate_only: bool = false) -> bool:
 	if not (data is Dictionary): return false
 	var candidate_player = decode_value(data.get("player",player))
 	var candidate_npcs = decode_value(data.get("npcs",npcs))
@@ -853,6 +857,7 @@ func deserialize(data: Dictionary) -> bool:
 		if not _valid_emergent_definition(offer): return false
 	if not (candidate_journal is Dictionary) or candidate_journal.size() > MAX_JOURNAL_DAYS: return false
 	if not _valid_integer(candidate_gossip,0,1000000000): return false
+	if validate_only: return true
 	player = candidate_player
 	npcs = candidate_npcs
 	economy = candidate_economy.duplicate(true)
@@ -917,9 +922,17 @@ func _valid_npc_state(value: Variant) -> bool:
 	for npc_value in value.values():
 		if not (npc_value is Dictionary): return false
 		var npc: Dictionary = npc_value
-		if npc.has("inventory") and not _valid_numeric_map(npc.get("inventory")): return false
-		if npc.has("relationships") and not (npc.get("relationships") is Dictionary): return false
-		if npc.has("memories") and (not (npc.get("memories") is Array) or npc.get("memories").size() > MAX_MEMORIES_PER_NPC): return false
+		if not (npc.get("needs") is Dictionary): return false
+		var needs: Dictionary = npc["needs"]
+		for key in ["hunger","energy","social","safety"]:
+			if not _valid_number(needs.get(key),0.0,100.0): return false
+		if not npc.has("inventory") or not _valid_numeric_map(npc.get("inventory")): return false
+		if not (npc.get("relationships") is Dictionary): return false
+		for relationship in npc["relationships"].values():
+			if not (relationship is Dictionary): return false
+		if not (npc.get("memories") is Array) or npc.get("memories").size() > MAX_MEMORIES_PER_NPC: return false
+		for memory in npc["memories"]:
+			if not (memory is Dictionary) or not (memory.get("description") is String): return false
 		for key in ["position","target","current_target"]:
 			if npc.has(key) and not (npc[key] is Vector2): return false
 	return true
