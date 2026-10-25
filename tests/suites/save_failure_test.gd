@@ -2,6 +2,10 @@ extends "res://scripts/save/save_manager.gd"
 
 var fail_primary_replace := false
 var fail_backup_replace := false
+var save_failure_observed := false
+
+func _on_save_failed(_kind: String, _reason: String) -> void:
+	save_failure_observed = true
 
 func _rename_save_file(from_path: String, to_path: String) -> Error:
 	if fail_primary_replace and to_path.ends_with("echo_village_save.json"): return ERR_CANT_CREATE
@@ -35,11 +39,15 @@ func run_failure_case(root: String, failure: String) -> bool:
 		primary_before = read_limited_text(primary,MAX_SAVE_BYTES)
 		result = load_game() and last_load_recovered and int(GameManager.player["coin"]) == 91
 	else:
+		save_failure_observed = false
+		var failure_callback := Callable(self,"_on_save_failed")
+		EventBus.save_failed.connect(failure_callback)
 		var saved := save_game()
+		EventBus.save_failed.disconnect(failure_callback)
 		if failure == "backup":
-			result = saved and bool(_read_save_candidate(primary).get("ok",false)) and read_limited_text(primary,MAX_SAVE_BYTES) != primary_before
+			result = saved and not save_failure_observed and bool(_read_save_candidate(primary).get("ok",false)) and read_limited_text(primary,MAX_SAVE_BYTES) != primary_before
 		else:
-			result = not saved and read_limited_text(primary,MAX_SAVE_BYTES) == primary_before
+			result = not saved and save_failure_observed and read_limited_text(primary,MAX_SAVE_BYTES) == primary_before
 	result = result and read_limited_text(backup,MAX_SAVE_BYTES) == backup_before
 	if failure == "recovery": result = result and read_limited_text(primary,MAX_SAVE_BYTES) == primary_before
 	if not blocker.is_empty(): DirAccess.remove_absolute(blocker)
