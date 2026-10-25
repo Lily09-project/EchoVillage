@@ -1167,7 +1167,7 @@ func motion_preference_sync_test() -> bool:
 	var feedback_tween: Tween = instance.get("impact_tween")
 	instance.set_motion_enabled(false)
 	var animation_stopped := feedback_tween != null and not feedback_tween.is_running()
-	var feedback_reset := instance.impact_feedback.scale == Vector2.ONE and instance.impact_feedback.modulate == Color.WHITE
+	var feedback_reset: bool = instance.impact_feedback.scale == Vector2.ONE and instance.impact_feedback.modulate == Color.WHITE
 	instance.queue_free()
 	SaveManager.set_preference("motion",previous)
 	return disabled_state and enabled_state and animation_stopped and feedback_reset
