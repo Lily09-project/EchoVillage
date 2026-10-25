@@ -957,7 +957,7 @@ func trade_ui_structure_test() -> bool:
 		var body_bottom: float = instance.impact_body.position.y + instance.impact_body.size.y
 		result = trade_feedback_probe("wrapped-feedback-contained",body_bottom <= instance.impact_feedback.size.y - 8.0,instance) and result
 		result = trade_feedback_probe("feedback-above-log",instance.impact_feedback.position.y + instance.impact_feedback.size.y <= 590.0,instance) and result
-	result = result and not instance.pulse_label.text.contains("E 選取村民")
+	result = result and instance.pulse_label.text.contains("E 選取村民")
 	instance.queue_free()
 	GameManager.new_game()
 	return result
