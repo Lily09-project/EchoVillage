@@ -84,6 +84,7 @@ var impact_title: Label
 var impact_body: Label
 var impact_remaining := 0.0
 var impact_tween: Tween
+var panel_motion_tweens: Dictionary = {}
 var motion_enabled := true
 var ambience_clock := 0.0
 var quest_tracker
@@ -1350,6 +1351,7 @@ func open_side_panel(panel: Panel) -> void:
 	toggle_modal_panel(panel)
 
 func close_modal_panels() -> void:
+	stop_panel_motion()
 	inventory_panel.visible = false
 	journal_panel.visible = false
 	progression_panel.visible = false
@@ -1376,12 +1378,16 @@ func toggle_modal_panel(panel: Control) -> void:
 
 func set_motion_enabled(value: bool) -> void:
 	motion_enabled = value
-	SaveManager.set_preference("motion",value)
 	if not value:
-		if impact_tween != null and impact_tween.is_running(): impact_tween.kill()
+		stop_panel_motion()
+		if impact_tween != null and impact_tween.is_valid(): impact_tween.kill()
 		if impact_feedback != null:
 			impact_feedback.modulate = Color.WHITE
 			impact_feedback.scale = Vector2.ONE
+		for panel in [trade_panel,world_map_panel,quest_log_panel,progression_panel,story_arc_panel,rumor_network_panel,village_journal_panel]:
+			if panel != null and is_instance_valid(panel) and panel.has_method("set_visible_with_motion"):
+				panel.set_visible_with_motion(panel.visible,false)
+	SaveManager.set_preference("motion",value)
 	sync_motion_controls()
 	request_ui_refresh(UiRefreshSchedulerScript.TIME,"motion preference changed")
 
@@ -1391,12 +1397,23 @@ func sync_motion_controls() -> void:
 	if pause_motion_button != null:
 		pause_motion_button.text = "動態效果：開" if motion_enabled else "動態效果：關"
 
+func stop_panel_motion() -> void:
+	for panel in panel_motion_tweens.keys():
+		var tween: Tween = panel_motion_tweens[panel]
+		if tween != null and tween.is_valid(): tween.kill()
+		if is_instance_valid(panel):
+			panel.modulate = Color.WHITE
+			panel.scale = Vector2.ONE
+	panel_motion_tweens.clear()
+
 func animate_panel_in(panel: Control) -> void:
+	stop_panel_motion()
 	if not motion_enabled: return
 	panel.pivot_offset = panel.size * 0.5
 	panel.modulate = Color(1,1,1,0.0)
 	panel.scale = Vector2(0.97,0.97)
-	var tween := create_tween().set_parallel(true)
+	var tween := create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS).set_parallel(true)
+	panel_motion_tweens[panel] = tween
 	tween.tween_property(panel,"modulate",Color.WHITE,0.18)
 	tween.tween_property(panel,"scale",Vector2.ONE,0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 

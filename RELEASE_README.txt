@@ -1,39 +1,43 @@
-Echo Village 1.4.0
-AI 驅動 NPC 生活模擬 RPG
+Echo Village 2.0.0 — Windows Portable Candidate
 
-v1.4 新增關係與故事歷程：按 Y 可依居民與類型追溯關係、記憶與故事選擇的實際後果。
+This is a pre-release test candidate, not an official release.
+The final version will be published only after Windows GUI acceptance.
 
-啟動方式
+Start
+=====
+Double-click EchoVillage.exe. Keep EchoVillage.pck in the same folder.
+
+Requirements
+============
+Windows 10/11 64-bit and a graphics device supporting OpenGL 3.3.
+Godot is not required.
+
+Controls
 ========
-直接雙擊 EchoVillage.exe。請勿將 EchoVillage.pck 與執行檔分開。
+WASD / Arrow keys: Move
+E: Select a nearby resident
+C: Talk with the selected resident
+G: Give a gift
+T: Trade
+Q: Ask
+U: Rumor network
+K: Tasks and commissions
+V: Village journal
+J: Chronicle
+L: Today's echoes
+Y: Relationships
+O: Story arcs
+P: Village notes
+M: Map
+F1: Guided tour
+F5: Save
+Esc: Pause or close a panel
 
-建議環境
-========
-Windows 10/11 64-bit、支援 OpenGL 3.3 的顯示卡、1280×720 以上解析度。
+Save data
+=========
+Saved in the Windows user data folder. The game keeps recovery data for valid saves.
 
-基本操作
-========
-WASD / 方向鍵：移動
-E：選取最近居民並交談
-C：與已選取居民再次交談
-G / X / T / Q：贈禮 / 偷竊 / 交易 / 詢問
-I / J / M / K：背包 / 村落編年 / 世界地圖 / 任務日誌
-L / Y：今日回音 / 關係歷程
-P：村落手札 / 聲望稱號 / 成就里程碑
-O：故事線與分支選擇
-1 / 2 / 5 / 0：調整模擬速度
-F5 / F9：存檔 / 讀檔
-Esc：關閉視窗或暫停
-
-森林採集
-========
-抵達森林邊緣後開啟背包，可採集月光藥草並製作森林藥劑。
-
-存檔位置
-========
-Godot 的使用者資料目錄（user://）。遊戲每日開始時可自動存檔。
-
-作品性質
-========
-此版本是可完整遊玩的獨立作品與技術展示，核心內容包含五位自主 NPC、
-Utility AI、記憶與關係網、動態事件、Living Stories、交易、製作、任務、地圖與可復原存檔。
+Project
+=======
+A local-rule life simulation. No API key or network connection is needed to play.
+See the repository README for current release status.
