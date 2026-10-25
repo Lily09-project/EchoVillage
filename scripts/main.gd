@@ -83,6 +83,7 @@ var impact_feedback: Panel
 var impact_title: Label
 var impact_body: Label
 var impact_remaining := 0.0
+var impact_tween: Tween
 var motion_enabled := true
 var ambience_clock := 0.0
 var quest_tracker
@@ -132,6 +133,9 @@ func connect_ui_refresh_signals() -> void:
 	EventBus.quest_changed.connect(func(_snapshot: Array): request_ui_refresh(UiRefreshSchedulerScript.QUEST | UiRefreshSchedulerScript.PLAYER | UiRefreshSchedulerScript.PROGRESSION, "quest changed"))
 	EventBus.location_changed.connect(func(_location_id: String): request_ui_refresh(UiRefreshSchedulerScript.WORLD | UiRefreshSchedulerScript.PLAYER | UiRefreshSchedulerScript.NPC | UiRefreshSchedulerScript.QUEST | UiRefreshSchedulerScript.CONTEXT, "location changed"))
 	EventBus.save_completed.connect(func(_path: String): request_ui_refresh(UiRefreshSchedulerScript.LOG, "save completed"))
+	EventBus.save_failed.connect(func(kind: String, reason: String):
+		request_ui_refresh(UiRefreshSchedulerScript.LOG,"save failed")
+		show_interaction_feedback(kind,reason,{"ok":false}))
 	EventBus.inventory_changed.connect(func(_inventory: Dictionary): request_ui_refresh(UiRefreshSchedulerScript.PLAYER | UiRefreshSchedulerScript.QUEST | UiRefreshSchedulerScript.PROGRESSION, "inventory changed"))
 	EventBus.world_event_changed.connect(func(_event_id: String): request_ui_refresh(UiRefreshSchedulerScript.WORLD | UiRefreshSchedulerScript.NPC | UiRefreshSchedulerScript.QUEST, "world event changed"))
 	EventBus.relationship_changed.connect(func(_subject_id: String, _target_id: String, _changes: Dictionary): request_ui_refresh(UiRefreshSchedulerScript.NPC | UiRefreshSchedulerScript.PROGRESSION, "relationship changed"))
@@ -421,8 +425,12 @@ func handle_shortcuts() -> void:
 	if Input.is_action_just_pressed("speed_2x"): set_simulation_speed("2x")
 	if Input.is_action_just_pressed("speed_5x"): set_simulation_speed("5x")
 	if Input.is_action_just_pressed("speed_10x"): set_simulation_speed("10x")
-	if Input.is_action_just_pressed("save_game"): SaveManager.save_game()
-	if Input.is_action_just_pressed("load_game"): SaveManager.load_game()
+	if Input.is_action_just_pressed("save_game"):
+		var saved := SaveManager.save_game()
+		if saved: show_interaction_feedback("save","遊戲狀態已安全保存。",{"ok":true})
+	if Input.is_action_just_pressed("load_game"):
+		var loaded := SaveManager.load_game()
+		if loaded: show_interaction_feedback("load","已讀取最近保存的村落狀態。",{"ok":true})
 	if Input.is_action_just_pressed("event_rain"): GameManager.trigger_world_event("rain")
 	if Input.is_action_just_pressed("event_festival"): GameManager.trigger_world_event("festival")
 	if Input.is_action_just_pressed("event_shortage"): GameManager.trigger_world_event("food_shortage")
@@ -621,7 +629,7 @@ func continue_game() -> void:
 	selected_id = ""
 	info_panel.visible = false
 	sync_simulation_pause()
-	show_interaction_feedback("load","已回到上次儲存的村落狀態。")
+	show_interaction_feedback("load","已回到上次儲存的村落狀態。",{"ok":true})
 
 func create_settings_panel() -> void:
 	settings_panel = Panel.new()
@@ -832,7 +840,7 @@ func open_village_journal() -> void:
 func handle_commission_accept(quest_id: String) -> void:
 	var result: Dictionary = GameManager.accept_emergent_quest(quest_id)
 	SoundManager.play_ui()
-	show_interaction_feedback("ask","已接下村民的委託。" if bool(result.get("ok",false)) else str(result.get("reason","這個委託已無法接受。")))
+	show_interaction_feedback("ask","已接下村民的委託。" if bool(result.get("ok",false)) else str(result.get("reason","這個委託已無法接受。")),result)
 	request_ui_refresh(UiRefreshSchedulerScript.ALL,"commission accepted")
 
 func set_colorblind_mode(value: bool) -> void:
@@ -887,11 +895,11 @@ func handle_travel_request(location_id: String) -> void:
 		selected_id = ""
 		info_panel.visible = false
 		world_map_panel.visible = false
-		show_interaction_feedback("travel","已抵達 %s。" % str(GameManager.location_defs[location_id].get("display_name",location_id)))
+		show_interaction_feedback("travel","已抵達 %s。" % str(GameManager.location_defs[location_id].get("display_name",location_id)),result)
 		refresh_ui()
 		queue_redraw()
 	else:
-		show_interaction_feedback("travel",str(result.get("reason","無法前往。")))
+		show_interaction_feedback("travel",str(result.get("reason","無法前往。")),result)
 
 func create_pulse_panel() -> void:
 	pulse_panel = Panel.new()
@@ -1248,18 +1256,39 @@ func npc_is_present(npc_id: String) -> bool:
 	if GameManager.current_location == "forest_edge": return npc_id in ["diana","eric"]
 	return true
 
-func show_interaction_feedback(action: String, response: String) -> void:
-	var labels := {"talk":"交談留下了回憶","give_bread":"善意被記住了","steal_food":"關係正在改變","trade":"交易完成","ask":"新的線索已更新","gather":"採集完成"}
-	impact_title.text = str(labels.get(action,"互動完成"))
+func interaction_feedback_title(action: String, outcome: Dictionary = {}) -> String:
+	var result_titles := {
+		"trade":{"success":"交易完成","failure":"交易未完成"},
+		"ask":{"success":"委託已接下","failure":"委託未完成"},
+		"craft":{"success":"製作完成","failure":"製作未完成"},
+		"gather":{"success":"採集完成","failure":"採集未完成"},
+		"travel":{"success":"已抵達目的地","failure":"無法前往"},
+		"save":{"success":"存檔完成","failure":"存檔失敗"},
+		"load":{"success":"讀取完成","failure":"讀取失敗"}
+	}
+	if outcome.has("ok") and result_titles.has(action):
+		var titles: Dictionary = result_titles[action]
+		return str(titles["success"] if bool(outcome["ok"]) else titles["failure"])
+	var labels := {"talk":"交談留下了回憶","give_bread":"善意被記住了","steal_food":"關係正在改變","trade":"交易結果","ask":"新的線索已更新","gather":"採集結果","craft":"製作結果","travel":"移動結果","save":"存檔結果","load":"讀取結果"}
+	return str(labels.get(action,"互動結果"))
+
+func show_interaction_feedback(action: String, response: String, outcome: Dictionary = {}) -> void:
+	if impact_tween != null and impact_tween.is_running(): impact_tween.kill()
+	impact_title.text = interaction_feedback_title(action,outcome)
 	impact_body.text = response
+	var estimated_lines := clampi(ceili(float(response.length()) / 28.0),1,4)
+	var body_height := float(estimated_lines * 22)
+	impact_feedback.size.y = 28.0 + body_height
+	impact_feedback.position = Vector2(382.0,503.0 - impact_feedback.size.y * 0.5)
+	impact_body.size.y = body_height
 	impact_feedback.visible = true
 	impact_feedback.modulate = Color(1,1,1,0.0) if motion_enabled else Color.WHITE
 	impact_feedback.scale = Vector2(0.96,0.96) if motion_enabled else Vector2.ONE
 	impact_feedback.pivot_offset = impact_feedback.size * 0.5
 	if motion_enabled:
-		var tween := create_tween().set_parallel(true)
-		tween.tween_property(impact_feedback,"modulate",Color.WHITE,0.18)
-		tween.tween_property(impact_feedback,"scale",Vector2.ONE,0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		impact_tween = create_tween().set_parallel(true)
+		impact_tween.tween_property(impact_feedback,"modulate",Color.WHITE,0.18)
+		impact_tween.tween_property(impact_feedback,"scale",Vector2.ONE,0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	impact_remaining = 3.8
 
 func style_action_button(button: Button, color: Color) -> void:
@@ -1592,20 +1621,20 @@ func inventory_summary() -> String:
 func craft_forest_remedy() -> void:
 	var result: Dictionary = GameManager.craft_recipe("forest_remedy")
 	var response := "製作完成：月光藥草 ×2 → 藥品 ×1。" if bool(result.get("ok",false)) else str(result.get("reason","目前無法製作。"))
-	show_interaction_feedback("craft",response)
+	show_interaction_feedback("craft",response,result)
 	SoundManager.play_interaction("craft")
 	refresh_ui()
 
 func gather_forest_herb() -> void:
 	var result: Dictionary = GameManager.gather_location_resource("herb")
 	var response := "採集完成：月光藥草 ×1，這片藥草地尚可採集 %d 次。" % int(result.get("remaining",0)) if bool(result.get("ok",false)) else str(result.get("reason","目前無法採集。"))
-	show_interaction_feedback("gather",response)
+	show_interaction_feedback("gather",response,result)
 	SoundManager.play_interaction("gather")
 	refresh_ui()
 
 func open_trade_panel() -> void:
 	if selected_id == "" or not GameManager.npcs.has(selected_id):
-		show_interaction_feedback("trade","請先靠近一位居民並按 E 選取。")
+		show_interaction_feedback("trade","請先靠近一位居民並按 E 選取。",{"ok":false})
 		return
 	refresh_trade_panel()
 	close_modal_panels()
@@ -1632,13 +1661,13 @@ func refresh_trade_panel() -> void:
 
 func handle_buy_request(item_id: String) -> void:
 	var result: Dictionary = GameManager.buy_item(selected_id,item_id,1)
-	show_interaction_feedback("trade","買入完成。" if bool(result.get("ok",false)) else str(result.get("reason","無法買入。")))
+	show_interaction_feedback("trade","買入完成。" if bool(result.get("ok",false)) else str(result.get("reason","無法買入。")),result)
 	refresh_trade_panel()
 	refresh_ui()
 
 func handle_sell_request(item_id: String) -> void:
 	var result: Dictionary = GameManager.sell_item(selected_id,item_id,1)
-	show_interaction_feedback("trade","出售完成。" if bool(result.get("ok",false)) else str(result.get("reason","無法出售。")))
+	show_interaction_feedback("trade","出售完成。" if bool(result.get("ok",false)) else str(result.get("reason","無法出售。")),result)
 	refresh_trade_panel()
 	refresh_ui()
 
