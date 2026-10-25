@@ -1377,6 +1377,11 @@ func toggle_modal_panel(panel: Control) -> void:
 func set_motion_enabled(value: bool) -> void:
 	motion_enabled = value
 	SaveManager.set_preference("motion",value)
+	if not value:
+		if impact_tween != null and impact_tween.is_running(): impact_tween.kill()
+		if impact_feedback != null:
+			impact_feedback.modulate = Color.WHITE
+			impact_feedback.scale = Vector2.ONE
 	sync_motion_controls()
 	request_ui_refresh(UiRefreshSchedulerScript.TIME,"motion preference changed")
 
