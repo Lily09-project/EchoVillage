@@ -89,7 +89,10 @@ func _read_save_candidate(path: String) -> Dictionary:
 	if not (data is Dictionary): return {"ok":false,"reason":"存檔內容不是有效 JSON。"}
 	var migration: Dictionary = SaveMigrationService.migrate(data)
 	if not bool(migration.get("ok",false)): return migration
-	return {"ok":true,"data":migration["data"]}
+	var migrated: Dictionary = migration["data"]
+	if not GameManager.validate_serialized_state(migrated.get("world_state",{})):
+		return {"ok":false,"reason":"存檔世界資料無法安全驗證。"}
+	return {"ok":true,"data":migrated}
 
 func _promote_backup(path: String) -> bool:
 	var absolute_path := _absolute_path(path)
@@ -112,7 +115,9 @@ func _promote_backup(path: String) -> bool:
 func save_game(kind: String = "manual") -> bool:
 	var save_path := _storage_path("echo_village_save.json",SAVE_PATH)
 	var payload := JSON.stringify({"save_version":2,"time":GameTime.serialize(),"world_state":GameManager.serialize()},"\t")
-	if not _write_save_atomically(save_path,payload): return false
+	if not _write_save_atomically(save_path,payload):
+		EventBus.save_failed.emit("save","無法安全寫入存檔；原有存檔與備份已保留。")
+		return false
 	last_save_kind = kind
 	last_load_recovered = false
 	last_recovery_reason = ""
@@ -141,6 +146,7 @@ func load_game() -> bool:
 		if not bool(backup_candidate.get("ok",false)):
 			last_recovery_reason = str(candidate.get("reason","無法安全讀取此存檔。"))
 			GameManager.add_log(last_recovery_reason)
+			EventBus.save_failed.emit("load",last_recovery_reason)
 			return false
 		candidate = backup_candidate
 		last_load_recovered = true
@@ -149,6 +155,8 @@ func load_game() -> bool:
 	var migrated: Dictionary = candidate["data"]
 	if not GameManager.deserialize(migrated.get("world_state",{})):
 		last_recovery_reason = "存檔世界資料無法安全套用。"
+		GameManager.add_log(last_recovery_reason)
+		EventBus.save_failed.emit("load",last_recovery_reason)
 		return false
 	GameTime.deserialize(migrated.get("time",{}))
 	GameManager.add_log("已讀取存檔並還原模擬狀態。")
