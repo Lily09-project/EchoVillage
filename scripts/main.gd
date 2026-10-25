@@ -1277,9 +1277,13 @@ func show_interaction_feedback(action: String, response: String, outcome: Dictio
 	if impact_tween != null and impact_tween.is_running(): impact_tween.kill()
 	impact_title.text = interaction_feedback_title(action,outcome)
 	impact_body.text = response
-	var estimated_lines := clampi(ceili(float(response.length()) / 28.0),1,4)
+	var estimated_lines := 0
+	for paragraph in response.split("\n"):
+		var paragraph_text := str(paragraph)
+		estimated_lines += maxi(ceili(float(paragraph_text.length()) / 28.0),1)
+	estimated_lines = clampi(estimated_lines,1,6)
 	var body_height := float(estimated_lines * 22)
-	impact_feedback.size.y = 31.0 + body_height
+	impact_feedback.size.y = maxf(impact_body.position.y + body_height + 8.0,50.0)
 	impact_feedback.position = Vector2(382.0,503.0 - impact_feedback.size.y * 0.5)
 	impact_body.size.y = body_height
 	impact_feedback.visible = true

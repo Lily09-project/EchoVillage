@@ -964,7 +964,7 @@ func trade_ui_structure_test() -> bool:
 
 func trade_feedback_probe(label: String, condition: bool, instance: Node) -> bool:
 	if not condition:
-		print("TRADE_FEEDBACK_FAILURE ",label," title=",instance.impact_title.text," body=",instance.impact_body.text," coin=",GameManager.player.get("coin")," tween=",instance.impact_tween)
+		print("TRADE_FEEDBACK_FAILURE ",label," title=",instance.impact_title.text," body=",instance.impact_body.text," panel=",instance.impact_feedback.size," body_pos=",instance.impact_body.position," body_size=",instance.impact_body.size," coin=",GameManager.player.get("coin")," tween=",instance.impact_tween)
 	return condition
 
 func complete_inventory_ui_test() -> bool:
