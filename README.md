@@ -14,7 +14,7 @@ Godot 4.5.2 製作，支援 Windows 桌面版與**瀏覽器即點即玩的網頁
 | 如果你想看… | 證據在哪裡 |
 | --- | --- |
 | **遊戲／系統設計**：模擬能不能自己長出故事 | 玩家行為 → 記憶 → 傳聞 → 走樣 → 委託 → 對話 → 日誌，一條完整的因果鏈；每一次轉述都被記錄，可從任何聽者回溯到原始目擊者 |
-| **工程品質**：改動有沒有被保護 | 131 項自動測試（重做前 105 項）；同種子結果完全相同；90 天 soak 測試確認傳聞、記憶、日誌都有上限；存檔 v3 → v4 可相容升級、壞檔會降級 |
+| **工程品質**：改動有沒有被保護 | 132 項自動測試（重做前 105 項）；同種子結果完全相同；90 天 soak 測試確認傳聞、記憶、日誌都有上限；存檔 v3 → v4 可相容升級、壞檔會降級 |
 | **跨平台交付**：做得出別人點開就能玩的東西 | Windows 版加上瀏覽器版，CI 用 Playwright 在 Chromium 啟動並確認畫面有內容；內嵌約 300 KB 的中文字型子集，避免瀏覽器缺字 |
 | **UI-UX／無障礙** | 4 個新面板、19 個畫面 × 4 種解析度的視覺 QA；色盲友善配色（藍／橘）、三段字級、減少動態；走樣用虛線與文字標示，不只靠顏色 |
 
@@ -61,7 +61,7 @@ O 故事線    P 村落手札    M 地圖     F1 導覽  F5 儲存     Esc 暫�
 需求：Godot 4.5.2 stable（Windows 啟動器會從 `GODOT_EXECUTABLE`、PATH 或 `tools/godot` 尋找）。
 
 ```powershell
-.\run_echo_village.bat --test                                              # 131 項自動測試
+.\run_echo_village.bat --test                                              # 132 項自動測試
 powershell -NoProfile -ExecutionPolicy Bypass -File quality\run_acceptance.ps1 release
 .\build_release.bat                                                        # Windows portable
 ```
@@ -76,7 +76,7 @@ cd tools/web_smoke && npm ci && npx playwright install chromium && npm run smoke
 
 | 驗收 | 指令／CI | 結果 |
 | --- | --- | --- |
-| 自動測試 | `run_echo_village.bat --test`（CI：Echo Village CI） | 131 passed / 0 failed，無 SCRIPT ERROR、無物件洩漏 |
+| 自動測試 | `run_echo_village.bat --test`（CI：Echo Village CI） | 132 passed / 0 failed，無 SCRIPT ERROR、無物件洩漏 |
 | 視覺 QA | `tools/run_visual_qa_matrix.ps1` | 19 個畫面 × 4 種解析度 |
 | 網頁版 | `.github/workflows/web.yml` | Chromium 冒煙測試通過；匯出大小寫在 job summary |
 | 長時間穩定 | `.github/workflows/nightly-soak.yml` | 模擬 90 天，傳聞、記憶、日誌都在上限內 |

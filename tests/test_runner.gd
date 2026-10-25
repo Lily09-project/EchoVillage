@@ -910,6 +910,7 @@ func trade_atomicity_test() -> bool:
 	return bool(sold.get("ok",false)) and GameManager.count_item(GameManager.player["inventory"],"medicine") == medicine_before - 1 and int(GameManager.player["coin"]) > int(snapshot["player"]["coin"])
 
 func trade_ui_structure_test() -> bool:
+	GameManager.new_game()
 	var scene := load("res://scenes/main/Main.tscn") as PackedScene
 	if scene == null: return false
 	var instance := scene.instantiate()
@@ -918,17 +919,53 @@ func trade_ui_structure_test() -> bool:
 	var required := ["CanvasLayer/TradePanel","CanvasLayer/TradePanel/ItemSelector","CanvasLayer/TradePanel/BuyButton","CanvasLayer/TradePanel/SellButton","CanvasLayer/TradePanel/CloseButton"]
 	var result := instance.has_method("open_trade_panel")
 	for path in required: result = result and instance.get_node_or_null(path) != null
-	if result:
-		var title: Label = instance.get("impact_title")
-		var feedback: Control = instance.get("impact_feedback")
-		instance.call("show_interaction_feedback","trade","交易失敗，請調整金幣或數量後再試一次。".repeat(3),{"ok":false})
-		result = title != null and feedback != null and title.text == "交易未完成" and feedback.size.y > 50.0
-		instance.call("show_interaction_feedback","trade","買入完成。",{"ok":true})
-		result = result and title.text == "交易完成"
-		instance.call("show_interaction_feedback","trade","交易仍未完成。",{"ok":false})
-		result = result and title.text == "交易未完成"
+	instance.selected_id = ""
+	instance.open_trade_panel()
+	result = trade_feedback_probe("no-resident",instance.impact_title.text == "交易未完成" and not instance.impact_body.text.is_empty(),instance) and result
+	instance.selected_id = "alice"
+	GameManager.player["position"] = GameManager.npcs["alice"]["position"]
+	var before := GameManager.serialize()
+	instance.handle_buy_request("missing_item")
+	result = trade_feedback_probe("invalid-buy",instance.impact_title.text == "交易未完成" and GameManager.serialize() == before,instance) and result
+	instance.handle_sell_request("missing_item")
+	result = trade_feedback_probe("invalid-sell",instance.impact_title.text == "交易未完成" and GameManager.serialize() == before,instance) and result
+	GameManager.player["coin"] = 0
+	before = GameManager.serialize()
+	instance.handle_buy_request("bread")
+	result = trade_feedback_probe("no-money",instance.impact_title.text == "交易未完成" and GameManager.serialize() == before,instance) and result
+	GameManager.new_game()
+	instance.selected_id = "alice"
+	GameManager.player["position"] = GameManager.npcs["alice"]["position"]
+	instance.handle_buy_request("bread")
+	result = trade_feedback_probe("valid-buy",instance.impact_title.text == "交易完成" and instance.impact_body.text == "買入完成。",instance) and result
+	instance.handle_sell_request("medicine")
+	result = trade_feedback_probe("valid-sell",instance.impact_title.text == "交易完成" and instance.impact_body.text == "出售完成。",instance) and result
+	for action in ["craft","gather"]:
+		instance.show_interaction_feedback(action,"隔離測試失敗",{"ok":false})
+		result = trade_feedback_probe("craft-gather-failure",instance.impact_title.text == ("製作未完成" if action == "craft" else "採集未完成"),instance) and result
+	instance.motion_enabled = true
+	instance.show_interaction_feedback("trade","第一次",{"ok":true})
+	var prior: Tween = instance.impact_tween
+	instance.show_interaction_feedback("trade","最後一次",{"ok":false})
+	result = trade_feedback_probe("cancel-previous-tween",not prior.is_valid() and instance.impact_title.text == "交易未完成" and instance.impact_body.text == "最後一次",instance) and result
+	instance.motion_enabled = false
+	instance.show_interaction_feedback("trade","無動畫",{"ok":true})
+	result = trade_feedback_probe("motion-disabled-final-state",instance.impact_feedback.modulate == Color.WHITE and instance.impact_feedback.scale == Vector2.ONE,instance) and result
+	for response in ["成就解鎖：慷慨之心\n以分享讓善意留在村民記憶中。","儲存失敗，請確認可用空間與寫入權限後再按 F5 重試；先前存檔未刪除。"]:
+		instance.show_interaction_feedback("progression",response)
+		await get_tree().process_frame
+		var body_bottom: float = instance.impact_body.position.y + instance.impact_body.size.y
+		result = trade_feedback_probe("wrapped-feedback-contained",body_bottom <= instance.impact_feedback.size.y - 8.0,instance) and result
+		result = trade_feedback_probe("feedback-above-log",instance.impact_feedback.position.y + instance.impact_feedback.size.y <= 590.0,instance) and result
+	result = result and not instance.pulse_label.text.contains("E 選取村民")
 	instance.queue_free()
+	GameManager.new_game()
 	return result
+
+func trade_feedback_probe(label: String, condition: bool, instance: Node) -> bool:
+	if not condition:
+		print("TRADE_FEEDBACK_FAILURE ",label," title=",instance.impact_title.text," body=",instance.impact_body.text," coin=",GameManager.player.get("coin")," tween=",instance.impact_tween)
+	return condition
 
 func complete_inventory_ui_test() -> bool:
 	var scene := load("res://scenes/main/Main.tscn") as PackedScene
@@ -1145,8 +1182,29 @@ func modal_exclusivity_test() -> bool:
 	var progression_replaced: bool = instance.progression_panel.visible and not instance.journal_panel.visible
 	instance.close_modal_panels()
 	var all_closed: bool = not instance.inventory_panel.visible and not instance.journal_panel.visible and not instance.progression_panel.visible and not instance.trade_panel.visible
+	var motion_ok := true
+	var was_paused := get_tree().paused
+	get_tree().paused = true
+	for panel in [instance.trade_panel,instance.progression_panel,instance.quest_log_panel,instance.story_arc_panel,instance.world_map_panel]:
+		panel.set_visible_with_motion(true,true)
+		var prior: Tween = panel.get("_visibility_tween")
+		panel.set_visible_with_motion(false,true)
+		motion_ok = motion_ok and not prior.is_valid() and not panel.visible and panel.modulate == Color.WHITE and panel.scale == Vector2.ONE
+		panel.set_visible_with_motion(true,true)
+		prior = panel.get("_visibility_tween")
+		panel.visible = false
+		motion_ok = motion_ok and not prior.is_valid() and panel.modulate == Color.WHITE and panel.scale == Vector2.ONE
+		panel.set_visible_with_motion(true,true)
+		prior = panel.get("_visibility_tween")
+		panel.set_visible_with_motion(true,false)
+		motion_ok = motion_ok and not prior.is_valid() and panel.visible and panel.modulate == Color.WHITE and panel.scale == Vector2.ONE
+		panel.set_visible_with_motion(true,true)
+		await get_tree().create_timer(0.25,true).timeout
+		motion_ok = motion_ok and panel.modulate.is_equal_approx(Color.WHITE) and panel.scale.is_equal_approx(Vector2.ONE)
+		panel.set_visible_with_motion(false,false)
+	get_tree().paused = was_paused
 	instance.queue_free()
-	return inventory_open and journal_replaced and progression_replaced and all_closed
+	return inventory_open and journal_replaced and progression_replaced and all_closed and motion_ok
 
 func motion_preference_sync_test() -> bool:
 	var previous := SaveManager.get_preference("motion",true)
@@ -1163,14 +1221,14 @@ func motion_preference_sync_test() -> bool:
 	var disabled_state: bool = not instance.motion_enabled and pause_button != null and pause_button.text.contains("關") and settings_toggle != null and not settings_toggle.button_pressed
 	instance.set_motion_enabled(true)
 	var enabled_state := bool(SaveManager.get_preference("motion",false)) and pause_button.text.contains("開") and settings_toggle.button_pressed
-	instance.call("show_interaction_feedback","talk","測試提示動畫")
-	var feedback_tween: Tween = instance.get("impact_tween")
+	instance.animate_panel_in(instance.inventory_panel)
+	instance.show_interaction_feedback("talk","測試")
 	instance.set_motion_enabled(false)
-	var animation_stopped := feedback_tween != null and not feedback_tween.is_running()
-	var feedback_reset: bool = instance.impact_feedback.scale == Vector2.ONE and instance.impact_feedback.modulate == Color.WHITE
+	var immediate_stop: bool = instance.panel_motion_tweens.is_empty() and instance.inventory_panel.scale == Vector2.ONE and instance.impact_feedback.scale == Vector2.ONE
+	if instance.impact_tween != null and instance.impact_tween.is_valid(): immediate_stop = false
 	instance.queue_free()
 	SaveManager.set_preference("motion",previous)
-	return disabled_state and enabled_state and animation_stopped and feedback_reset
+	return disabled_state and enabled_state and immediate_stop
 
 func quest_log_copy_test() -> bool:
 	GameManager.new_game()
