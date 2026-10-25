@@ -66,6 +66,7 @@ func run() -> void:
 	check("擴充內容資料契約可載入", expansion_data_contract_test())
 	check("舊版存檔可安全遷移至世界狀態 v2", save_v1_migration_test())
 	check("存檔邊界會拒絕損壞與超大資料", save_envelope_validation_test())
+	check("存檔候選驗證拒絕損壞的 NPC 狀態且不改動遊戲", serialized_save_validation_test())
 	check("偏好設定只接受布林型別", preference_type_safety_test())
 	check("林間回音任務可依序推進並原子交付", forest_echo_progression_test())
 	check("完成任務後不可重複取得獎勵", quest_reward_idempotency_test())
@@ -251,6 +252,21 @@ func save_recovery_test() -> bool:
 	if not SaveManager.load_game(): return false
 	return int(GameManager.player["coin"]) == 91 and FileAccess.file_exists(backup)
 
+func serialized_save_validation_test() -> bool:
+	GameManager.new_game()
+	var valid_state: Dictionary = GameManager.serialize()
+	if not GameManager.validate_serialized_state(valid_state): return false
+	var malformed_state: Dictionary = valid_state.duplicate(true)
+	var malformed_npcs: Dictionary = malformed_state.get("npcs",{})
+	var alice: Dictionary = malformed_npcs.get("alice",{})
+	if alice.is_empty(): return false
+	alice["needs"] = {"hunger":"invalid"}
+	malformed_npcs["alice"] = alice
+	malformed_state["npcs"] = malformed_npcs
+	var before: Dictionary = GameManager.serialize()
+	if GameManager.validate_serialized_state(malformed_state): return false
+	return GameManager.serialize() == before
+
 func save_backup_preservation_test() -> bool:
 	GameManager.new_game()
 	GameManager.player["coin"] = 91
@@ -262,10 +278,21 @@ func save_backup_preservation_test() -> bool:
 	var primary := root.path_join("echo_village_save.json")
 	var backup := primary + ".bak"
 	if not FileAccess.file_exists(backup): return false
+	var malformed_primary = JSON.parse_string(SaveManager.read_limited_text(primary,SaveManager.MAX_SAVE_BYTES))
+	if not (malformed_primary is Dictionary): return false
+	var world_state: Dictionary = malformed_primary.get("world_state",{})
+	var npcs: Dictionary = world_state.get("npcs",{})
+	var alice: Dictionary = npcs.get("alice",{})
+	if alice.is_empty(): return false
+	alice["needs"] = {"hunger":"invalid"}
+	npcs["alice"] = alice
+	world_state["npcs"] = npcs
+	malformed_primary["world_state"] = world_state
 	var first_corruption := FileAccess.open(primary,FileAccess.WRITE)
 	if first_corruption == null: return false
-	first_corruption.store_string("{ malformed primary")
+	first_corruption.store_string(JSON.stringify(malformed_primary))
 	first_corruption.close()
+	if bool(SaveManager._read_save_candidate(primary).get("ok",false)): return false
 	GameManager.player["coin"] = 777
 	if not SaveManager.save_game("manual"): return false
 	var second_corruption := FileAccess.open(primary,FileAccess.WRITE)
@@ -891,6 +918,15 @@ func trade_ui_structure_test() -> bool:
 	var required := ["CanvasLayer/TradePanel","CanvasLayer/TradePanel/ItemSelector","CanvasLayer/TradePanel/BuyButton","CanvasLayer/TradePanel/SellButton","CanvasLayer/TradePanel/CloseButton"]
 	var result := instance.has_method("open_trade_panel")
 	for path in required: result = result and instance.get_node_or_null(path) != null
+	if result:
+		var title: Label = instance.get("impact_title")
+		var feedback: Control = instance.get("impact_feedback")
+		instance.call("show_interaction_feedback","trade","交易失敗，請調整金幣或數量後再試一次。".repeat(3),{"ok":false})
+		result = title != null and feedback != null and title.text == "交易未完成" and feedback.size.y > 50.0
+		instance.call("show_interaction_feedback","trade","買入完成。",{"ok":true})
+		result = result and title.text == "交易完成"
+		instance.call("show_interaction_feedback","trade","交易仍未完成。",{"ok":false})
+		result = result and title.text == "交易未完成"
 	instance.queue_free()
 	return result
 
