@@ -2,6 +2,8 @@ extends Node
 
 const SaveFailureTest = preload("res://tests/suites/save_failure_test.gd")
 const UiRefreshSchedulerTest = preload("res://tests/suites/ui_refresh_scheduler_test.gd")
+const LivingVillageTest = preload("res://tests/suites/living_village_test.gd")
+const VillageTheme = preload("res://scripts/ui/ui_theme.gd")
 
 var passed := 0
 var failed := 0
@@ -125,6 +127,32 @@ func run() -> void:
 	check("村落手札清楚呈現稱號、進度與文字化成就狀態", await progression_panel_content_test())
 	check("村落手札具 44px 關閉操作且開啟時暫停模擬", await progression_panel_accessibility_test())
 	check("村落手札具有可重複的 GPU 視覺 QA 情境", await progression_visual_capture_contract_test())
+	check("傳聞傳播在同種子下完全可重現", LivingVillageTest.rumor_spread_is_deterministic())
+	check("信任低於門檻的關係不會傳播傳聞", LivingVillageTest.rumor_requires_trust())
+	check("傳聞每次轉述強度遞減且必定停止", LivingVillageTest.rumor_weakens_and_terminates())
+	check("傳聞鏈可完整回溯到原始目擊者", LivingVillageTest.rumor_chain_traces_to_origin())
+	check("傳聞走樣會升級版本並降低可信度", LivingVillageTest.rumor_distortion_lowers_credibility())
+	check("傳聞網路存檔驗證拒絕損壞資料", LivingVillageTest.rumor_state_validation())
+	check("湧現式任務引用的居民與物品都存在", LivingVillageTest.emergent_quests_reference_real_things())
+	check("相同世界狀態產生相同的湧現式任務", LivingVillageTest.emergent_quests_are_deterministic())
+	check("不可完成或重複的委託不會被產生", LivingVillageTest.emergent_quests_skip_impossible_or_duplicate())
+	check("文法對話沒有未填變數且長度受限", LivingVillageTest.dialogue_lines_are_complete_and_short())
+	check("對話只引用居民真的記得或聽過的事", LivingVillageTest.dialogue_cites_only_known_memories_and_rumours())
+	check("文法對話在同種子下可重現", LivingVillageTest.dialogue_is_deterministic())
+	check("村落日誌只引用當天發生的事件", LivingVillageTest.journal_cites_only_that_day())
+	check("沒有事件的日子顯示明確的空狀態", LivingVillageTest.journal_has_an_empty_state())
+	check("傳聞會在村民之間傳播並改變關係與記憶", living_gossip_integration_test())
+	check("湧現式委託完成後實際改變需求、聲望與關係", living_commission_integration_test())
+	check("遊戲內對話引用居民自己的記憶", living_dialogue_integration_test())
+	check("遊戲內日誌引用真實的時間軸事件並可封存", living_journal_integration_test())
+	check("傳聞網路與委託可存檔，舊版存檔仍可讀取", living_save_compatibility_test())
+	check("四十日模擬中傳聞、記憶與日誌都維持上限", living_soak_caps_test())
+	check("傳聞網路面板有 U 快捷鍵、文字傳播鏈且開啟時暫停模擬", await rumor_network_panel_test())
+	check("任務日誌列出村民委託並可直接接受", await commission_offer_ui_test())
+	check("村落日誌有 V 快捷鍵且只能翻閱已發生的日子", await village_journal_panel_test())
+	check("色盲與字級偏好只接受合法值並可持久保存", accessibility_preference_test())
+	check("字級調整不會累乘且套用到動態產生的文字", await text_scale_application_test())
+	check("內嵌中文字型涵蓋專案所有文字（網頁版不會出現缺字方框）", bundled_font_covers_project_text_test())
 	write_report()
 	print("TEST_RESULT passed=%d failed=%d" % [passed,failed])
 	print("Echo Village 測試：%d 通過，%d 失敗" % [passed,failed])
@@ -798,12 +826,12 @@ func visual_capture_interface_test() -> bool:
 	var result := instance.has_method("capture_visual_qa") and instance.has_method("visual_qa_capture_names") and instance.has_method("visual_qa_output_path")
 	if result:
 		var names: Array = instance.visual_qa_capture_names()
-		for expected in ["quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","village_progression.png","story_arc_active.png","relationship_history.png","consumer_onboarding.png","npc_decision_explanation.png"]: result = result and expected in names
+		for expected in ["quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","village_progression.png","story_arc_active.png","relationship_history.png","consumer_onboarding.png","npc_decision_explanation.png","rumor_network.png","village_commissions.png","village_journal.png","accessibility_settings.png"]: result = result and expected in names
 	instance.queue_free()
 	return result
 
 func expansion_visual_capture_test() -> bool:
-	for expected in ["quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","village_progression.png","story_arc_active.png","relationship_history.png","consumer_onboarding.png","npc_decision_explanation.png"]:
+	for expected in ["quest_in_progress.png","forest_echo_complete.png","consumer_main_menu.png","consumer_settings.png","consumer_trade.png","village_progression.png","story_arc_active.png","relationship_history.png","consumer_onboarding.png","npc_decision_explanation.png","rumor_network.png","village_commissions.png","village_journal.png","accessibility_settings.png"]:
 		if not FileAccess.file_exists("res://tests/visual_qa/" + expected): return false
 	return true
 
@@ -1050,10 +1078,10 @@ func onboarding_experience_test() -> bool:
 	var pause_motion := instance.pause_motion_button as Button
 	var step_label := instance.get_node_or_null("CanvasLayer/OnboardingPanel/StepLabel") as Label
 	var pause_layout_ok: bool = guide != null and pause_motion != null and guide.position.y + guide.size.y <= instance.pause_panel.size.y and guide.position.y + guide.size.y <= pause_motion.position.y
-	var result: bool = panel != null and backdrop != null and next != null and skip != null and guide != null and step_label != null and pause_layout_ok and panel.visible and backdrop.visible and step_label.text.contains("1 / 3") and bool(GameTime.simulation_paused)
+	var result: bool = panel != null and backdrop != null and next != null and skip != null and guide != null and step_label != null and pause_layout_ok and panel.visible and backdrop.visible and step_label.text.contains("1 / 5") and bool(GameTime.simulation_paused)
 	if next != null:
 		next.emit_signal("pressed")
-		result = result and step_label.text.contains("2 / 3")
+		result = result and step_label.text.contains("2 / 5")
 	if skip != null:
 		skip.emit_signal("pressed")
 		result = result and not panel.visible and SaveManager.get_preference("onboarding_seen",false) and not bool(GameTime.simulation_paused)
@@ -1061,7 +1089,7 @@ func onboarding_experience_test() -> bool:
 		instance.pause_panel.visible = true
 		instance.sync_simulation_pause()
 		guide.emit_signal("pressed")
-		result = result and panel.visible and step_label.text.contains("1 / 3") and bool(GameTime.simulation_paused)
+		result = result and panel.visible and step_label.text.contains("1 / 5") and bool(GameTime.simulation_paused)
 	instance.queue_free()
 	SaveManager.set_preference("onboarding_seen",previous_seen)
 	return result
@@ -1393,7 +1421,7 @@ func progression_save_compatibility_test() -> bool:
 	GameManager.new_game()
 	GameManager.interact("alice","talk")
 	var saved: Dictionary = GameManager.serialize()
-	if int(saved.get("save_version",0)) != 3 or not saved.has("progression"): return false
+	if int(saved.get("save_version",0)) != 4 or not saved.has("progression"): return false
 	GameManager.new_game()
 	if not GameManager.deserialize(saved): return false
 	if "first_echo" not in GameManager.progression_snapshot().get("unlocked_ids",[]): return false
@@ -1459,3 +1487,260 @@ func write_report() -> void:
 	var report := {"project":"Echo Village","timestamp":Time.get_datetime_string_from_system(),"passed":passed,"failed":failed,"results":results,"simulated_game_days":30}
 	var file := FileAccess.open("res://tests/simulation_test_report.json",FileAccess.WRITE)
 	if file != null: file.store_string(JSON.stringify(report,"\t"))
+
+
+func _with_days(days: int, callback: Callable) -> void:
+	var original_day := GameTime.day
+	for offset in days:
+		GameTime.day = original_day + offset
+		callback.call(GameTime.day)
+	GameTime.day = original_day
+
+func living_gossip_integration_test() -> bool:
+	GameManager.new_game()
+	var trust_before := {}
+	for npc_id in GameManager.npcs: trust_before[npc_id] = float(GameManager.npcs[npc_id]["relationships"]["player"]["trust"])
+	GameManager.interact("bob","steal_food")
+	if GameManager.rumor_network_snapshot().size() != 1: return false
+	var heard := []
+	_with_days(6,func(_day): heard.append_array(GameManager.run_gossip_round()))
+	if heard.is_empty(): return false
+	var rumor_id := str(GameManager.rumor_network_snapshot()[0]["id"])
+	for transmission in heard:
+		var listener: Dictionary = GameManager.npcs[str(transmission["to"])]
+		var found := false
+		for memory in listener["memories"]:
+			if str(memory.get("metadata",{}).get("rumor_id","")) == rumor_id: found = true
+		if not found: return false
+		if float(listener["relationships"]["player"]["trust"]) >= float(trust_before[str(transmission["to"])]): return false
+		var chain: Array = GameManager.rumor_trace(rumor_id,str(transmission["to"]))
+		if chain.is_empty() or str(chain[0]) != "bob": return false
+	return not GameManager.causality_snapshot("","rumor").is_empty()
+
+func living_commission_integration_test() -> bool:
+	GameManager.new_game()
+	var alice: Dictionary = GameManager.npcs["alice"]
+	alice["needs"]["hunger"] = 90.0
+	alice["inventory"]["bread"] = 0
+	var offers: Array = GameManager.refresh_emergent_offers()
+	var quest_id := ""
+	for offer in offers:
+		if str(offer["id"]).begins_with("emergent_feed_alice"): quest_id = str(offer["id"])
+	if quest_id.is_empty(): return false
+	if not bool(GameManager.accept_emergent_quest(quest_id).get("ok",false)): return false
+	if not GameManager.active_quests.has(quest_id): return false
+	for offer in GameManager.emergent_offers:
+		if str(offer["id"]) == quest_id: return false
+	var renown_before := int(GameManager.community.get("renown",0))
+	var affinity_before := float(alice["relationships"]["player"]["affinity"])
+	GameManager.interact("alice","give_bread")
+	if quest_id not in GameManager.completed_quests: return false
+	if float(alice["needs"]["hunger"]) > 50.0: return false
+	if int(GameManager.community.get("renown",0)) <= renown_before: return false
+	if float(alice["relationships"]["player"]["affinity"]) <= affinity_before: return false
+	return not bool(GameManager.accept_emergent_quest("emergent_missing").get("ok",true))
+
+func living_dialogue_integration_test() -> bool:
+	GameManager.new_game()
+	GameManager.interact("alice","give_bread")
+	var alice: Dictionary = GameManager.npcs["alice"]
+	var line: Dictionary = GameManager.dialogue_line(alice)
+	var ids := []
+	for memory in alice["memories"]: ids.append(str(memory["id"]))
+	for memory_id in line["references"]["memories"]:
+		if str(memory_id) not in ids: return false
+	var text := str(line["text"])
+	return not line["references"]["memories"].is_empty() and not text.contains("{") and text == GameManager.dialogue(alice)
+
+func living_journal_integration_test() -> bool:
+	GameManager.new_game()
+	GameManager.interact("alice","give_bread")
+	var day := GameTime.day
+	var entry: Dictionary = GameManager.journal_for_day(day)
+	if bool(entry.get("empty",true)): return false
+	var timeline_ids := []
+	for event in GameManager.timeline_events: timeline_ids.append(str(event["id"]))
+	for cite in entry["cited"]:
+		if str(cite) not in timeline_ids and not str(cite).begins_with("rumor_"): return false
+	GameManager.archive_journal(day)
+	if not GameManager.journal_entries.has(day): return false
+	return bool(GameManager.journal_for_day(day + 7).get("empty",false))
+
+func living_save_compatibility_test() -> bool:
+	GameManager.new_game()
+	GameManager.interact("bob","steal_food")
+	_with_days(4,func(_day): GameManager.run_gossip_round())
+	GameManager.npcs["alice"]["needs"]["hunger"] = 90.0
+	GameManager.npcs["alice"]["inventory"]["bread"] = 0
+	var quest_id := ""
+	for offer in GameManager.refresh_emergent_offers():
+		if str(offer["id"]).begins_with("emergent_feed_alice"): quest_id = str(offer["id"])
+	if quest_id.is_empty() or not bool(GameManager.accept_emergent_quest(quest_id).get("ok",false)): return false
+	GameManager.archive_journal(GameTime.day)
+	var rumors_before := JSON.stringify(GameManager.rumor_network_snapshot())
+	var saved: Dictionary = GameManager.serialize()
+	GameManager.new_game()
+	if GameManager.quest_defs.has(quest_id): return false
+	if not GameManager.deserialize(saved.duplicate(true)): return false
+	if JSON.stringify(GameManager.rumor_network_snapshot()) != rumors_before: return false
+	if not GameManager.quest_defs.has(quest_id) or not GameManager.active_quests.has(quest_id): return false
+	if not GameManager.journal_entries.has(GameTime.day): return false
+	var legacy: Dictionary = saved.duplicate(true)
+	for key in ["rumors","rumor_log","emergent_definitions","emergent_offers","journal_entries","gossip_round"]: legacy.erase(key)
+	legacy["save_version"] = 3
+	legacy["active_quests"] = {}
+	if not GameManager.deserialize(legacy): return false
+	var tampered: Dictionary = saved.duplicate(true)
+	tampered["emergent_definitions"] = {"forest_echo":{"id":"forest_echo"}}
+	return GameManager.rumor_network_snapshot().is_empty() and not GameManager.deserialize(tampered)
+
+func living_soak_caps_test() -> bool:
+	GameManager.new_game()
+	# Lambdas capture locals by value, so violations are collected in an array.
+	var violations: Array = []
+	var ids := ["alice","bob","charlie","diana","eric"]
+	_with_days(40,func(day):
+		var a: String = ids[day % ids.size()]
+		var b: String = ids[(day + 2) % ids.size()]
+		GameManager.player["inventory"]["bread"] = 3
+		GameManager.npcs[a]["inventory"]["bread"] = 2
+		GameManager.interact(a,"steal_food" if day % 2 == 0 else "give_bread")
+		GameManager.social_interaction(a,b,"argue")
+		for round in 4: GameManager.run_gossip_round()
+		GameManager.refresh_emergent_offers()
+		GameManager.archive_journal(day)
+		for npc in GameManager.npcs.values():
+			if npc["memories"].size() > GameManager.MAX_MEMORIES_PER_NPC: violations.append("memories")
+		if GameManager.emergent_offers.size() > 3: violations.append("offers")
+		if GameManager.rumor_service.rumors.size() > RumorService.MAX_RUMORS: violations.append("rumors"))
+	return violations.is_empty() and GameManager.rumor_service.rumors.size() <= RumorService.MAX_RUMORS and GameManager.rumor_log.size() <= GameManager.MAX_RUMOR_LOG and GameManager.journal_entries.size() <= GameManager.MAX_JOURNAL_DAYS and GameManager.timeline_events.size() <= 160
+
+func _main_instance() -> Node:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	instance.start_new_game()
+	await get_tree().process_frame
+	instance.complete_onboarding()
+	return instance
+
+func rumor_network_panel_test() -> bool:
+	var instance: Node = await _main_instance()
+	var panel = instance.get_node_or_null("CanvasLayer/RumorNetworkPanel")
+	if panel == null or not InputMap.has_action("rumor_network"):
+		instance.queue_free()
+		return false
+	instance.open_rumor_network()
+	var empty_ok: bool = panel.visible and panel.get_node("EmptyLabel").visible and bool(GameTime.simulation_paused)
+	instance.close_modal_panels()
+	GameManager.interact("bob","steal_food")
+	_with_days(4,func(_day): GameManager.run_gossip_round())
+	instance.open_rumor_network()
+	var chain: String = panel.chain_text()
+	var listed: bool = panel.get_node("RumorList").get_child_count() >= 1 and not panel.get_node("EmptyLabel").visible
+	var close := panel.get_node_or_null("CloseButton") as Button
+	var close_ok: bool = close != null and close.size.y >= 44.0
+	var exclusive: bool = not instance.quest_log_panel.visible and not instance.journal_panel.visible
+	instance.toggle_modal_panel(panel)
+	var closed: bool = not panel.visible
+	instance.queue_free()
+	return empty_ok and listed and chain.contains("原始事件") and close_ok and exclusive and closed
+
+func commission_offer_ui_test() -> bool:
+	var instance: Node = await _main_instance()
+	GameManager.npcs["alice"]["needs"]["hunger"] = 90.0
+	GameManager.npcs["alice"]["inventory"]["bread"] = 0
+	GameManager.refresh_emergent_offers()
+	instance.refresh_quest_ui()
+	await get_tree().process_frame
+	var box = instance.quest_log_panel.get_node_or_null("OffersBox")
+	var accept: Button = null
+	if box != null:
+		for button in box.find_children("AcceptButton","Button",true,false):
+			accept = button
+			break
+	if accept == null:
+		instance.queue_free()
+		return false
+	var offers_before: int = GameManager.emergent_offers.size()
+	var active_before: int = GameManager.active_quests.size()
+	accept.emit_signal("pressed")
+	var result: bool = accept.size.y >= 44.0 and GameManager.emergent_offers.size() == offers_before - 1 and GameManager.active_quests.size() == active_before + 1
+	instance.queue_free()
+	return result
+
+func village_journal_panel_test() -> bool:
+	var instance: Node = await _main_instance()
+	var panel = instance.get_node_or_null("CanvasLayer/VillageJournalPanel")
+	if panel == null or not InputMap.has_action("village_journal"):
+		instance.queue_free()
+		return false
+	instance.open_village_journal()
+	var opened: bool = panel.visible and bool(GameTime.simulation_paused) and panel.day == GameTime.day
+	panel.show_day(GameTime.day + 5)
+	var clamped_future: bool = panel.day == GameTime.day
+	panel.show_day(-3)
+	var clamped_past: bool = panel.day == 1
+	var story := panel.get_node_or_null("StoryLabel") as Label
+	var has_text: bool = story != null and not story.text.is_empty()
+	var buttons_ok := true
+	for button_name in ["PreviousDayButton","NextDayButton","CloseButton"]:
+		var button := panel.get_node_or_null(button_name) as Button
+		buttons_ok = buttons_ok and button != null and button.size.y >= 44.0
+	instance.queue_free()
+	return opened and clamped_future and clamped_past and has_text and buttons_ok
+
+func accessibility_preference_test() -> bool:
+	var original: Dictionary = SaveManager.preferences.duplicate(true)
+	var rejected: Dictionary = SaveManager.sanitize_preferences({"colorblind":"yes","text_scale":120})
+	var fractional: Dictionary = SaveManager.sanitize_preferences({"text_scale":115.5})
+	var accepted: Dictionary = SaveManager.sanitize_preferences({"colorblind":true,"text_scale":130.0})
+	var result: bool = rejected["colorblind"] == original["colorblind"] and rejected["text_scale"] == original["text_scale"] and fractional["text_scale"] == original["text_scale"] and accepted["colorblind"] == true and accepted["text_scale"] == 130 and accepted["text_scale"] is int
+	result = result and not SaveManager.set_text_scale(90) and not SaveManager.set_preference("text_scale",true)
+	result = result and SaveManager.set_text_scale(115) and SaveManager.get_text_scale() == 115
+	result = result and SaveManager.load_preferences().get("text_scale") == 115
+	SaveManager.set_text_scale(int(original.get("text_scale",100)))
+	SaveManager.set_preference("colorblind",bool(original.get("colorblind",false)))
+	return result and VillageTheme.positive_color(true) != VillageTheme.positive_color(false)
+
+func text_scale_application_test() -> bool:
+	var instance: Node = await _main_instance()
+	var label := instance.get_node_or_null("CanvasLayer/SettingsPanel/TextScaleLabel") as Label
+	var buttons_ok: bool = instance.text_scale_buttons.size() == 3
+	if label == null or not buttons_ok:
+		instance.queue_free()
+		return false
+	var base := label.get_theme_font_size("font_size")
+	instance.set_text_scale(130)
+	instance.set_text_scale(130)
+	var scaled := label.get_theme_font_size("font_size")
+	var pressed: bool = instance.text_scale_buttons[2].button_pressed and not instance.text_scale_buttons[0].button_pressed
+	GameManager.interact("bob","steal_food")
+	instance.open_rumor_network()
+	await get_tree().process_frame
+	var dynamic_ok := false
+	for button in instance.rumor_network_panel.get_node("RumorList").get_children():
+		dynamic_ok = dynamic_ok or button.get_theme_font_size("font_size") == roundi(12 * 1.3)
+	instance.set_text_scale(100)
+	var restored := label.get_theme_font_size("font_size")
+	instance.queue_free()
+	return scaled == roundi(base * 1.3) and pressed and dynamic_ok and restored == base
+
+func bundled_font_covers_project_text_test() -> bool:
+	var font_path := str(ProjectSettings.get_setting("gui/theme/custom_font",""))
+	var font := load(font_path) as Font if not font_path.is_empty() else null
+	if font == null: return false
+	var missing := {}
+	var pending: Array = ["res://scripts","res://scenes","res://data"]
+	while not pending.is_empty():
+		var directory: String = pending.pop_back()
+		for child in DirAccess.get_directories_at(directory): pending.append(directory.path_join(child))
+		for file_name in DirAccess.get_files_at(directory):
+			if file_name.get_extension() not in ["gd","tscn","json"]: continue
+			var text := FileAccess.get_file_as_string(directory.path_join(file_name))
+			for index in text.length():
+				var code := text.unicode_at(index)
+				if code >= 0x20 and not font.has_char(code): missing[char(code)] = file_name
+	if not missing.is_empty(): push_error("字型缺字（請執行 tools/build_font_subset.py）：" + str(missing))
+	return missing.is_empty()

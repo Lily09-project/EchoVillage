@@ -37,7 +37,8 @@ $captures = @(
     'npc_decision_explanation.png', 'storybook_explore_night.png', 'storybook_event_danger.png',
     'quest_in_progress.png', 'forest_echo_complete.png', 'consumer_main_menu.png',
     'consumer_settings.png', 'consumer_trade.png', 'village_progression.png',
-    'story_arc_active.png', 'relationship_history.png', 'consumer_onboarding.png'
+    'story_arc_active.png', 'relationship_history.png', 'consumer_onboarding.png',
+    'rumor_network.png', 'village_commissions.png', 'village_journal.png', 'accessibility_settings.png'
 )
 $resolutions = @(
     @{ name = 'desktop-1280x720'; argument = '1280x720'; width = 1280; height = 720 },

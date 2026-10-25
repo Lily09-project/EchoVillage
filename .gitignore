@@ -32,3 +32,6 @@ reports/acceptance/
 reports/visual_qa/
 tests/simulation_test_report.json
 tests/soak_test_report.json
+
+# Web smoke test dependencies
+tools/web_smoke/node_modules/

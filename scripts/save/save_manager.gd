@@ -5,7 +5,8 @@ const PREFERENCES_PATH := "user://echo_village_preferences.json"
 const MAX_SAVE_BYTES := 4 * 1024 * 1024
 const MAX_PREFERENCES_BYTES := 64 * 1024
 const SaveMigrationService = preload("res://scripts/save/save_migration.gd")
-var preferences := {"autosave":true,"motion":true,"fullscreen":false,"audio":true,"onboarding_seen":false}
+const TEXT_SCALES := [100,115,130]
+var preferences := {"autosave":true,"motion":true,"fullscreen":false,"audio":true,"onboarding_seen":false,"colorblind":false,"text_scale":100}
 var last_save_kind := ""
 var last_load_recovered := false
 var last_recovery_reason := ""
@@ -172,12 +173,27 @@ func sanitize_preferences(raw: Variant) -> Dictionary:
 	if not (raw is Dictionary): return sanitized
 	var parsed: Dictionary = raw
 	for key in sanitized:
-		if parsed.has(key) and parsed[key] is bool: sanitized[key] = parsed[key]
+		if key == "text_scale":
+			var scale = parsed.get(key,100)
+			if (scale is int or scale is float) and TEXT_SCALES.has(int(scale)) and float(scale) == float(int(scale)): sanitized[key] = int(scale)
+		elif parsed.has(key) and parsed[key] is bool: sanitized[key] = parsed[key]
 	return sanitized
 
 func set_preference(key: String, value: bool) -> bool:
-	if not preferences.has(key): return false
+	if not preferences.has(key) or key == "text_scale": return false
 	preferences[key] = value
+	return _write_preferences()
+
+## Text size in percent; only the offered steps are accepted.
+func set_text_scale(percent: int) -> bool:
+	if not TEXT_SCALES.has(percent): return false
+	preferences["text_scale"] = percent
+	return _write_preferences()
+
+func get_text_scale() -> int:
+	return int(preferences.get("text_scale",100))
+
+func _write_preferences() -> bool:
 	var file := FileAccess.open(_storage_path("echo_village_preferences.json",PREFERENCES_PATH),FileAccess.WRITE)
 	if file == null: return false
 	file.store_string(JSON.stringify(preferences,"\t"))
