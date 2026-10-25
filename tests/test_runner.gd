@@ -1163,9 +1163,14 @@ func motion_preference_sync_test() -> bool:
 	var disabled_state: bool = not instance.motion_enabled and pause_button != null and pause_button.text.contains("關") and settings_toggle != null and not settings_toggle.button_pressed
 	instance.set_motion_enabled(true)
 	var enabled_state := bool(SaveManager.get_preference("motion",false)) and pause_button.text.contains("開") and settings_toggle.button_pressed
+	instance.call("show_interaction_feedback","talk","測試提示動畫")
+	var feedback_tween: Tween = instance.get("impact_tween")
+	instance.set_motion_enabled(false)
+	var animation_stopped := feedback_tween != null and not feedback_tween.is_running()
+	var feedback_reset := instance.impact_feedback.scale == Vector2.ONE and instance.impact_feedback.modulate == Color.WHITE
 	instance.queue_free()
 	SaveManager.set_preference("motion",previous)
-	return disabled_state and enabled_state
+	return disabled_state and enabled_state and animation_stopped and feedback_reset
 
 func quest_log_copy_test() -> bool:
 	GameManager.new_game()
