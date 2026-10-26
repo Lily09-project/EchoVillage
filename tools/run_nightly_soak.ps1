@@ -47,13 +47,12 @@ try {
     if ($preflightResult -ne 0) { throw "Godot import/parser preflight failed with exit code $preflightResult." }
     Write-Output 'SOAK_PREFLIGHT passed=true'
 
-try {
     & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'tools\run_godot_bounded.ps1') `
         -Godot $godot -ProjectRoot $root -StandardOutput $stdout -StandardError $stderr `
         -TimeoutSeconds 900 --headless --path $root --scene 'res://tests/SoakRunner.tscn' --log-file $engineLog
     $result = $LASTEXITCODE
     $combined = ''
-    foreach ($path in @($preflightStdout, $preflightStderr, $preflightEngineLog, $stdout, $stderr, $engineLog)) {
+    foreach ($path in @($stdout, $stderr, $engineLog)) {
         if (Test-Path -LiteralPath $path) {
             $text = Get-Content -LiteralPath $path -Raw -Encoding UTF8
             Write-Output $text
@@ -67,7 +66,7 @@ try {
     exit $result
 }
 finally {
-    foreach ($path in @($stdout, $stderr, $engineLog)) {
+    foreach ($path in @($preflightStdout, $preflightStderr, $preflightEngineLog, $stdout, $stderr, $engineLog)) {
         if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Force }
     }
 }
