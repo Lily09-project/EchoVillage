@@ -81,6 +81,42 @@ jobs:
           path: release/web-smoke.png
           if-no-files-found: ignore
 
+      - name: Record Web candidate provenance
+        if: github.event_name == 'pull_request'
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+
+          root = Path("release/web")
+          manifest = {
+              "schema_version": 1,
+              "pr_head_sha": os.environ["PR_HEAD_SHA"],
+              "checkout_sha": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+              "source_tree": subprocess.check_output(["git", "rev-parse", "HEAD^{tree}"], text=True).strip(),
+              "is_release": False,
+              "files": {
+                  path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+                  for path in sorted(root.iterdir()) if path.is_file()
+              },
+          }
+          (root / "candidate-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+          PY
+
+      - name: Upload Web acceptance candidate
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: echo-village-web-candidate
+          path: release/web
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Upload the Pages artifact
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
