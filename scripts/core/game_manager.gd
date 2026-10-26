@@ -960,8 +960,8 @@ func _valid_npc_state(value: Variant) -> bool:
 		if not _valid_numeric_map(npc.get("action_cooldowns")): return false
 		var personality = npc.get("personality",{})
 		if not (personality is Dictionary): return false
-		for trait in personality.values():
-			if not _valid_number(trait,0.0,1.0): return false
+		for trait_value in personality.values():
+			if not _valid_number(trait_value,0.0,1.0): return false
 		var schedule = npc.get("base_schedule",[])
 		if not (schedule is Array): return false
 		for entry in schedule:
