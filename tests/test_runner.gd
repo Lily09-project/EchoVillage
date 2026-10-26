@@ -1625,7 +1625,7 @@ func progression_panel_content_test() -> bool:
 	GameManager.interact("alice","talk")
 	panel.refresh(GameManager.progression_snapshot())
 	var summary := panel.get_node_or_null("SummaryLabel") as Label
-	var achievements := panel.get_node_or_null("AchievementsLabel") as Label
+	var achievements := panel.get_node_or_null("AchievementsScroll/AchievementsLabel") as Label
 	var result: bool = summary != null and achievements != null and summary.text.contains("陌生旅人") and summary.text.contains("下一稱號") and achievements.text.contains("已完成") and achievements.text.contains("未完成") and achievements.text.contains("第一道回音")
 	instance.queue_free()
 	return result
@@ -2030,7 +2030,7 @@ func readable_region_fits(label: Label, panel: Control, boundary: float) -> bool
 	var bottom := region.global_position.y + region.size.y - panel.global_position.y
 	if region is ScrollContainer:
 		var bar: VScrollBar = (region as ScrollContainer).get_v_scroll_bar()
-		var fits: bool = bottom <= boundary and region.size.y > 0.0
+		var fits: bool = bottom <= boundary and region.size.y > 0.0 and region.focus_mode == Control.FOCUS_ALL
 		if label.get_minimum_size().y > region.size.y:
 			fits = fits and bar.max_value > bar.page
 		if not fits: print("Reading scroll region overflow: " + str(panel.name) + " bottom=" + str(bottom))

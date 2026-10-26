@@ -27,6 +27,19 @@ func _ready() -> void:
 	_make_label("SectionLabel",Vector2(26,178),Vector2(588,24),16,VillageTheme.INK,"成就里程碑")
 	achievements_label = _make_label("AchievementsLabel",Vector2(26,208),Vector2(588,202),13,VillageTheme.INK_SOFT,"")
 	achievements_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var reading_scroll := ScrollContainer.new()
+	reading_scroll.name = "AchievementsScroll"
+	reading_scroll.position = Vector2(26,208)
+	reading_scroll.size = Vector2(588,202)
+	reading_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	reading_scroll.focus_mode = Control.FOCUS_ALL
+	reading_scroll.follow_focus = true
+	reading_scroll.draw_focus_border = true
+	add_child(reading_scroll)
+	achievements_label.reparent(reading_scroll,false)
+	achievements_label.position = Vector2.ZERO
+	achievements_label.size = Vector2(568,0)
+	achievements_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var close := Button.new()
 	close.name = "CloseButton"
 	close.position = Vector2(448,418)

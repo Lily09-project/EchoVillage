@@ -17,6 +17,19 @@ func _ready() -> void:
 	title.add_theme_font_size_override("font_size",22); title.add_theme_color_override("font_color",VillageTheme.INK); VillageTheme.configure_label(title); add_child(title)
 	body_label = Label.new(); body_label.position = Vector2(24,64); body_label.size = Vector2(572,200)
 	body_label.add_theme_font_size_override("font_size",14); body_label.add_theme_color_override("font_color",VillageTheme.INK_SOFT); VillageTheme.configure_label(body_label,true); add_child(body_label)
+	var reading_scroll := ScrollContainer.new()
+	reading_scroll.name = "QuestReadingScroll"
+	reading_scroll.position = Vector2(24,64)
+	reading_scroll.size = Vector2(572,200)
+	reading_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	reading_scroll.focus_mode = Control.FOCUS_ALL
+	reading_scroll.follow_focus = true
+	reading_scroll.draw_focus_border = true
+	add_child(reading_scroll)
+	body_label.reparent(reading_scroll,false)
+	body_label.position = Vector2.ZERO
+	body_label.size = Vector2(552,0)
+	body_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	offers_title = Label.new(); offers_title.name = "OffersTitle"; offers_title.position = Vector2(24,276); offers_title.size = Vector2(572,24); offers_title.text = "村民委託  /  COMMISSIONS"
 	offers_title.add_theme_font_size_override("font_size",16); offers_title.add_theme_color_override("font_color",VillageTheme.INK); VillageTheme.configure_label(offers_title); add_child(offers_title)
 	offers_box = VBoxContainer.new(); offers_box.name = "OffersBox"; offers_box.position = Vector2(24,304); offers_box.size = Vector2(572,164); offers_box.add_theme_constant_override("separation",6); add_child(offers_box)
