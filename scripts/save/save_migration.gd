@@ -19,7 +19,7 @@ static func migrate(envelope: Dictionary) -> Dictionary:
 	else:
 		return {"ok":false,"reason":"存檔版本格式無效。"}
 	if version > 2: return {"ok":false,"reason":"存檔版本比目前遊戲新。"}
-	if envelope.has("time") and not _valid_time(envelope.get("time")):
+	if not envelope.has("time") or not _valid_time(envelope.get("time")):
 		return {"ok":false,"reason":"存檔時間資料格式無效。"}
 	if version == 2:
 		if not _valid_world_state(envelope.get("world_state")): return {"ok":false,"reason":"存檔世界資料格式無效。"}
@@ -66,6 +66,8 @@ static func _valid_world_state(value: Variant) -> bool:
 static func _valid_time(value: Variant) -> bool:
 	if not (value is Dictionary): return false
 	var time: Dictionary = value
+	for required in ["minute","day","day_of_week","time_scale"]:
+		if not time.has(required): return false
 	if time.has("minute") and not _valid_integral_range(time.get("minute"),0,1439): return false
 	if time.has("day") and not _valid_integral_range(time.get("day"),1,MAX_SAVE_DAY): return false
 	if time.has("day_of_week") and not _valid_integral_range(time.get("day_of_week"),1,7): return false

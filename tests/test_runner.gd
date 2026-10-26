@@ -29,6 +29,7 @@ func run() -> void:
 	check("背包增減資料一致", inventory_test())
 	check("關係值正確限制在範圍內", relationship_test())
 	check("正向互動會建立記憶", memory_test())
+	check("必要存檔欄位缺失會使用備份且失敗不改世界", required_save_fields_test())
 	check("存檔與讀檔能還原玩家狀態", save_load_test())
 	check("存檔原子寫入與備份復原", save_recovery_test())
 	check("有效備份不因損壞主檔覆寫而遺失", save_backup_preservation_test())
@@ -775,7 +776,7 @@ func save_envelope_validation_test() -> bool:
 	var malformed_state_accepted := GameManager.deserialize({"player":"tampered","npcs":{}})
 	GameManager.new_game()
 	if malformed_state_accepted: return false
-	if not bool(migration.migrate({"save_version":2,"world_state":GameManager.serialize()}).get("ok",false)): return false
+	if not bool(migration.migrate({"save_version":2,"time":GameTime.serialize(),"world_state":GameManager.serialize()}).get("ok",false)): return false
 	var temp_path := SaveManager._storage_path("echo_village_oversized_test.tmp","user://echo_village_oversized_test.tmp")
 	var temp_file := FileAccess.open(temp_path,FileAccess.WRITE)
 	if temp_file == null: return false
@@ -1899,3 +1900,37 @@ func bundled_font_covers_project_text_test() -> bool:
 				if code >= 0x20 and not font.has_char(code): missing[char(code)] = file_name
 	if not missing.is_empty(): push_error("字型缺字（請執行 tools/build_font_subset.py）：" + str(missing))
 	return missing.is_empty()
+
+func required_save_fields_test() -> bool:
+	var root := OS.get_environment("ECHO_VILLAGE_TEST_STORAGE_ROOT")
+	if root.is_empty(): root = ProjectSettings.globalize_path("res://.test-data")
+	var primary := root.path_join("echo_village_save.json")
+	var backup := primary + ".bak"
+	for field in ["coin","position","inventory","time","npc_position","npc_target","npc_needs"]:
+		GameManager.new_game()
+		GameManager.player["coin"] = 91
+		if not SaveManager.save_game(): return false
+		GameManager.player["coin"] = 123
+		if not SaveManager.save_game(): return false
+		var envelope = JSON.parse_string(SaveManager.read_limited_text(primary,SaveManager.MAX_SAVE_BYTES))
+		if field == "time":
+			envelope.erase("time")
+		elif field.begins_with("npc_"):
+			envelope["world_state"]["npcs"]["alice"].erase(field.trim_prefix("npc_"))
+		else:
+			envelope["world_state"]["player"].erase(field)
+		var corrupt := JSON.stringify(envelope)
+		var file := FileAccess.open(primary,FileAccess.WRITE)
+		file.store_string(corrupt)
+		file.close()
+		GameManager.player["coin"] = 777
+		if not SaveManager.load_game() or not SaveManager.last_load_recovered or int(GameManager.player["coin"]) != 91: return false
+		for path in [primary,backup]:
+			file = FileAccess.open(path,FileAccess.WRITE)
+			file.store_string(corrupt)
+			file.close()
+		var before := GameManager.serialize()
+		var time_before := GameTime.serialize()
+		if SaveManager.load_game() or GameManager.serialize()["player"] != before["player"] or GameTime.serialize() != time_before: return false
+	GameManager.new_game()
+	return true

@@ -911,6 +911,8 @@ func _valid_emergent_definition(value: Variant) -> bool:
 func _valid_player_state(value: Variant) -> bool:
 	if not (value is Dictionary): return false
 	var state: Dictionary = value
+	if not state.has("position") or not (state["position"] is Vector2): return false
+	if not state.has("coin") or not _valid_number(state["coin"],0.0,1000000000.0): return false
 	if not state.has("inventory") or not _valid_numeric_map(state.get("inventory")): return false
 	for key in ["position","target"]:
 		if state.has(key) and not (state[key] is Vector2): return false
@@ -922,6 +924,8 @@ func _valid_npc_state(value: Variant) -> bool:
 	for npc_value in value.values():
 		if not (npc_value is Dictionary): return false
 		var npc: Dictionary = npc_value
+		for required_position in ["position","target"]:
+			if not npc.has(required_position) or not (npc[required_position] is Vector2): return false
 		if not (npc.get("needs") is Dictionary): return false
 		var needs: Dictionary = npc["needs"]
 		for key in ["hunger","energy","social","safety"]:
