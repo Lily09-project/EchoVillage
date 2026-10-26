@@ -30,6 +30,7 @@ func run() -> void:
 	check("關係值正確限制在範圍內", relationship_test())
 	check("正向互動會建立記憶", memory_test())
 	check("必要存檔欄位缺失會使用備份且失敗不改世界", required_save_fields_test())
+	check("NPC runtime save boundary rejects malformed consumers", npc_runtime_save_boundary_test())
 	check("存檔與讀檔能還原玩家狀態", save_load_test())
 	check("存檔原子寫入與備份復原", save_recovery_test())
 	check("有效備份不因損壞主檔覆寫而遺失", save_backup_preservation_test())
@@ -1940,3 +1941,24 @@ func required_save_fields_test() -> bool:
 		if SaveManager.load_game() or GameManager.serialize()["player"] != before["player"] or GameTime.serialize() != time_before: return false
 	GameManager.new_game()
 	return true
+
+func npc_runtime_save_boundary_test() -> bool:
+	GameManager.new_game()
+	var valid: Dictionary = GameManager.serialize()
+	var accepted := 0
+	for field in ["display_name","action","work_location","home_location","action_cooldowns","personality","base_schedule","schedule_entry","relationship_value","memory_fields","dialogue_profile"]:
+		var candidate: Dictionary = valid.duplicate(true)
+		var npc: Dictionary = candidate["npcs"]["alice"]
+		match field:
+			"display_name","action","work_location","home_location","action_cooldowns": npc.erase(field)
+			"personality": npc["personality"] = "broken"
+			"base_schedule": npc["base_schedule"] = "broken"
+			"schedule_entry": npc["base_schedule"] = [{"hour":"broken","action":"Work"}]
+			"relationship_value": npc["relationships"]["player"]["trust"] = "broken"
+			"memory_fields": npc["memories"] = [{"description":"broken"}]
+			"dialogue_profile": npc["dialogue_profile"] = "broken"
+		if GameManager.validate_serialized_state(candidate):
+			print("Unexpected accepted NPC runtime save field: " + field)
+			accepted += 1
+		if GameManager.serialize() != valid: return false
+	return accepted == 0
