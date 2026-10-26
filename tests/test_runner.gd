@@ -1175,17 +1175,18 @@ func npc_state_machine_test() -> bool:
 	machine.transition_for_action(npc,"Work",Vector2(1000,500),before_midnight)
 	var moving_ok: bool = npc["state"] == "Moving" and npc["current_action"] == "Work"
 	npc["position"] = npc["current_target"]
-	GameTime.advance_minute()
+	GameTime.day = 3
+	GameTime.minute = 0
 	var after_midnight := GameTime.absolute_minute()
 	var clock_ok := after_midnight == before_midnight + 1
 	machine.update(npc,after_midnight)
 	var working_ok: bool = npc["state"] == "Working"
 	machine.transition_for_action(npc,"Sleep",npc["position"],after_midnight)
 	var sleeping_ok: bool = npc["state"] == "Sleeping"
-	for _minute in machine.ACTION_TIMEOUT_MINUTES:
-		GameTime.advance_minute()
-	machine.update(npc,GameTime.absolute_minute())
-	return clock_ok and moving_ok and working_ok and sleeping_ok and npc["state"] == "Idle"
+	machine.update(npc,after_midnight + 89)
+	var timeout_wait_ok: bool = npc["state"] == "Sleeping"
+	machine.update(npc,after_midnight + 90)
+	return clock_ok and moving_ok and working_ok and sleeping_ok and timeout_wait_ok and npc["state"] == "Idle"
 
 func concrete_npc_actions_test() -> bool:
 	var expected := {
