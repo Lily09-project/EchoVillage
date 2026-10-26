@@ -950,9 +950,11 @@ func _valid_player_state(value: Variant) -> bool:
 
 func _valid_npc_state(value: Variant) -> bool:
 	if not (value is Dictionary) or value.size() > 64: return false
-	for npc_value in value.values():
-		if not (npc_value is Dictionary): return false
-		var npc: Dictionary = npc_value
+	for npc_id in value:
+		if not (npc_id is String) or not (value[npc_id] is Dictionary): return false
+		var npc: Dictionary = value[npc_id]
+		if not (npc.get("id") is String) or npc.get("id") != npc_id: return false
+		if not _valid_integer(npc.get("last_decision"),-1000000000,2000000000): return false
 		for required_position in ["position","target"]:
 			if not npc.has(required_position) or not (npc[required_position] is Vector2): return false
 		if not (npc.get("needs") is Dictionary): return false
