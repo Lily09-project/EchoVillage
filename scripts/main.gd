@@ -133,6 +133,7 @@ func connect_ui_refresh_signals() -> void:
 	EventBus.community_progressed.connect(func(_entry: Dictionary): request_ui_refresh(UiRefreshSchedulerScript.PROGRESSION | UiRefreshSchedulerScript.LOG | UiRefreshSchedulerScript.WORLD, "community progressed"))
 	EventBus.quest_changed.connect(func(_snapshot: Array): request_ui_refresh(UiRefreshSchedulerScript.QUEST | UiRefreshSchedulerScript.PLAYER | UiRefreshSchedulerScript.PROGRESSION, "quest changed"))
 	EventBus.location_changed.connect(func(_location_id: String): request_ui_refresh(UiRefreshSchedulerScript.WORLD | UiRefreshSchedulerScript.PLAYER | UiRefreshSchedulerScript.NPC | UiRefreshSchedulerScript.QUEST | UiRefreshSchedulerScript.CONTEXT, "location changed"))
+	EventBus.load_completed.connect(func(_path: String): request_ui_refresh(UiRefreshSchedulerScript.ALL, "load completed"))
 	EventBus.save_completed.connect(func(_path: String): request_ui_refresh(UiRefreshSchedulerScript.LOG, "save completed"))
 	EventBus.save_failed.connect(func(kind: String, reason: String):
 		request_ui_refresh(UiRefreshSchedulerScript.LOG,"save failed")
@@ -481,7 +482,7 @@ func create_ui() -> void:
 	canvas.add_child(bottom_readability_scrim)
 	brand_label = make_label(Vector2(58,4),Vector2(520,30),20,VillageTheme.SUN)
 	brand_label.text = "ECHO VILLAGE"
-	clock_label = make_label(Vector2(58,35), Vector2(370,38), 22, VillageTheme.PAPER)
+	clock_label = make_label(Vector2(58,35), Vector2(370,38), 20, VillageTheme.PAPER)
 	resource_label = make_label(Vector2(876,35), Vector2(345,38), 18, VillageTheme.PAPER)
 	event_label = make_label(Vector2(440,35), Vector2(390,38), 16, VillageTheme.SUN)
 	renown_label = make_label(Vector2(900,6), Vector2(320,22), 13, VillageTheme.MOSS_LIGHT)
@@ -910,7 +911,7 @@ func create_pulse_panel() -> void:
 	pulse_panel.add_theme_stylebox_override("panel",VillageTheme.card_style(Color("f7edcf"),VillageTheme.MOSS))
 	canvas.add_child(pulse_panel)
 	var title := make_panel_label(pulse_panel,Vector2(16,14),Vector2(245,28),17,VillageTheme.INK)
-	title.text = "村落脈動  /  VILLAGE PULSE"
+	title.text = "村落脈動"
 	pulse_label = make_panel_label(pulse_panel,Vector2(16,48),Vector2(245,120),14,VillageTheme.INK_SOFT)
 	pulse_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
@@ -1453,7 +1454,7 @@ func refresh_ui() -> void:
 
 func refresh_time_ui() -> void:
 	var visual: Dictionary = GameTime.visual_profile()
-	clock_label.text = GameTime.formatted_time() + "  ·  " + str(visual["phase"]) + "  ×%.0f" % GameTime.time_scale
+	clock_label.text = GameTime.formatted_time().replace(" · "," ") + " " + str(visual["phase"]) + " ×%.0f" % GameTime.time_scale
 	time_label.text = "%s · 動態%s" % [str(visual["phase"]),"開" if motion_enabled else "關"]
 
 func refresh_player_ui() -> void:
@@ -1467,7 +1468,7 @@ func refresh_player_ui() -> void:
 func refresh_world_ui() -> void:
 	var progress: Dictionary = GameManager.community_progress()
 	event_label.text = "事件：" + str(GameManager.active_event.get("display_name","平靜的村落"))
-	pulse_label.text = "居民運作中：%d / 5\n當前事件：%s\n模擬速度：×%.0f\n編年進度：%d / 3\n\nE 選取村民，查看關係與記憶。" % [GameManager.npcs.size(),str(GameManager.active_event.get("display_name","平靜的村落")),GameTime.time_scale,int(progress["unlocked"])]
+	pulse_label.text = "居民運作中：%d / 5\n當前事件：%s\n模擬速度：×%.0f\n編年進度：%d / 3" % [GameManager.npcs.size(),str(GameManager.active_event.get("display_name","平靜的村落")),GameTime.time_scale,int(progress["unlocked"])]
 	world_map_panel.set_locations(GameManager.location_defs,GameManager.current_location,GameManager.discovered_locations)
 
 func refresh_log_ui() -> void:

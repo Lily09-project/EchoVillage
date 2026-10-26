@@ -455,6 +455,23 @@ func ui_refresh_scheduler_integration_test() -> bool:
 	var result: bool = int(idle.get("flushes",-1)) == int(before.get("flushes",-2)) \
 		and int(after.get("flushes",-1)) == int(idle.get("flushes",-1)) + 1 \
 		and int(after.get("coalesced_requests",-1)) >= int(idle.get("coalesced_requests",0)) + 1
+	# Loading a valid save must invalidate cached player fields, not only logs/time.
+	GameManager.player["coin"] = 17
+	GameManager.player["inventory"]["bread"] = 7
+	if not SaveManager.save_game():
+		instance.queue_free()
+		return false
+	GameManager.player["coin"] = 24
+	GameManager.player["inventory"]["bread"] = 3
+	instance.refresh_ui()
+	var saved_loaded: bool = SaveManager.load_game()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	result = result and saved_loaded and int(GameManager.player["coin"]) == 17 \
+		and str(instance.resource_label.text).contains("硬幣 17") \
+		and str(instance.resource_label.text).contains("麵包 7") \
+		and str(instance.inventory_label.text).contains("17") \
+		and str(instance.inventory_label.text).contains("麵包  × 7")
 	instance.queue_free()
 	return result
 
@@ -1847,6 +1864,9 @@ func text_scale_application_test() -> bool:
 	var base := label.get_theme_font_size("font_size")
 	instance.set_text_scale(130)
 	instance.set_text_scale(130)
+	instance.refresh_ui()
+	await get_tree().process_frame
+	var header_fits: bool = instance.clock_label.position.x + instance.clock_label.size.x <= instance.event_label.position.x and instance.pulse_label.position.y + instance.pulse_label.size.y <= instance.pulse_panel.size.y
 	var scaled := label.get_theme_font_size("font_size")
 	var pressed: bool = instance.text_scale_buttons[2].button_pressed and not instance.text_scale_buttons[0].button_pressed
 	GameManager.interact("bob","steal_food")
@@ -1858,7 +1878,7 @@ func text_scale_application_test() -> bool:
 	instance.set_text_scale(100)
 	var restored := label.get_theme_font_size("font_size")
 	instance.queue_free()
-	return scaled == roundi(base * 1.3) and pressed and dynamic_ok and restored == base
+	return scaled == roundi(base * 1.3) and pressed and dynamic_ok and restored == base and header_fits
 
 func bundled_font_covers_project_text_test() -> bool:
 	var font_path := str(ProjectSettings.get_setting("gui/theme/custom_font",""))

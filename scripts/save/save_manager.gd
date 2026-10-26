@@ -161,6 +161,7 @@ func load_game() -> bool:
 	GameTime.deserialize(migrated.get("time",{}))
 	GameManager.add_log("已讀取存檔並還原模擬狀態。")
 	if last_load_recovered: GameManager.add_log(last_recovery_reason)
+	EventBus.load_completed.emit(save_path)
 	return true
 
 func load_preferences() -> Dictionary:
