@@ -47,6 +47,7 @@ jobs:
           "$GODOT" --headless --path . --import
           mkdir -p release/web
           "$GODOT" --headless --path . --export-release "Web" release/web/index.html
+          cat THIRD_PARTY_NOTICES.txt assets/fonts/OFL.txt GODOT_COPYRIGHT.txt > release/web/THIRD_PARTY_NOTICES.txt
           for file in index.html index.js index.wasm index.pck; do test -s "release/web/$file"; done
 
       - name: Record export size
@@ -68,6 +69,7 @@ jobs:
         working-directory: tools/web_smoke
         run: |
           npm ci --no-audit --no-fund
+          npm audit --audit-level=low
           npx playwright install --with-deps chromium
 
       - name: Boot the game in Chromium

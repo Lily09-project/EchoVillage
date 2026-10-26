@@ -21,3 +21,13 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
+
+Additional bundled components
+=============================
+Noto Sans TC, subset for Echo Village, is distributed under the SIL Open Font
+License 1.1. Its complete copyright/license text is appended to each Windows
+and Web package from assets/fonts/OFL.txt.
+
+Godot 4.5.2 bundled third-party copyright/license texts are preserved verbatim
+in GODOT_COPYRIGHT.txt from godotengine/godot tag 4.5.2-stable. That complete
+file is also appended to the package notices below the font license.

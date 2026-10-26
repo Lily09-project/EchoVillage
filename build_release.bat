@@ -37,6 +37,10 @@ copy /Y "RELEASE_README.txt" "release\EchoVillage\README.txt" >nul
 if errorlevel 1 goto :failed
 copy /Y "THIRD_PARTY_NOTICES.txt" "release\EchoVillage\THIRD_PARTY_NOTICES.txt" >nul
 if errorlevel 1 goto :failed
+type "assets\fonts\OFL.txt" >> "release\EchoVillage\THIRD_PARTY_NOTICES.txt"
+if errorlevel 1 goto :failed
+type "GODOT_COPYRIGHT.txt" >> "release\EchoVillage\THIRD_PARTY_NOTICES.txt"
+if errorlevel 1 goto :failed
 
 echo [4/4] Smoke-testing the packaged executable...
 set "SMOKE_LOG=%TEMP%\EchoVillage_smoke_%RANDOM%.log"
