@@ -8,23 +8,23 @@ const REQUIRED_STATES := ["Idle","Moving","PerformingAction","Talking","Sleeping
 func available_states() -> Array:
 	return REQUIRED_STATES.duplicate()
 
-func transition_for_action(npc: Dictionary, action_id: String, target: Vector2, minute: int) -> void:
+func transition_for_action(npc: Dictionary, action_id: String, target: Vector2, absolute_minute: int) -> void:
 	npc["current_action"] = action_id
 	npc["current_target"] = target
 	npc["target"] = target
-	npc["state_entered_minute"] = minute
+	npc["state_entered_minute"] = absolute_minute
 	npc["state"] = "Moving" if npc.get("position",Vector2.ZERO).distance_to(target) > ARRIVAL_DISTANCE else state_for_action(action_id)
 
-func update(npc: Dictionary, minute: int) -> void:
-	if minute - int(npc.get("state_entered_minute",minute)) >= ACTION_TIMEOUT_MINUTES:
+func update(npc: Dictionary, absolute_minute: int) -> void:
+	if absolute_minute - int(npc.get("state_entered_minute",absolute_minute)) >= ACTION_TIMEOUT_MINUTES:
 		npc["state"] = "Idle"
 		npc["current_action"] = "Idle"
 		npc["current_goal"] = "Recover after action timeout"
-		npc["state_entered_minute"] = minute
+		npc["state_entered_minute"] = absolute_minute
 		return
 	if str(npc.get("state","Idle")) == "Moving" and npc.get("position",Vector2.ZERO).distance_to(npc.get("current_target",npc.get("position",Vector2.ZERO))) <= ARRIVAL_DISTANCE:
 		npc["state"] = state_for_action(str(npc.get("current_action","Idle")))
-		npc["state_entered_minute"] = minute
+		npc["state_entered_minute"] = absolute_minute
 
 func state_for_action(action_id: String) -> String:
 	match action_id:
