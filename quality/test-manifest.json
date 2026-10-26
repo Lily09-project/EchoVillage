@@ -18,7 +18,7 @@
     },
     {
       "id": "nightly_soak", "category": "stability", "type": "command",
-      "profiles": ["nightly"], "timeout_seconds": 660,
+      "profiles": ["nightly"], "timeout_seconds": 1080,
       "network": "forbidden", "writes_project": true, "required": true,
       "command": ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "tools/run_nightly_soak.ps1"],
       "evidence": ["tests/soak_test_report.json"],

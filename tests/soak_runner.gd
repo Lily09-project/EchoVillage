@@ -7,34 +7,60 @@ const MAX_MEMORY_GROWTH_BYTES := 64 * 1024 * 1024
 const MAX_FINAL_SEGMENT_RATIO := 1.5
 
 func _ready() -> void:
+	print("SOAK_BOOT phase=ready")
 	call_deferred("run")
 
+func _record_progress(file: FileAccess, day: int, phase: String, minute: int, started_us: int) -> void:
+	var line := "SOAK_PROGRESS day=%d phase=%s minute=%d elapsed_ms=%d" % [day, phase, minute, int((Time.get_ticks_usec() - started_us) / 1000)]
+	print(line)
+	if file != null:
+		file.store_line(line)
+		file.flush()
+
 func run() -> void:
-	await get_tree().process_frame
-	GameTime.set_simulation_paused(true)
-	GameTime.reset_clock()
-	GameManager.new_game()
-	GameManager.trigger_world_event("minor_danger")
-	var initial_memory := int(Performance.get_monitor(Performance.MEMORY_STATIC))
 	var started_us := Time.get_ticks_usec()
+	var progress_directory := ProjectSettings.globalize_path("res://reports/acceptance")
+	DirAccess.make_dir_recursive_absolute(progress_directory)
+	var progress_file := FileAccess.open("res://reports/acceptance/nightly-soak-progress.log", FileAccess.WRITE)
+	_record_progress(progress_file, 0, "runner-start", 0, started_us)
+	if progress_file == null:
+		push_error("Unable to write nightly-soak-progress.log")
+	_record_progress(progress_file, 0, "before-process-frame", 0, started_us)
+	await get_tree().process_frame
+	_record_progress(progress_file, 0, "process-frame-ready", 0, started_us)
+	GameTime.reset_clock()
+	GameTime.set_simulation_paused(true)
+	_record_progress(progress_file, 0, "clock-paused", 0, started_us)
+	GameManager.new_game()
+	_record_progress(progress_file, 0, "new-game-complete", 0, started_us)
+	GameManager.trigger_world_event("minor_danger")
+	_record_progress(progress_file, 0, "event-started", 0, started_us)
+	var initial_memory := int(Performance.get_monitor(Performance.MEMORY_STATIC))
 	var segment_started_us := started_us
 	var checkpoints: Array[Dictionary] = []
-
 	for day_index in DAYS:
+		var day := day_index + 1
+		_record_progress(progress_file, day, "day-start", 0, started_us)
 		# Keep the rumour mill busy: a kind or unkind act every few days.
 		if day_index % 3 == 0: GameManager.interact(["alice","bob","charlie","diana","eric"][day_index % 5],"give_bread" if day_index % 2 == 0 else "steal_food")
 		if day_index % 7 == 0 and not GameManager.emergent_offers.is_empty(): GameManager.accept_emergent_quest(str(GameManager.emergent_offers[0]["id"]))
-		for _minute in MINUTES_PER_DAY:
+		_record_progress(progress_file, day, "interactions-complete", 0, started_us)
+		for minute_index in MINUTES_PER_DAY:
 			GameTime.advance_minute()
+			if (minute_index + 1) % 360 == 0:
+				_record_progress(progress_file, day, "simulation", minute_index + 1, started_us)
+		_record_progress(progress_file, day, "day-complete", MINUTES_PER_DAY, started_us)
 		if (day_index + 1) % 30 == 0:
 			var now_us := Time.get_ticks_usec()
 			var snapshot := GameManager.serialize()
-			checkpoints.append({
+			var checkpoint := {
 				"day": day_index + 1,
 				"elapsed_ms": float(now_us - segment_started_us) / 1000.0,
 				"memory_bytes": int(Performance.get_monitor(Performance.MEMORY_STATIC)),
 				"save_bytes": JSON.stringify(snapshot).to_utf8_buffer().size()
-			})
+			}
+			checkpoints.append(checkpoint)
+			print("SOAK_CHECKPOINT day=%d segment_ms=%.3f memory_bytes=%d save_bytes=%d" % [checkpoint["day"], checkpoint["elapsed_ms"], checkpoint["memory_bytes"], checkpoint["save_bytes"]])
 			segment_started_us = now_us
 
 	var final_snapshot := GameManager.serialize()
