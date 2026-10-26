@@ -31,6 +31,7 @@ func run() -> void:
 	check("正向互動會建立記憶", memory_test())
 	check("必要存檔欄位缺失會使用備份且失敗不改世界", required_save_fields_test())
 	check("NPC runtime save boundary rejects malformed consumers", npc_runtime_save_boundary_test())
+	check("Modal panels block world interaction keys", await modal_world_input_test())
 	check("存檔與讀檔能還原玩家狀態", save_load_test())
 	check("存檔原子寫入與備份復原", save_recovery_test())
 	check("有效備份不因損壞主檔覆寫而遺失", save_backup_preservation_test())
@@ -1946,19 +1947,56 @@ func npc_runtime_save_boundary_test() -> bool:
 	GameManager.new_game()
 	var valid: Dictionary = GameManager.serialize()
 	var accepted := 0
-	for field in ["display_name","action","work_location","home_location","action_cooldowns","personality","base_schedule","schedule_entry","relationship_value","memory_fields","dialogue_profile"]:
+	for field in ["display_name","action","work_location","home_location","action_cooldowns","personality","base_schedule","schedule_entry","relationship_value","memory_fields","dialogue_profile","occupation","mood","goal","state","scores","decision","temporary_modifiers","npc_coin"]:
 		var candidate: Dictionary = valid.duplicate(true)
 		var npc: Dictionary = candidate["npcs"]["alice"]
 		match field:
-			"display_name","action","work_location","home_location","action_cooldowns": npc.erase(field)
+			"display_name","action","work_location","home_location","action_cooldowns","occupation","mood","goal","state": npc.erase(field)
 			"personality": npc["personality"] = "broken"
 			"base_schedule": npc["base_schedule"] = "broken"
 			"schedule_entry": npc["base_schedule"] = [{"hour":"broken","action":"Work"}]
 			"relationship_value": npc["relationships"]["player"]["trust"] = "broken"
 			"memory_fields": npc["memories"] = [{"description":"broken"}]
 			"dialogue_profile": npc["dialogue_profile"] = "broken"
+			"scores": npc["scores"] = "broken"
+			"decision": npc["decision"] = "broken"
+			"temporary_modifiers": npc["temporary_modifiers"] = "broken"
+			"npc_coin": npc["coin"] = "broken"
 		if GameManager.validate_serialized_state(candidate):
 			print("Unexpected accepted NPC runtime save field: " + field)
 			accepted += 1
 		if GameManager.serialize() != valid: return false
 	return accepted == 0
+
+func modal_world_input_test() -> bool:
+	var instance: Node = await _main_instance()
+	instance.set_process(false)
+	var violations := 0
+	for panel_name in ["inventory_panel","pause_panel","journal_panel","quest_log_panel","world_map_panel","progression_panel","story_arc_panel","rumor_network_panel","village_journal_panel","showcase_panel","trade_panel"]:
+		for action in ["interact","talk","give","steal","ask","trade","event_danger"]:
+			GameManager.new_game()
+			instance.close_modal_panels()
+			GameManager.player["position"] = GameManager.npcs["alice"]["position"] + Vector2(-20,0)
+			instance.selected_id = "alice"
+			var panel: Control = instance.get(panel_name)
+			panel.visible = true
+			instance.sync_simulation_pause()
+			var before: Dictionary = GameManager.serialize()
+			Input.action_press(action)
+			instance.handle_shortcuts()
+			Input.action_release(action)
+			if GameManager.serialize() != before or not panel.visible:
+				print("Modal world input leaked: " + panel_name + "/" + action)
+				violations += 1
+			await get_tree().process_frame
+	instance.close_modal_panels()
+	# An ordinary action must still work after dismissing the panel.
+	GameManager.new_game()
+	instance.selected_id = "alice"
+	var bread_before := int(GameManager.player["inventory"]["bread"])
+	Input.action_press("give")
+	instance.handle_shortcuts()
+	Input.action_release("give")
+	var active_ok := int(GameManager.player["inventory"]["bread"]) == bread_before - 1
+	instance.queue_free()
+	return violations == 0 and active_ok
