@@ -64,22 +64,29 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $progressPath = Join-Path $PWD 'reports\acceptance\nightly-soak-progress.log'
           $logRoot = Join-Path $PWD 'reports\acceptance'
           $paths = @()
-          if (Test-Path -LiteralPath $progressPath -PathType Leaf) { $paths += $progressPath }
-          $stdoutLogs = Get-ChildItem -LiteralPath $logRoot -Filter 'nightly_soak.stdout.log' -File -Recurse -ErrorAction SilentlyContinue
-          foreach ($entry in $stdoutLogs) { $paths += $entry.FullName }
-          $lines = foreach ($path in $paths) {
-            Get-Content -LiteralPath $path -Encoding UTF8 -ErrorAction SilentlyContinue |
-              Where-Object { $_ -match 'SOAK_PROGRESS|SOAK_CHECKPOINT|SOAK_RESULT|Godot process timed out' }
+          if (Test-Path -LiteralPath $logRoot -PathType Container) {
+            $paths += Get-ChildItem -LiteralPath $logRoot -Filter 'nightly-soak-progress.log' -File -Recurse -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName }
+            $paths += Get-ChildItem -LiteralPath $logRoot -Filter 'nightly_soak.*.log' -File -Recurse -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName }
           }
-          if ($lines) {
-            $lines | Select-Object -Last 40 | ForEach-Object { Write-Output $_ }
+          $paths = @($paths | Select-Object -Unique)
+          Write-Output ("SOAK_DIAGNOSTIC log_files={0}" -f $paths.Count)
+          foreach ($path in $paths) {
+            $item = Get-Item -LiteralPath $path -ErrorAction SilentlyContinue
+            if ($item) { Write-Output ("SOAK_DIAGNOSTIC file={0} bytes={1}" -f $item.Name, $item.Length) }
+          }
+          $allLines = foreach ($path in $paths) {
+            Get-Content -LiteralPath $path -Encoding UTF8 -ErrorAction SilentlyContinue
+          }
+          $progress = @($allLines | Where-Object { $_ -match 'SOAK_BOOT|SOAK_PROGRESS|SOAK_CHECKPOINT|SOAK_RESULT|Godot process timed out' })
+          if ($progress.Count -gt 0) {
+            $progress | Select-Object -Last 40 | ForEach-Object { Write-Output $_ }
           } else {
-            Write-Output 'No soak checkpoints were emitted.'
+            Write-Output 'SOAK_DIAGNOSTIC no progress markers found'
+            $errors = @($allLines | Where-Object { $_ -match '(?i)SCRIPT ERROR|ERROR:|exception|timed out|failed with exit code|failed to start' })
+            $errors | Select-Object -Last 25 | ForEach-Object { Write-Output $_ }
           }
-
       - name: Upload nightly evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

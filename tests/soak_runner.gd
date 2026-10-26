@@ -7,6 +7,7 @@ const MAX_MEMORY_GROWTH_BYTES := 64 * 1024 * 1024
 const MAX_FINAL_SEGMENT_RATIO := 1.5
 
 func _ready() -> void:
+	print("SOAK_BOOT phase=ready")
 	call_deferred("run")
 
 func _record_progress(file: FileAccess, day: int, phase: String, minute: int, started_us: int) -> void:
@@ -17,20 +18,26 @@ func _record_progress(file: FileAccess, day: int, phase: String, minute: int, st
 		file.flush()
 
 func run() -> void:
-	await get_tree().process_frame
-	GameTime.set_simulation_paused(true)
-	GameTime.reset_clock()
-	GameManager.new_game()
-	GameManager.trigger_world_event("minor_danger")
-	var initial_memory := int(Performance.get_monitor(Performance.MEMORY_STATIC))
 	var started_us := Time.get_ticks_usec()
-	var segment_started_us := started_us
-	var checkpoints: Array[Dictionary] = []
 	var progress_directory := ProjectSettings.globalize_path("res://reports/acceptance")
 	DirAccess.make_dir_recursive_absolute(progress_directory)
 	var progress_file := FileAccess.open("res://reports/acceptance/nightly-soak-progress.log", FileAccess.WRITE)
-	_record_progress(progress_file, 0, "started", 0, started_us)
-
+	_record_progress(progress_file, 0, "runner-start", 0, started_us)
+	if progress_file == null:
+		push_error("Unable to write nightly-soak-progress.log")
+	_record_progress(progress_file, 0, "before-process-frame", 0, started_us)
+	await get_tree().process_frame
+	_record_progress(progress_file, 0, "process-frame-ready", 0, started_us)
+	GameTime.reset_clock()
+	GameTime.set_simulation_paused(true)
+	_record_progress(progress_file, 0, "clock-paused", 0, started_us)
+	GameManager.new_game()
+	_record_progress(progress_file, 0, "new-game-complete", 0, started_us)
+	GameManager.trigger_world_event("minor_danger")
+	_record_progress(progress_file, 0, "event-started", 0, started_us)
+	var initial_memory := int(Performance.get_monitor(Performance.MEMORY_STATIC))
+	var segment_started_us := started_us
+	var checkpoints: Array[Dictionary] = []
 	for day_index in DAYS:
 		var day := day_index + 1
 		_record_progress(progress_file, day, "day-start", 0, started_us)
