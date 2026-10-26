@@ -942,6 +942,7 @@ func trade_ui_structure_test() -> bool:
 	var before := GameManager.serialize()
 	instance.handle_buy_request("missing_item")
 	result = trade_feedback_probe("invalid-buy",instance.impact_title.text == "交易未完成" and GameManager.serialize() == before,instance) and result
+	result = trade_feedback_probe("invalid-buy-inline",instance.trade_panel.feedback_label.text.begins_with("交易未完成："),instance) and result
 	instance.handle_sell_request("missing_item")
 	result = trade_feedback_probe("invalid-sell",instance.impact_title.text == "交易未完成" and GameManager.serialize() == before,instance) and result
 	GameManager.player["coin"] = 0
@@ -955,6 +956,11 @@ func trade_ui_structure_test() -> bool:
 	result = trade_feedback_probe("valid-buy",instance.impact_title.text == "交易完成" and instance.impact_body.text == "買入完成。",instance) and result
 	instance.handle_sell_request("medicine")
 	result = trade_feedback_probe("valid-sell",instance.impact_title.text == "交易完成" and instance.impact_body.text == "出售完成。",instance) and result
+	result = trade_feedback_probe("valid-sell-inline",instance.trade_panel.feedback_label.text == "交易完成：出售完成。",instance) and result
+	var close_trade := instance.trade_panel.get_node("CloseButton") as Button
+	result = trade_feedback_probe("trade-feedback-layout",instance.trade_panel.feedback_label.position.y + instance.trade_panel.feedback_label.size.y <= instance.trade_panel.buy_button.position.y and instance.trade_panel.buy_button.position.y + instance.trade_panel.buy_button.size.y <= close_trade.position.y and close_trade.position.y + close_trade.size.y <= instance.trade_panel.size.y,instance) and result
+	instance.trade_panel.refresh_selection()
+	result = trade_feedback_probe("trade-feedback-clears-on-selection",instance.trade_panel.feedback_label.text.is_empty(),instance) and result
 	for action in ["craft","gather"]:
 		instance.show_interaction_feedback(action,"隔離測試失敗",{"ok":false})
 		result = trade_feedback_probe("craft-gather-failure",instance.impact_title.text == ("製作未完成" if action == "craft" else "採集未完成"),instance) and result

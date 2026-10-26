@@ -10,13 +10,14 @@ var catalog: Array = []
 var merchant_label: Label
 var item_selector: OptionButton
 var detail_label: Label
+var feedback_label: Label
 var buy_button: Button
 var sell_button: Button
 
 func _ready() -> void:
 	visibility_changed.connect(_on_panel_visibility_changed)
 	position = Vector2(370,118)
-	size = Vector2(540,470)
+	size = Vector2(540,524)
 	add_theme_stylebox_override("panel",VillageTheme.card_style(VillageTheme.CREAM,VillageTheme.SUN))
 	make_label(Vector2(24,18),Vector2(490,36),24,VillageTheme.INK,"交易櫃台  /  MARKET")
 	merchant_label = make_label(Vector2(24,58),Vector2(490,26),14,VillageTheme.INK_SOFT,"")
@@ -30,11 +31,14 @@ func _ready() -> void:
 	item_selector.item_selected.connect(func(_index: int): refresh_selection())
 	detail_label = make_label(Vector2(24,198),Vector2(492,120),15,VillageTheme.INK_SOFT,"")
 	detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	buy_button = make_button("BuyButton",Vector2(24,332),Vector2(230,52),"買入 1 個",VillageTheme.MOSS)
-	sell_button = make_button("SellButton",Vector2(286,332),Vector2(230,52),"出售 1 個",VillageTheme.SUN)
+	feedback_label = make_label(Vector2(24,324),Vector2(492,48),14,VillageTheme.INK,"")
+	feedback_label.name = "FeedbackLabel"
+	feedback_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	buy_button = make_button("BuyButton",Vector2(24,384),Vector2(230,52),"買入 1 個",VillageTheme.MOSS)
+	sell_button = make_button("SellButton",Vector2(286,384),Vector2(230,52),"出售 1 個",VillageTheme.SUN)
 	buy_button.pressed.connect(_request_buy)
 	sell_button.pressed.connect(_request_sell)
-	var close := make_button("CloseButton",Vector2(326,404),Vector2(190,44),"關閉交易  Esc",VillageTheme.LILAC)
+	var close := make_button("CloseButton",Vector2(326,456),Vector2(190,44),"關閉交易  Esc",VillageTheme.LILAC)
 	close.pressed.connect(func(): visible = false)
 	visible = false
 
@@ -59,6 +63,7 @@ func set_catalog(entries: Array, merchant_name: String, player_coin: int) -> voi
 	refresh_selection()
 
 func refresh_selection() -> void:
+	if feedback_label != null: feedback_label.text = ""
 	if catalog.is_empty():
 		detail_label.text = "目前沒有可交易的物品。"
 		buy_button.disabled = true
@@ -70,6 +75,9 @@ func refresh_selection() -> void:
 	sell_button.disabled = not bool(entry["can_sell"])
 	buy_button.tooltip_text = "庫存與硬幣足夠時可買入" if not buy_button.disabled else "商人缺貨或你的硬幣不足"
 	sell_button.tooltip_text = "出售後立即取得硬幣" if not sell_button.disabled else "你沒有此物品，或商人硬幣不足"
+
+func show_trade_feedback(message: String, succeeded: bool) -> void:
+	feedback_label.text = ("交易完成：" if succeeded else "交易未完成：") + message
 
 func _stop_visibility_motion() -> void:
 	if _visibility_tween != null and _visibility_tween.is_valid():

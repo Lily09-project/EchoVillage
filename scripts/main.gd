@@ -1690,14 +1690,18 @@ func refresh_trade_panel() -> void:
 
 func handle_buy_request(item_id: String) -> void:
 	var result: Dictionary = GameManager.buy_item(selected_id,item_id,1)
-	show_interaction_feedback("trade","買入完成。" if bool(result.get("ok",false)) else str(result.get("reason","無法買入。")),result)
+	var response := "買入完成。" if bool(result.get("ok",false)) else str(result.get("reason","無法買入。"))
+	show_interaction_feedback("trade",response,result)
 	refresh_trade_panel()
+	trade_panel.show_trade_feedback(response,bool(result.get("ok",false)))
 	refresh_ui()
 
 func handle_sell_request(item_id: String) -> void:
 	var result: Dictionary = GameManager.sell_item(selected_id,item_id,1)
-	show_interaction_feedback("trade","出售完成。" if bool(result.get("ok",false)) else str(result.get("reason","無法出售。")),result)
+	var response := "出售完成。" if bool(result.get("ok",false)) else str(result.get("reason","無法出售。"))
+	show_interaction_feedback("trade",response,result)
 	refresh_trade_panel()
+	trade_panel.show_trade_feedback(response,bool(result.get("ok",false)))
 	refresh_ui()
 
 func refresh_debug() -> void:
