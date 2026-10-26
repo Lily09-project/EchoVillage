@@ -433,11 +433,11 @@ func handle_shortcuts() -> void:
 	if Input.is_action_just_pressed("load_game"):
 		var loaded := SaveManager.load_game()
 		if loaded: show_interaction_feedback("load","已讀取最近保存的村落狀態。",{"ok":true})
-	if Input.is_action_just_pressed("event_rain"): GameManager.trigger_world_event("rain")
-	if Input.is_action_just_pressed("event_festival"): GameManager.trigger_world_event("festival")
-	if Input.is_action_just_pressed("event_shortage"): GameManager.trigger_world_event("food_shortage")
-	if Input.is_action_just_pressed("event_danger"): GameManager.trigger_world_event("minor_danger")
-	if Input.is_action_just_pressed("event_injury"): GameManager.trigger_world_event("npc_injury")
+	if not is_blocking_modal_open() and Input.is_action_just_pressed("event_rain"): GameManager.trigger_world_event("rain")
+	if not is_blocking_modal_open() and Input.is_action_just_pressed("event_festival"): GameManager.trigger_world_event("festival")
+	if not is_blocking_modal_open() and Input.is_action_just_pressed("event_shortage"): GameManager.trigger_world_event("food_shortage")
+	if not is_blocking_modal_open() and Input.is_action_just_pressed("event_danger"): GameManager.trigger_world_event("minor_danger")
+	if not is_blocking_modal_open() and Input.is_action_just_pressed("event_injury"): GameManager.trigger_world_event("npc_injury")
 	if Input.is_action_just_pressed("cancel"):
 		if trade_panel.visible:
 			trade_panel.visible = false
@@ -1426,6 +1426,7 @@ func animate_panel_in(panel: Control) -> void:
 	tween.tween_property(panel,"scale",Vector2.ONE,0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 func select_nearest() -> void:
+	if is_blocking_modal_open(): return
 	var nearest := nearest_npc_id(112.0)
 	if nearest == "":
 		GameManager.add_log("請靠近村民後再互動。")
@@ -1440,6 +1441,7 @@ func perform(action: String) -> void:
 		GameManager.add_log(message)
 		show_interaction_feedback(action,message,{"ok":false})
 		return
+	if is_blocking_modal_open(): return
 	if action == "trade":
 		SoundManager.play_interaction("trade")
 		open_trade_panel()

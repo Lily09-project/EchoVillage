@@ -955,9 +955,23 @@ func _valid_npc_state(value: Variant) -> bool:
 		var npc: Dictionary = value[npc_id]
 		if not (npc.get("id") is String) or npc.get("id") != npc_id: return false
 		if not _valid_integer(npc.get("last_decision"),-1000000000,2000000000): return false
-		for key in ["display_name","action","work_location","home_location"]:
+		for key in ["display_name","action","work_location","home_location","occupation","mood","goal","state"]:
 			if not (npc.get(key) is String) or npc[key].is_empty(): return false
 		if not _valid_numeric_map(npc.get("action_cooldowns")): return false
+		if not _valid_number(npc.get("coin",0),0.0,1000000000.0): return false
+		if not _valid_numeric_map(npc.get("scores"),-1000000000.0): return false
+		var decision = npc.get("decision",{})
+		if not (decision is Dictionary): return false
+		for key in ["selected_action","leading_action","runner_up_action","scheduled_action","event_id"]:
+			if not (decision.get(key,"") is String): return false
+		for key in ["leading_score","runner_up_score","threshold"]:
+			if not _valid_number(decision.get(key,0.0),-1000000000.0,1000000000.0): return false
+		if not (decision.get("met_threshold",false) is bool): return false
+		var modifiers = npc.get("temporary_modifiers")
+		if not (modifiers is Array): return false
+		for modifier in modifiers:
+			if not (modifier is Dictionary) or not (modifier.get("id") is String): return false
+			if not _valid_integer(modifier.get("remaining_minutes"),0,1000000000): return false
 		var personality = npc.get("personality",{})
 		if not (personality is Dictionary): return false
 		for trait_value in personality.values():
@@ -993,10 +1007,10 @@ func _valid_npc_state(value: Variant) -> bool:
 			if npc.has(key) and not (npc[key] is Vector2): return false
 	return true
 
-func _valid_numeric_map(value: Variant) -> bool:
+func _valid_numeric_map(value: Variant, minimum: float = 0.0) -> bool:
 	if not (value is Dictionary): return false
 	for entry in value.values():
-		if not _valid_number(entry,0.0,1000000000.0): return false
+		if not _valid_number(entry,minimum,1000000000.0): return false
 	return true
 
 func _valid_number(value: Variant, minimum: float, maximum: float) -> bool:

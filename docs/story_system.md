@@ -37,7 +37,7 @@ UI 只讀 `GameManager.story_snapshot()`，不直接持有權威故事狀態。�
 
 ## 存檔與相容性
 
-故事進度序列化為世界狀態的 `story_progression` 欄位，維持現有 save envelope 與世界 schema v3。載入舊存檔時若缺少欄位會使用空故事狀態；若內容不符合定義、超過 arc／choice 上限或含未知 ID，整份候選狀態會被拒絕，不會部分覆蓋目前世界。
+故事進度序列化為世界狀態的 `story_progression` 欄位，使用 save envelope v2 與世界 schema v4，並相容舊版 v3 世界資料。載入舊存檔時若缺少欄位會使用空故事狀態；若內容不符合定義、超過 arc／choice 上限或含未知 ID，整份候選狀態會被拒絕，不會部分覆蓋目前世界。
 
 `SaveManager` 以 `.tmp` 寫入後替換 primary save，並在下一次寫入前保留 `.bak`。若 primary JSON 損壞或 schema 無法載入，會嘗試最後一份有效 backup，成功後回寫 primary 並提供 `get_save_recovery_status()` 供診斷與 UI 使用。
 
