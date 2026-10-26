@@ -288,10 +288,12 @@ func simulation_test() -> bool:
 	GameManager.trigger_world_event("minor_danger")
 	for _minute in 10080:
 		GameTime.advance_minute()
+	var now := GameTime.absolute_minute()
 	for npc in GameManager.npcs.values():
 		for value in npc["needs"].values():
 			if float(value) < 0.0 or float(value) > 100.0: return false
 		if npc["state"] == "" or npc["action"] == "": return false
+		if now - int(npc.get("last_decision",-1)) > GameManager.DECISION_INTERVAL: return false
 	return true
 
 func long_simulation_stability_test() -> bool:
@@ -301,10 +303,12 @@ func long_simulation_stability_test() -> bool:
 		GameTime.advance_minute()
 	var elapsed_ms := int((Time.get_ticks_usec() - started_at) / 1000)
 	var snapshot: Dictionary = GameManager.serialize()
+	var now := GameTime.absolute_minute()
 	for npc in GameManager.npcs.values():
 		for value in npc["needs"].values():
 			if float(value) < 0.0 or float(value) > 100.0: return false
 		if str(npc.get("state","")) == "" or str(npc.get("action","")) == "": return false
+		if now - int(npc.get("last_decision",-1)) > GameManager.DECISION_INTERVAL: return false
 	print("LONG_SIMULATION days=30 elapsed_ms=%d" % elapsed_ms)
 	return int(snapshot.get("save_version",0)) >= 3 and snapshot.has("npcs") and snapshot.has("progression")
 
@@ -1165,16 +1169,23 @@ func npc_state_machine_test() -> bool:
 	var machine = machine_script.new()
 	GameManager.new_game()
 	var npc: Dictionary = GameManager.npcs["bob"]
-	machine.transition_for_action(npc,"Work",Vector2(1000,500),0)
+	GameTime.day = 2
+	GameTime.minute = 1439
+	var before_midnight := GameTime.absolute_minute()
+	machine.transition_for_action(npc,"Work",Vector2(1000,500),before_midnight)
 	var moving_ok: bool = npc["state"] == "Moving" and npc["current_action"] == "Work"
 	npc["position"] = npc["current_target"]
-	machine.update(npc,1)
+	GameTime.advance_minute()
+	var after_midnight := GameTime.absolute_minute()
+	var clock_ok := after_midnight == before_midnight + 1
+	machine.update(npc,after_midnight)
 	var working_ok: bool = npc["state"] == "Working"
-	machine.transition_for_action(npc,"Sleep",npc["position"],2)
+	machine.transition_for_action(npc,"Sleep",npc["position"],after_midnight)
 	var sleeping_ok: bool = npc["state"] == "Sleeping"
-	npc["state_entered_minute"] = -100
-	machine.update(npc,100)
-	return moving_ok and working_ok and sleeping_ok and npc["state"] == "Idle"
+	for _minute in machine.ACTION_TIMEOUT_MINUTES:
+		GameTime.advance_minute()
+	machine.update(npc,GameTime.absolute_minute())
+	return clock_ok and moving_ok and working_ok and sleeping_ok and npc["state"] == "Idle"
 
 func concrete_npc_actions_test() -> bool:
 	var expected := {
@@ -1192,7 +1203,7 @@ func utility_stability_rules_test() -> bool:
 	if GameManager.get("minimum_action_score") == null: return false
 	var npc: Dictionary = GameManager.npcs["bob"]
 	var context: Dictionary = GameManager.action_context(npc)
-	context["action_cooldowns"] = {"Work":GameTime.minute + 30}
+	context["action_cooldowns"] = {"Work":GameTime.absolute_minute() + 30}
 	var scores: Dictionary = GameManager.action_registry.calculate_scores(npc,context)
 	var cooldown_ok: bool = float(scores["Work"]) <= -999.0
 	npc["mood"] = "Afraid"
