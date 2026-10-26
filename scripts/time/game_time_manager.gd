@@ -48,6 +48,9 @@ func reset_clock() -> void:
 	_accumulator = 0.0
 	simulation_paused = false
 
+func absolute_minute() -> int:
+	return day * MINUTES_PER_DAY + minute
+
 func formatted_time() -> String:
 
 	return "第 %d 天  •  %02d:%02d" % [day, minute / 60, minute % 60]

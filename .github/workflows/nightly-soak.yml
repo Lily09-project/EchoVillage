@@ -1,6 +1,18 @@
 name: Echo Village Nightly Soak
 
 on:
+  pull_request:
+    branches: [master]
+    paths:
+      - ".github/workflows/nightly-soak.yml"
+      - "quality/run_acceptance.ps1"
+      - "quality/test-manifest.json"
+      - "tests/soak_runner.gd"
+      - "tools/run_nightly_soak.ps1"
+      - "tools/run_godot_bounded.ps1"
+      - "scripts/**/*.gd"
+      - "tests/test_runner.gd"
+      - "project.godot"
   schedule:
     - cron: '30 18 * * *'
   workflow_dispatch:
@@ -50,6 +62,43 @@ jobs:
           & powershell -NoProfile -ExecutionPolicy Bypass -File quality\run_acceptance.ps1 nightly
           if ($LASTEXITCODE -ne 0) { throw "Nightly acceptance failed with exit code $LASTEXITCODE." }
 
+      - name: Publish bounded soak checkpoints to job log
+        if: always()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $logRoot = Join-Path $PWD 'reports\acceptance'
+          $paths = @()
+          if (Test-Path -LiteralPath $logRoot -PathType Container) {
+            $paths += Get-ChildItem -LiteralPath $logRoot -Filter 'nightly-soak-progress.log' -File -Recurse -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName }
+            $paths += Get-ChildItem -LiteralPath $logRoot -Filter 'nightly_soak.*.log' -File -Recurse -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName }
+          }
+          $paths = @($paths | Select-Object -Unique)
+          Write-Output ("SOAK_DIAGNOSTIC log_files={0}" -f $paths.Count)
+          foreach ($path in $paths) {
+            $item = Get-Item -LiteralPath $path -ErrorAction SilentlyContinue
+            if ($item) { Write-Output ("SOAK_DIAGNOSTIC file={0} bytes={1}" -f $item.Name, $item.Length) }
+          }
+          $allLines = foreach ($path in $paths) {
+            Get-Content -LiteralPath $path -Encoding UTF8 -ErrorAction SilentlyContinue
+          }
+          $markers = @($allLines | Where-Object { $_ -match 'SOAK_BOOT|SOAK_PROGRESS|SOAK_CHECKPOINT|SOAK_RESULT' })
+          if ($markers.Count -gt 0) {
+            $markers | Select-Object -Last 40 | ForEach-Object { Write-Output $_ }
+          } else {
+            Write-Output 'SOAK_DIAGNOSTIC no progress markers found'
+            $errors = @($allLines | Where-Object { $_ -match '(?i)SCRIPT ERROR|ERROR:|exception|timed out|failed with exit code|failed to start' })
+            if ($errors.Count -gt 0) {
+              $errors | Select-Object -Last 25 | ForEach-Object { Write-Output $_ }
+            } else {
+              Write-Output 'SOAK_DIAGNOSTIC no error lines found in runner logs'
+            }
+            foreach ($path in $paths | Where-Object { $_ -match 'nightly_soak\.(stdout|stderr)\.log$' }) {
+              Write-Output ("SOAK_DIAGNOSTIC tail_begin file={0}" -f [IO.Path]::GetFileName($path))
+              Get-Content -LiteralPath $path -Encoding UTF8 -Tail 20 -ErrorAction SilentlyContinue | ForEach-Object { Write-Output $_ }
+              Write-Output 'SOAK_DIAGNOSTIC tail_end'
+            }
+          }
       - name: Upload nightly evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
