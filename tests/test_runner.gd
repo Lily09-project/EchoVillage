@@ -32,6 +32,7 @@ func run() -> void:
 	check("必要存檔欄位缺失會使用備份且失敗不改世界", required_save_fields_test())
 	check("NPC runtime save boundary rejects malformed consumers", npc_runtime_save_boundary_test())
 	check("Modal panels block world interaction keys", await modal_world_input_test())
+	check("Long quest and achievement text remains readable at all text scales", await long_panel_text_test())
 	check("存檔與讀檔能還原玩家狀態", save_load_test())
 	check("存檔原子寫入與備份復原", save_recovery_test())
 	check("有效備份不因損壞主檔覆寫而遺失", save_backup_preservation_test())
@@ -2017,3 +2018,57 @@ func modal_world_input_test() -> bool:
 	var active_ok := int(GameManager.player["inventory"]["bread"]) == bread_before - 1
 	instance.queue_free()
 	return violations == 0 and active_ok
+
+func readable_region_fits(label: Label, panel: Control, boundary: float) -> bool:
+	var region: Control = label
+	var ancestor := label.get_parent()
+	while ancestor != null and ancestor != panel:
+		if ancestor is ScrollContainer:
+			region = ancestor
+			break
+		ancestor = ancestor.get_parent()
+	var bottom := region.global_position.y + region.size.y - panel.global_position.y
+	if region is ScrollContainer:
+		var bar := region.get_v_scroll_bar()
+		var fits: bool = bottom <= boundary and region.size.y > 0.0
+		if label.get_minimum_size().y > region.size.y:
+			fits = fits and bar.max_value > bar.page
+		if not fits: print("Reading scroll region overflow: " + str(panel.name) + " bottom=" + str(bottom))
+		return fits
+	var text_bottom := label.position.y + label.get_minimum_size().y
+	if text_bottom > boundary:
+		print("Reading text overlaps controls: " + str(panel.name) + " bottom=" + str(text_bottom) + " boundary=" + str(boundary))
+	return text_bottom <= boundary and bottom <= boundary
+
+func long_panel_text_test() -> bool:
+	var original_scale := SaveManager.get_text_scale()
+	var original_motion := SaveManager.get_preference("motion",true)
+	var instance: Node = await _main_instance()
+	instance.set_motion_enabled(false)
+	var result := bool(GameManager.accept_quest("forest_echo").get("ok",false))
+	for npc_id in ["alice","bob","charlie"]:
+		GameManager.npcs[npc_id]["needs"]["hunger"] = 90.0
+		GameManager.npcs[npc_id]["inventory"]["bread"] = 0
+	var offers: Array = GameManager.refresh_emergent_offers()
+	for offer in offers:
+		result = bool(GameManager.accept_emergent_quest(str(offer["id"])).get("ok",false)) and result
+	result = GameManager.active_quests.size() == 4 and result
+	for percent in [100,115,130]:
+		instance.set_text_scale(percent)
+		instance.refresh_ui()
+		instance.close_modal_panels()
+		instance.toggle_modal_panel(instance.progression_panel)
+		await get_tree().process_frame
+		await get_tree().process_frame
+		var progress_panel: Control = instance.progression_panel
+		var close: Button = progress_panel.get_node("CloseButton")
+		result = readable_region_fits(progress_panel.achievements_label,progress_panel,close.position.y - 4.0) and result
+		instance.toggle_modal_panel(instance.quest_log_panel)
+		await get_tree().process_frame
+		await get_tree().process_frame
+		var quest_panel: Control = instance.quest_log_panel
+		result = readable_region_fits(quest_panel.body_label,quest_panel,quest_panel.offers_title.position.y - 8.0) and result
+	instance.set_text_scale(original_scale)
+	instance.set_motion_enabled(original_motion)
+	instance.queue_free()
+	return result
