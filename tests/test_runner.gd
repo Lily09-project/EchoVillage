@@ -1906,14 +1906,20 @@ func required_save_fields_test() -> bool:
 	if root.is_empty(): root = ProjectSettings.globalize_path("res://.test-data")
 	var primary := root.path_join("echo_village_save.json")
 	var backup := primary + ".bak"
-	for field in ["coin","position","inventory","time","npc_position","npc_target","npc_needs"]:
+	for field in ["coin","position","inventory","time","npc_position","npc_target","npc_needs","quest_record","progression_stats","community_entries"]:
 		GameManager.new_game()
 		GameManager.player["coin"] = 91
 		if not SaveManager.save_game(): return false
 		GameManager.player["coin"] = 123
 		if not SaveManager.save_game(): return false
 		var envelope = JSON.parse_string(SaveManager.read_limited_text(primary,SaveManager.MAX_SAVE_BYTES))
-		if field == "time":
+		if field == "quest_record":
+			envelope["world_state"]["active_quests"] = {"forest_echo":"broken"}
+		elif field == "progression_stats":
+			envelope["world_state"]["progression"]["stats"] = "broken"
+		elif field == "community_entries":
+			envelope["world_state"]["community"]["entries"] = "broken"
+		elif field == "time":
 			envelope.erase("time")
 		elif field.begins_with("npc_"):
 			envelope["world_state"]["npcs"]["alice"].erase(field.trim_prefix("npc_"))
