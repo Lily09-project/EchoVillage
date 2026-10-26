@@ -1270,6 +1270,7 @@ func interaction_feedback_title(action: String, outcome: Dictionary = {}) -> Str
 	if outcome.has("ok") and result_titles.has(action):
 		var titles: Dictionary = result_titles[action]
 		return str(titles["success"] if bool(outcome["ok"]) else titles["failure"])
+	if outcome.has("ok") and not bool(outcome["ok"]): return "互動未完成"
 	var labels := {"talk":"交談留下了回憶","give_bread":"善意被記住了","steal_food":"關係正在改變","trade":"交易結果","ask":"新的線索已更新","gather":"採集結果","craft":"製作結果","travel":"移動結果","save":"存檔結果","load":"讀取結果"}
 	return str(labels.get(action,"互動結果"))
 
@@ -1431,8 +1432,10 @@ func select_nearest() -> void:
 	perform("talk")
 
 func perform(action: String) -> void:
-	if selected_id == "":
-		GameManager.add_log("請先按 E 選取附近的村民。")
+	if selected_id == "" or not GameManager.npcs.has(selected_id):
+		var message := "請先靠近一位居民並按 E 選取。"
+		GameManager.add_log(message)
+		show_interaction_feedback(action,message,{"ok":false})
 		return
 	if action == "trade":
 		SoundManager.play_interaction("trade")

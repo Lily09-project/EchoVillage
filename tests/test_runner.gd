@@ -926,6 +926,12 @@ func trade_ui_structure_test() -> bool:
 	instance.selected_id = ""
 	instance.open_trade_panel()
 	result = trade_feedback_probe("no-resident",instance.impact_title.text == "交易未完成" and not instance.impact_body.text.is_empty(),instance) and result
+	var no_resident_player: Dictionary = GameManager.player.duplicate(true)
+	for button_case in [["TalkButton","互動未完成"],["GiveButton","互動未完成"],["StealButton","互動未完成"],["TradeButton","交易未完成"],["AskButton","委託未完成"]]:
+		var dock_button := instance.get_node_or_null("CanvasLayer/ActionDock/" + str(button_case[0])) as Button
+		if dock_button == null: return false
+		dock_button.pressed.emit()
+		result = trade_feedback_probe("dock-no-resident-" + str(button_case[0]),instance.impact_feedback.visible and instance.impact_title.text == str(button_case[1]) and instance.impact_body.text.contains("按 E 選取") and not instance.trade_panel.visible and GameManager.player == no_resident_player,instance) and result
 	instance.selected_id = "alice"
 	GameManager.player["position"] = GameManager.npcs["alice"]["position"]
 	var before := GameManager.serialize()
