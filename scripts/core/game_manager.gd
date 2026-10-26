@@ -838,6 +838,7 @@ func deserialize(data: Dictionary, validate_only: bool = false) -> bool:
 	if not (candidate_discovered is Array) or candidate_discovered.size() > 512: return false
 	if not (candidate_active_quests is Dictionary) or not (candidate_completed is Array) or candidate_completed.size() > 512: return false
 	if not (candidate_flags is Dictionary) or not (candidate_progression is Dictionary): return false
+	if not _valid_runtime_sections(candidate_active_quests,candidate_progression,candidate_community): return false
 	if not story_service.validate_state(candidate_story): return false
 	if not (candidate_timeline is Array) or candidate_timeline.size() > 512: return false
 	for value in candidate_timeline:
@@ -888,6 +889,34 @@ func deserialize(data: Dictionary, validate_only: bool = false) -> bool:
 	for key in candidate_journal:
 		if str(key).is_valid_int() and candidate_journal[key] is Dictionary: journal_entries[int(str(key))] = candidate_journal[key].duplicate(true)
 	gossip_round = int(candidate_gossip)
+	return true
+
+func _valid_runtime_sections(quests: Dictionary, progress: Dictionary, chronicle: Dictionary) -> bool:
+	if quests.size() > 512: return false
+	for quest_id in quests:
+		if not (quest_id is String) or not (quests[quest_id] is Dictionary): return false
+		var runtime: Dictionary = quests[quest_id]
+		if not (runtime.get("quest_id") is String) or runtime.get("quest_id") != quest_id: return false
+		if not _valid_integer(runtime.get("objective_index"),0,1000000): return false
+		if not _valid_integer(runtime.get("progress"),0,1000000000): return false
+		if runtime.get("status") != "active": return false
+	if not _valid_numeric_map(progress.get("stats")): return false
+	if not _valid_string_array(progress.get("unlocked_ids",[]),512): return false
+	var unlocked_at = progress.get("unlocked_at",{})
+	if not (unlocked_at is Dictionary) or unlocked_at.size() > 512: return false
+	for timestamp in unlocked_at.values():
+		if not (timestamp is String): return false
+	if not _valid_integer(chronicle.get("renown",0),0,1000000000): return false
+	var entries = chronicle.get("entries")
+	if not (entries is Array) or entries.size() > 512: return false
+	for entry in entries:
+		if not (entry is Dictionary): return false
+	return true
+
+func _valid_string_array(value: Variant, maximum: int) -> bool:
+	if not (value is Array) or value.size() > maximum: return false
+	for item in value:
+		if not (item is String): return false
 	return true
 
 func _valid_emergent_definitions(value: Variant) -> bool:
