@@ -1,6 +1,15 @@
 name: Echo Village Nightly Soak
 
 on:
+  pull_request:
+    branches: [master]
+    paths:
+      - ".github/workflows/nightly-soak.yml"
+      - "quality/run_acceptance.ps1"
+      - "quality/test-manifest.json"
+      - "tests/soak_runner.gd"
+      - "tools/run_nightly_soak.ps1"
+      - "tools/run_godot_bounded.ps1"
   schedule:
     - cron: '30 18 * * *'
   workflow_dispatch:

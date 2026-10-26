@@ -29,12 +29,14 @@ func run() -> void:
 		if (day_index + 1) % 30 == 0:
 			var now_us := Time.get_ticks_usec()
 			var snapshot := GameManager.serialize()
-			checkpoints.append({
+			var checkpoint := {
 				"day": day_index + 1,
 				"elapsed_ms": float(now_us - segment_started_us) / 1000.0,
 				"memory_bytes": int(Performance.get_monitor(Performance.MEMORY_STATIC)),
 				"save_bytes": JSON.stringify(snapshot).to_utf8_buffer().size()
-			})
+			}
+			checkpoints.append(checkpoint)
+			print("SOAK_CHECKPOINT day=%d segment_ms=%.3f memory_bytes=%d save_bytes=%d" % [checkpoint["day"], checkpoint["elapsed_ms"], checkpoint["memory_bytes"], checkpoint["save_bytes"]])
 			segment_started_us = now_us
 
 	var final_snapshot := GameManager.serialize()

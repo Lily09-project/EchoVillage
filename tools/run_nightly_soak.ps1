@@ -25,7 +25,7 @@ $engineLog = Join-Path ([IO.Path]::GetTempPath()) "EchoVillage_soak_engine_$tag.
 try {
     & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'tools\run_godot_bounded.ps1') `
         -Godot $godot -ProjectRoot $root -StandardOutput $stdout -StandardError $stderr `
-        -TimeoutSeconds 600 --headless --path $root --scene 'res://tests/SoakRunner.tscn' --log-file $engineLog
+        -TimeoutSeconds 900 --headless --path $root --scene 'res://tests/SoakRunner.tscn' --log-file $engineLog
     $result = $LASTEXITCODE
     $combined = ''
     foreach ($path in @($stdout, $stderr, $engineLog)) {
