@@ -1867,6 +1867,8 @@ func text_scale_application_test() -> bool:
 	instance.refresh_ui()
 	await get_tree().process_frame
 	var header_fits: bool = instance.clock_label.position.x + instance.clock_label.size.x <= instance.event_label.position.x and instance.pulse_label.position.y + instance.pulse_label.size.y <= instance.pulse_panel.size.y
+	var showcase_summary := instance.showcase_panel.get_node("ShowcaseSummary") as Label
+	var showcase_fits: bool = showcase_summary.autowrap_mode == TextServer.AUTOWRAP_WORD_SMART and showcase_summary.position.x + showcase_summary.size.x <= instance.showcase_panel.size.x and showcase_summary.position.y + showcase_summary.size.y <= 150.0
 	var scaled := label.get_theme_font_size("font_size")
 	var pressed: bool = instance.text_scale_buttons[2].button_pressed and not instance.text_scale_buttons[0].button_pressed
 	GameManager.interact("bob","steal_food")
@@ -1878,7 +1880,7 @@ func text_scale_application_test() -> bool:
 	instance.set_text_scale(100)
 	var restored := label.get_theme_font_size("font_size")
 	instance.queue_free()
-	return scaled == roundi(base * 1.3) and pressed and dynamic_ok and restored == base and header_fits
+	return scaled == roundi(base * 1.3) and pressed and dynamic_ok and restored == base and header_fits and showcase_fits
 
 func bundled_font_covers_project_text_test() -> bool:
 	var font_path := str(ProjectSettings.get_setting("gui/theme/custom_font",""))

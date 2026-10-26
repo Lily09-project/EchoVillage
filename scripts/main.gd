@@ -1319,10 +1319,12 @@ func create_showcase_panel() -> void:
 	canvas.add_child(showcase_panel)
 	var eyebrow := make_panel_label(showcase_panel,Vector2(24,18),Vector2(520,22),13,VillageTheme.MOSS)
 	eyebrow.text = "自主村落模擬  ·  GUIDED SHOWCASE"
-	var title := make_panel_label(showcase_panel,Vector2(24,42),Vector2(530,38),29,VillageTheme.INK)
+	var title := make_panel_label(showcase_panel,Vector2(24,42),Vector2(530,38),25,VillageTheme.INK)
 	title.text = "歡迎來到 Echo Village"
 	var subtitle := make_panel_label(showcase_panel,Vector2(24,86),Vector2(530,44),14,VillageTheme.INK_SOFT)
-	subtitle.text = "每個 NPC 都依需求、日程、人格、記憶與關係決策。選擇情境，立即觀察系統如何連鎖影響村落。"
+	subtitle.name = "ShowcaseSummary"
+	subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	subtitle.text = "選擇情境，觀察記憶、流言與危機如何改變村落。"
 	add_showcase_button("自由探索",Vector2(24,150),"start")
 	add_showcase_button("A  善意記憶",Vector2(161,150),"kindness")
 	add_showcase_button("B  流言擴散",Vector2(298,150),"rumor")
