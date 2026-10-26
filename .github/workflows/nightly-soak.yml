@@ -59,6 +59,27 @@ jobs:
           & powershell -NoProfile -ExecutionPolicy Bypass -File quality\run_acceptance.ps1 nightly
           if ($LASTEXITCODE -ne 0) { throw "Nightly acceptance failed with exit code $LASTEXITCODE." }
 
+      - name: Publish bounded soak checkpoints to job log
+        if: always()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $progressPath = Join-Path $PWD 'reports\acceptance\nightly-soak-progress.log'
+          $logRoot = Join-Path $PWD 'reports\acceptance'
+          $paths = @()
+          if (Test-Path -LiteralPath $progressPath -PathType Leaf) { $paths += $progressPath }
+          $stdoutLogs = Get-ChildItem -LiteralPath $logRoot -Filter 'nightly_soak.stdout.log' -File -Recurse -ErrorAction SilentlyContinue
+          foreach ($entry in $stdoutLogs) { $paths += $entry.FullName }
+          $lines = foreach ($path in $paths) {
+            Get-Content -LiteralPath $path -Encoding UTF8 -ErrorAction SilentlyContinue |
+              Where-Object { $_ -match 'SOAK_PROGRESS|SOAK_CHECKPOINT|SOAK_RESULT|Godot process timed out' }
+          }
+          if ($lines) {
+            $lines | Select-Object -Last 40 | ForEach-Object { Write-Output $_ }
+          } else {
+            Write-Output 'No soak checkpoints were emitted.'
+          }
+
       - name: Upload nightly evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
