@@ -1243,6 +1243,23 @@ func modal_exclusivity_test() -> bool:
 		await get_tree().create_timer(0.25,true).timeout
 		motion_ok = motion_ok and panel.modulate.is_equal_approx(Color.WHITE) and panel.scale.is_equal_approx(Vector2.ONE)
 		panel.set_visible_with_motion(false,false)
+	for panel in [instance.rumor_network_panel,instance.village_journal_panel]:
+		panel.set_visible_with_motion(true,true)
+		panel.set_visible_with_motion(true,false)
+		var immediate: bool = panel.visible and panel.modulate == Color.WHITE and panel.scale == Vector2.ONE
+		if not immediate: print("New panel motion-off failed: " + str(panel.name))
+		motion_ok = immediate and motion_ok
+		panel.set_visible_with_motion(true,true)
+		panel.visible = false
+		var hidden: bool = not panel.visible and panel.modulate == Color.WHITE and panel.scale == Vector2.ONE
+		if not hidden: print("New panel hide cancellation failed: " + str(panel.name))
+		motion_ok = hidden and motion_ok
+		panel.set_visible_with_motion(true,true)
+		await get_tree().create_timer(0.25,true).timeout
+		var paused_finish: bool = panel.modulate.is_equal_approx(Color.WHITE) and panel.scale.is_equal_approx(Vector2.ONE)
+		if not paused_finish: print("New panel paused animation stalled: " + str(panel.name))
+		motion_ok = paused_finish and motion_ok
+		panel.set_visible_with_motion(false,false)
 	get_tree().paused = was_paused
 	instance.queue_free()
 	return inventory_open and journal_replaced and progression_replaced and all_closed and motion_ok
