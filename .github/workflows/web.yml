@@ -38,6 +38,23 @@ jobs:
           unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
           echo "GODOT=$RUNNER_TEMP/godot/Godot_v4.5.2-stable_linux.x86_64" >> "$GITHUB_ENV"
 
+      - name: Set up Python for font maintenance audit
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: "3.12"
+
+      - name: Audit and validate the font maintenance environment
+        run: |
+          set -euo pipefail
+          python -m venv "$RUNNER_TEMP/font-maintenance"
+          font_python="$RUNNER_TEMP/font-maintenance/bin/python"
+          "$font_python" -m pip install --upgrade "pip==26.2.2"
+          "$font_python" -m pip install -r tools/font-requirements.txt "pip-audit==2.10.1"
+          "$font_python" -m pip check
+          "$font_python" -m pip_audit --local --strict
+          "$font_python" tools/build_font_subset.py --help
+          "$font_python" -c "from fontTools.ttLib import TTFont; font = TTFont('assets/fonts/NotoSansTC-EchoVillage.ttf'); assert len(font.getBestCmap()) > 100; print('Bundled font parsed with the audited maintenance library'); font.close()"
+
       - name: Install the single-threaded Web export template
         run: python3 tools/fetch_web_template.py
 

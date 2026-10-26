@@ -1,0 +1,2 @@
+# Font-subset maintenance only; not a game runtime dependency.
+fonttools==4.67.0

@@ -5,9 +5,9 @@ character must come from a font inside the game. The full Noto Sans TC is
 12 MB; this keeps printable ASCII, common CJK punctuation and every character
 that appears in the game's scripts, scenes and data (a few hundred KB).
 
-Run after adding new text:
+Requires Python 3.11 or newer. Run after adding new text:
 
-    pip install fonttools==4.60.1
+    python -m pip install -r tools/font-requirements.txt
     python tools/build_font_subset.py path/to/NotoSansTC[wght].ttf
 
 `tests/test_runner.gd` fails if any text in the project is missing from the
