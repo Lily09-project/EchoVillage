@@ -1907,7 +1907,7 @@ func required_save_fields_test() -> bool:
 	if root.is_empty(): root = ProjectSettings.globalize_path("res://.test-data")
 	var primary := root.path_join("echo_village_save.json")
 	var backup := primary + ".bak"
-	for field in ["coin","position","inventory","time","npc_position","npc_target","npc_needs","npc_id","npc_last_decision","quest_record","progression_stats","community_entries"]:
+	for field in ["coin","position","inventory","time","npc_position","npc_target","npc_needs","npc_id","npc_last_decision","npc_display_name","npc_action","npc_work_location","npc_home_location","npc_action_cooldowns","quest_record","progression_stats","community_entries"]:
 		GameManager.new_game()
 		GameManager.player["coin"] = 91
 		if not SaveManager.save_game(): return false

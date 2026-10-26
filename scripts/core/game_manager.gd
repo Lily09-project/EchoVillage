@@ -955,6 +955,21 @@ func _valid_npc_state(value: Variant) -> bool:
 		var npc: Dictionary = value[npc_id]
 		if not (npc.get("id") is String) or npc.get("id") != npc_id: return false
 		if not _valid_integer(npc.get("last_decision"),-1000000000,2000000000): return false
+		for key in ["display_name","action","work_location","home_location"]:
+			if not (npc.get(key) is String) or npc[key].is_empty(): return false
+		if not _valid_numeric_map(npc.get("action_cooldowns")): return false
+		var personality = npc.get("personality",{})
+		if not (personality is Dictionary): return false
+		for trait in personality.values():
+			if not _valid_number(trait,0.0,1.0): return false
+		var schedule = npc.get("base_schedule",[])
+		if not (schedule is Array): return false
+		for entry in schedule:
+			if not (entry is Dictionary): return false
+			if not _valid_integer(entry.get("hour"),0,23) or not (entry.get("action") is String): return false
+		var profile = npc.get("dialogue_profile",{})
+		if not (profile is Dictionary): return false
+		if not (profile.get("tone","") is String) or not _valid_string_array(profile.get("topics",[]),512): return false
 		for required_position in ["position","target"]:
 			if not npc.has(required_position) or not (npc[required_position] is Vector2): return false
 		if not (npc.get("needs") is Dictionary): return false
@@ -965,9 +980,15 @@ func _valid_npc_state(value: Variant) -> bool:
 		if not (npc.get("relationships") is Dictionary): return false
 		for relationship in npc["relationships"].values():
 			if not (relationship is Dictionary): return false
+			for key in ["affinity","trust","fear","respect"]:
+				if not _valid_number(relationship.get(key,0.0),-100.0,100.0): return false
 		if not (npc.get("memories") is Array) or npc.get("memories").size() > MAX_MEMORIES_PER_NPC: return false
 		for memory in npc["memories"]:
 			if not (memory is Dictionary) or not (memory.get("description") is String): return false
+			for key in ["id","event_type","subject_id"]:
+				if not (memory.get(key) is String): return false
+			if not _valid_integer(memory.get("importance"),-1000000000,1000000000): return false
+			if not _valid_number(memory.get("emotional_value"),-1000000000.0,1000000000.0): return false
 		for key in ["position","target","current_target"]:
 			if npc.has(key) and not (npc[key] is Vector2): return false
 	return true
