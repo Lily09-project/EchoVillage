@@ -1,5 +1,7 @@
 extends Panel
 
+var _visibility_tween: Tween
+
 ## The village journal: a short story of each day, written from that day's
 ## causal events and rumour retellings. Older days can be revisited.
 
@@ -14,6 +16,7 @@ var previous_button: Button
 var next_button: Button
 
 func _ready() -> void:
+	visibility_changed.connect(_on_panel_visibility_changed)
 	position = Vector2(300,112)
 	size = Vector2(680,480)
 	add_theme_stylebox_override("panel",VillageTheme.card_style(VillageTheme.CREAM,VillageTheme.SUN))
@@ -73,9 +76,23 @@ func _button(node_name: String, at: Vector2, button_size: Vector2, text_value: S
 	add_child(button)
 	return button
 
+func _stop_visibility_motion() -> void:
+	if _visibility_tween != null and _visibility_tween.is_valid():
+		_visibility_tween.kill()
+	_visibility_tween = null
+	modulate = Color.WHITE
+	scale = Vector2.ONE
+
+func _on_panel_visibility_changed() -> void:
+	if not visible: _stop_visibility_motion()
+
+func _exit_tree() -> void:
+	_stop_visibility_motion()
+
 func set_visible_with_motion(value: bool, motion_enabled: bool) -> void:
+	_stop_visibility_motion()
 	visible = value
 	if not value or not motion_enabled: return
 	modulate = Color(1,1,1,0)
-	var tween := create_tween()
-	tween.tween_property(self,"modulate",Color.WHITE,0.18)
+	_visibility_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	_visibility_tween.tween_property(self,"modulate",Color.WHITE,0.18)

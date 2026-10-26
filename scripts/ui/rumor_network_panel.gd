@@ -1,5 +1,7 @@
 extends Panel
 
+var _visibility_tween: Tween
+
 ## Rumour network: who heard which story, from whom, and how much of it is
 ## still true. The graph is mirrored by a text chain for screen readers and
 ## colour-blind players; distorted retellings are marked by text and dashes,
@@ -20,6 +22,7 @@ var legend_label: Label
 var empty_label: Label
 
 func _ready() -> void:
+	visibility_changed.connect(_on_panel_visibility_changed)
 	position = Vector2(220,96)
 	size = Vector2(840,528)
 	add_theme_stylebox_override("panel",VillageTheme.card_style(VillageTheme.CREAM,VillageTheme.TEAL))
@@ -190,9 +193,23 @@ func _style(button: Button, fill: Color) -> void:
 	for state in ["font_color","font_hover_color","font_pressed_color","font_focus_color","font_hover_pressed_color"]:
 		button.add_theme_color_override(state,ink)
 
+func _stop_visibility_motion() -> void:
+	if _visibility_tween != null and _visibility_tween.is_valid():
+		_visibility_tween.kill()
+	_visibility_tween = null
+	modulate = Color.WHITE
+	scale = Vector2.ONE
+
+func _on_panel_visibility_changed() -> void:
+	if not visible: _stop_visibility_motion()
+
+func _exit_tree() -> void:
+	_stop_visibility_motion()
+
 func set_visible_with_motion(value: bool, motion_enabled: bool) -> void:
+	_stop_visibility_motion()
 	visible = value
 	if not value or not motion_enabled: return
 	modulate = Color(1,1,1,0)
-	var tween := create_tween()
-	tween.tween_property(self,"modulate",Color.WHITE,0.18)
+	_visibility_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	_visibility_tween.tween_property(self,"modulate",Color.WHITE,0.18)
