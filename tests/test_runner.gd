@@ -2029,7 +2029,7 @@ func readable_region_fits(label: Label, panel: Control, boundary: float) -> bool
 		ancestor = ancestor.get_parent()
 	var bottom := region.global_position.y + region.size.y - panel.global_position.y
 	if region is ScrollContainer:
-		var bar := region.get_v_scroll_bar()
+		var bar: VScrollBar = (region as ScrollContainer).get_v_scroll_bar()
 		var fits: bool = bottom <= boundary and region.size.y > 0.0
 		if label.get_minimum_size().y > region.size.y:
 			fits = fits and bar.max_value > bar.page
