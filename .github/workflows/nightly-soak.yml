@@ -79,13 +79,22 @@ jobs:
           $allLines = foreach ($path in $paths) {
             Get-Content -LiteralPath $path -Encoding UTF8 -ErrorAction SilentlyContinue
           }
-          $progress = @($allLines | Where-Object { $_ -match 'SOAK_BOOT|SOAK_PROGRESS|SOAK_CHECKPOINT|SOAK_RESULT|Godot process timed out' })
-          if ($progress.Count -gt 0) {
-            $progress | Select-Object -Last 40 | ForEach-Object { Write-Output $_ }
+          $markers = @($allLines | Where-Object { $_ -match 'SOAK_BOOT|SOAK_PROGRESS|SOAK_CHECKPOINT|SOAK_RESULT' })
+          if ($markers.Count -gt 0) {
+            $markers | Select-Object -Last 40 | ForEach-Object { Write-Output $_ }
           } else {
             Write-Output 'SOAK_DIAGNOSTIC no progress markers found'
             $errors = @($allLines | Where-Object { $_ -match '(?i)SCRIPT ERROR|ERROR:|exception|timed out|failed with exit code|failed to start' })
-            $errors | Select-Object -Last 25 | ForEach-Object { Write-Output $_ }
+            if ($errors.Count -gt 0) {
+              $errors | Select-Object -Last 25 | ForEach-Object { Write-Output $_ }
+            } else {
+              Write-Output 'SOAK_DIAGNOSTIC no error lines found in runner logs'
+            }
+            foreach ($path in $paths | Where-Object { $_ -match 'nightly_soak\.(stdout|stderr)\.log$' }) {
+              Write-Output ("SOAK_DIAGNOSTIC tail_begin file={0}" -f [IO.Path]::GetFileName($path))
+              Get-Content -LiteralPath $path -Encoding UTF8 -Tail 20 -ErrorAction SilentlyContinue | ForEach-Object { Write-Output $_ }
+              Write-Output 'SOAK_DIAGNOSTIC tail_end'
+            }
           }
       - name: Upload nightly evidence
         if: always()
