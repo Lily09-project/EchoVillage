@@ -8,6 +8,14 @@ import { chromium } from "playwright";
 
 const root = resolve(process.argv[2] ?? "release/web");
 const screenshotPath = process.argv[3] ?? join(root, "..", "web-smoke.png");
+
+// Check the distribution folder itself before launching the browser.
+const notices = await readFile(join(root, "THIRD_PARTY_NOTICES.txt"), "utf8");
+for (const source of ["assets/fonts/OFL.txt", "GODOT_COPYRIGHT.txt"]) {
+  const license = (await readFile(resolve(source), "utf8")).trim();
+  if (!notices.includes(license)) throw new Error(`Web notices omit ${source}`);
+}
+
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".wasm": "application/wasm", ".pck": "application/octet-stream", ".png": "image/png" };
 // Served under a sub-path, as on GitHub Pages.
 const BASE = "/echovillage/";

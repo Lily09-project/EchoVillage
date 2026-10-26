@@ -11,6 +11,14 @@ foreach ($name in $files) {
 $extra = @(Get-ChildItem -LiteralPath $package -File | Where-Object { $_.Name -notin ($files + @('candidate-manifest.json', 'SHA256SUMS.txt')) })
 if ($extra.Count -gt 0) { throw 'Portable package contains unexpected files.' }
 
+
+# License texts must travel in the actual portable package, not only the source tree.
+$notices = [IO.File]::ReadAllText((Join-Path $package 'THIRD_PARTY_NOTICES.txt'))
+$fontLicense = [IO.File]::ReadAllText((Join-Path $root 'assets/fonts/OFL.txt')).Trim()
+if (-not $notices.Contains($fontLicense)) { throw 'Portable notices omit the bundled Noto Sans TC font license.' }
+$engineNotices = [IO.File]::ReadAllText((Join-Path $root 'GODOT_COPYRIGHT.txt')).Trim()
+if (-not $notices.Contains($engineNotices)) { throw 'Portable notices omit Godot bundled third-party copyright/license texts.' }
+
 # A unique directory outside the checkout proves the EXE finds its adjacent PCK.
 # This is an automated startup check, not human GUI acceptance.
 $isolated = Join-Path $env:RUNNER_TEMP ('echo-portable-' + [guid]::NewGuid().ToString('N'))
