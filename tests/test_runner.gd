@@ -407,6 +407,11 @@ func story_choice_safety_test() -> bool:
 	var before: Dictionary = GameManager.story_snapshot()
 	var unknown: Dictionary = GameManager.choose_story_arc("bread_rumor","not_a_choice")
 	if bool(unknown.get("ok",false)) or GameManager.story_snapshot() != before: return false
+	var invalid_progress: Dictionary = GameManager.serialize()
+	invalid_progress["story_progression"]["arcs"]["bread_rumor"]["stage_id"] = ""
+	if GameManager.validate_serialized_state(invalid_progress):
+		print("Accepted active story without a playable stage")
+		return false
 	var chosen: Dictionary = GameManager.choose_story_arc("bread_rumor","deny")
 	if not bool(chosen.get("ok",false)): return false
 	var repeated: Dictionary = GameManager.choose_story_arc("bread_rumor","deny")
@@ -2117,6 +2122,44 @@ func long_panel_text_test() -> bool:
 		await get_tree().process_frame
 		var quest_panel: Control = instance.quest_log_panel
 		result = readable_region_fits(quest_panel.body_label,quest_panel,quest_panel.offers_title.position.y - 8.0) and result
+	# Real service-generated five-holder rumour, not a synthetic UI payload.
+	GameManager.new_game()
+	GameManager.interact("bob","steal_food")
+	GameManager.interact("alice","give_bread")
+	GameManager.trigger_world_event("rain")
+	var rumors: Array = GameManager.rumor_service.rumors
+	var rumor: Dictionary = rumors[0]
+	var spread_rng := RandomNumberGenerator.new()
+	spread_rng.seed = 73
+	for npc_id in ["alice","charlie","diana","eric"]:
+		GameManager.rumor_service.transmit(rumor,"bob",npc_id,GameTime.day,spread_rng)
+	result = rumor["holders"].size() == 5 and result
+	for percent in [100,115,130]:
+		instance.set_text_scale(percent)
+		instance.close_modal_panels()
+		instance.open_rumor_network()
+		await get_tree().process_frame
+		await get_tree().process_frame
+		var rumor_panel: Control = instance.rumor_network_panel
+		var rumor_close: Button = rumor_panel.get_node("CloseButton")
+		result = readable_region_fits(rumor_panel.chain_label,rumor_panel,rumor_close.position.y - 4.0) and result
+		instance.open_village_journal()
+		await get_tree().process_frame
+		await get_tree().process_frame
+		var journal: Control = instance.village_journal_panel
+		result = readable_region_fits(journal.story_label,journal,journal.source_label.position.y - 4.0) and result
+		instance.close_modal_panels()
+		GameManager.player["position"] = GameManager.npcs["alice"]["position"]
+		instance.selected_id = "alice"
+		instance.refresh_ui()
+		instance.info_panel.visible = true
+		await get_tree().process_frame
+		await get_tree().process_frame
+		result = readable_region_fits(instance.info_label,instance.info_panel,instance.relationship_label.position.y) and result
+		result = readable_region_fits(instance.needs_label,instance.info_panel,instance.decision_label.position.y) and result
+		result = readable_region_fits(instance.decision_label,instance.info_panel,instance.memory_label.position.y) and result
+		result = readable_region_fits(instance.memory_label,instance.info_panel,instance.dialogue_label.position.y) and result
+		result = readable_region_fits(instance.dialogue_label,instance.info_panel,instance.info_panel.size.y - 6.0) and result
 	instance.set_text_scale(original_scale)
 	instance.set_motion_enabled(original_motion)
 	instance.queue_free()
