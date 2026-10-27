@@ -37,7 +37,7 @@ GitHub Actions workflow `.github/workflows/ci.yml` 在乾淨 Windows runner 上�
 
 ## 發行驗證
 
-`build_release.bat` 依序執行：136 項測試 → PCK 匯出 → portable runtime 組裝 → 120 幀成品煙霧測試。最後另檢查成品檔案、大小與殘留程序。
+`build_release.bat` 依序執行：136 項測試 → 使用 Godot 4.5.2 官方 Windows 匯出模板產生 EXE 與 PCK → 附上授權與操作說明 → 有時間上限的 120 幀成品煙霧測試。最後另檢查成品檔案、大小與殘留程序。
 
 ## 安全稽核
 
@@ -50,4 +50,4 @@ GitHub Actions workflow `.github/workflows/ci.yml` 在乾淨 Windows runner 上�
 - 十九張視覺證據齊全且尺寸正確，包含首次旅程導覽、故事線 active choice、關係歷程、NPC 決策說明、傳聞網路、湧現式委託、村落日誌、可及性設定與按鈕層級。
 - Nightly soak 必須模擬完整 90 日，且 needs、NPC state/action、事件、save schema、2 MiB save、64 MiB 記憶體成長與 1.5 倍末段耗時比門檻全部通過。
 - `EchoVillage.exe` 可從 release 資料夾載入同名 PCK。
-- 一鍵啟動可透過 bundled runtime 或 `GODOT_EXECUTABLE` 執行；一鍵建置在明確設定 `GODOT_RUNTIME`（或提供 bundled GUI runtime）後不依賴系統 PATH，且不會把 console bootstrap 誤包成玩家執行檔。
+- 一鍵啟動可透過 bundled runtime 或 `GODOT_EXECUTABLE` 執行；一鍵建置需要 Godot 4.5.2 編輯器與對應 Windows 匯出模板，使用 `--export-release` 產生玩家執行檔，不會把編輯器或 console bootstrap 複製成遊戲。
