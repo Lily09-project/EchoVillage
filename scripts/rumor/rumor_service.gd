@@ -175,17 +175,40 @@ func validate_state(value: Variant) -> bool:
 	if not (value is Dictionary): return false
 	var state: Dictionary = value
 	if not (state.get("rumors",[]) is Array) or state.get("rumors",[]).size() > MAX_RUMORS: return false
-	if not (state.get("sequence",0) is int or state.get("sequence",0) is float): return false
+	if not _bounded_integer(state.get("sequence",0),0,1000000000): return false
 	for rumor in state.get("rumors",[]):
 		if not (rumor is Dictionary): return false
-		if not (rumor.get("id","") is String) or not (rumor.get("kind","") is String) or not VERSIONS.has(str(rumor.get("kind",""))): return false
-		if not (rumor.get("holders",{}) is Dictionary) or rumor.get("holders",{}).size() > 64: return false
-		if not (rumor.get("transmissions",[]) is Array) or rumor.get("transmissions",[]).size() > MAX_TRANSMISSIONS: return false
-		for holder in rumor.get("holders",{}).values():
+		for key in ["id","kind","subject_id","object_id","origin_npc","origin_memory","origin_key"]:
+			if not (rumor.get(key) is String): return false
+		if not VERSIONS.has(rumor["kind"]): return false
+		if not _bounded_integer(rumor.get("origin_day"),1,1000000): return false
+		if not _bounded_integer(rumor.get("importance"),0,1000000000): return false
+		if not _bounded_number(rumor.get("emotion"),-100.0,100.0) or not (rumor.get("debunked") is bool): return false
+		if not (rumor.get("holders") is Dictionary) or rumor["holders"].size() > 64: return false
+		if not (rumor.get("transmissions") is Array) or rumor["transmissions"].size() > MAX_TRANSMISSIONS: return false
+		for holder_id in rumor["holders"]:
+			if not (holder_id is String): return false
+			var holder = rumor["holders"][holder_id]
 			if not (holder is Dictionary): return false
-			var strength = holder.get("strength",0.0)
-			if not (strength is float or strength is int) or float(strength) < 0.0 or float(strength) > 100.0: return false
+			if not _bounded_number(holder.get("strength"),0.0,100.0) or not _bounded_number(holder.get("credibility"),0.0,1.0): return false
+			if not _bounded_integer(holder.get("version"),0,VERSIONS[rumor["kind"]].size() - 1): return false
+			if not _bounded_integer(holder.get("day"),1,1000000) or not _bounded_integer(holder.get("hops"),0,64): return false
+			if not (holder.get("heard_from") is String): return false
+		for transmission in rumor["transmissions"]:
+			if not (transmission is Dictionary): return false
+			for key in ["rumor_id","from","to"]:
+				if not (transmission.get(key) is String): return false
+			if not _bounded_integer(transmission.get("day"),1,1000000): return false
+			if not _bounded_integer(transmission.get("version"),0,VERSIONS[rumor["kind"]].size() - 1): return false
+			if not _bounded_number(transmission.get("strength"),0.0,100.0) or not _bounded_number(transmission.get("credibility"),0.0,1.0): return false
+			if not (transmission.get("distorted") is bool): return false
 	return true
+
+func _bounded_number(value: Variant, minimum: float, maximum: float) -> bool:
+	return (value is int or value is float) and is_finite(float(value)) and float(value) >= minimum and float(value) <= maximum
+
+func _bounded_integer(value: Variant, minimum: int, maximum: int) -> bool:
+	return _bounded_number(value,float(minimum),float(maximum)) and float(value) == floor(float(value))
 
 func load_state(value: Variant) -> bool:
 	if not validate_state(value): return false

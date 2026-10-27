@@ -857,6 +857,12 @@ func deserialize(data: Dictionary, validate_only: bool = false) -> bool:
 	for offer in candidate_offers:
 		if not _valid_emergent_definition(offer): return false
 	if not (candidate_journal is Dictionary) or candidate_journal.size() > MAX_JOURNAL_DAYS: return false
+	for key in candidate_journal:
+		if not str(key).is_valid_int() or int(str(key)) < 1: return false
+		var entry = candidate_journal[key]
+		if not (entry is Dictionary) or not (entry.get("text") is String) or not (entry.get("empty") is bool): return false
+		if not _valid_integer(entry.get("day"),1,1000000) or int(entry["day"]) != int(str(key)): return false
+		if not _valid_string_array(entry.get("cited"),512): return false
 	if not _valid_integer(candidate_gossip,0,1000000000): return false
 	if validate_only: return true
 	player = candidate_player
@@ -928,10 +934,13 @@ func _valid_emergent_definitions(value: Variant) -> bool:
 func _valid_emergent_definition(value: Variant) -> bool:
 	if not (value is Dictionary): return false
 	var quest: Dictionary = value
+	if not _valid_numeric_map(quest.get("rewards",{})): return false
 	if not str(quest.get("id","")).begins_with("emergent_") or not (quest.get("title","") is String): return false
 	if not (quest.get("objectives",[]) is Array) or quest.get("objectives",[]).is_empty() or quest.get("objectives",[]).size() > 4: return false
 	for objective in quest.get("objectives",[]):
 		if not (objective is Dictionary) or str(objective.get("kind","")) not in ["talk_to_npc","deliver_item"]: return false
+		if not (objective.get("target_id") is String) or not _valid_integer(objective.get("amount"),1,1000000000): return false
+		if objective["kind"] == "deliver_item" and not (objective.get("recipient_id") is String): return false
 	if not (quest.get("effects",[]) is Array) or quest.get("effects",[]).size() > 8: return false
 	for effect in quest.get("effects",[]):
 		if not (effect is Dictionary) or str(effect.get("kind","")) not in ["relationship","debunk_rumor","feed"]: return false
