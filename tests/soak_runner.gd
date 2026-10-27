@@ -28,6 +28,14 @@ func run() -> void:
 	_record_progress(progress_file, 0, "before-process-frame", 0, started_us)
 	await get_tree().process_frame
 	_record_progress(progress_file, 0, "process-frame-ready", 0, started_us)
+	var storage_root := OS.get_environment("ECHO_VILLAGE_TEST_STORAGE_ROOT").strip_edges()
+	if storage_root.is_empty(): storage_root = "res://.test-data/nightly-soak"
+	if not SaveManager.configure_test_storage(storage_root):
+		push_error("Unable to configure isolated nightly soak storage")
+		get_tree().quit(1)
+		return
+	# Exercise autosaves regardless of the developer's local preference.
+	SaveManager.preferences["autosave"] = true
 	# The stability runner must never write the player's real save.
 	if SaveManager._test_storage_root.is_empty():
 		push_error("Nightly soak storage is not isolated from player saves")
@@ -84,6 +92,8 @@ func run() -> void:
 	var segment_ratio := final_segment_ms / maxf(first_segment_ms, 0.001)
 	var save_bytes := JSON.stringify(final_snapshot).to_utf8_buffer().size()
 	var checks := {
+		"storage_isolated": not SaveManager._test_storage_root.is_empty(),
+		"autosave_written": SaveManager.last_save_kind == "auto" and FileAccess.file_exists(SaveManager._storage_path("echo_village_save.json", SaveManager.SAVE_PATH)),
 		"needs_in_range": needs_valid,
 		"agents_responsive": agents_valid,
 		"event_completed": GameManager.active_event.is_empty(),
