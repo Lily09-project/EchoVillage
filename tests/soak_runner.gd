@@ -28,6 +28,11 @@ func run() -> void:
 	_record_progress(progress_file, 0, "before-process-frame", 0, started_us)
 	await get_tree().process_frame
 	_record_progress(progress_file, 0, "process-frame-ready", 0, started_us)
+	# The stability runner must never write the player's real save.
+	if SaveManager._test_storage_root.is_empty():
+		push_error("Nightly soak storage is not isolated from player saves")
+		get_tree().quit(1)
+		return
 	GameTime.reset_clock()
 	GameTime.set_simulation_paused(true)
 	_record_progress(progress_file, 0, "clock-paused", 0, started_us)
