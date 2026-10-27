@@ -1969,14 +1969,18 @@ func required_save_fields_test() -> bool:
 	if root.is_empty(): root = ProjectSettings.globalize_path("res://.test-data")
 	var primary := root.path_join("echo_village_save.json")
 	var backup := primary + ".bak"
-	for field in ["coin","position","inventory","time","npc_position","npc_target","npc_needs","npc_id","npc_last_decision","npc_display_name","npc_action","npc_work_location","npc_home_location","npc_action_cooldowns","timeline_effect","quest_record","progression_stats","community_entries"]:
+	for field in ["coin","position","inventory","time","npc_position","npc_target","npc_needs","npc_id","npc_last_decision","npc_display_name","npc_action","npc_work_location","npc_home_location","npc_action_cooldowns","timeline_effect","active_event","journal_entry","quest_record","progression_stats","community_entries"]:
 		GameManager.new_game()
 		GameManager.player["coin"] = 91
 		if not SaveManager.save_game(): return false
 		GameManager.player["coin"] = 123
 		if not SaveManager.save_game(): return false
 		var envelope = JSON.parse_string(SaveManager.read_limited_text(primary,SaveManager.MAX_SAVE_BYTES))
-		if field == "timeline_effect":
+		if field == "active_event":
+			envelope["world_state"]["active_event"] = {"duration":240,"remaining_minutes":"broken","effects":{},"notifications":[]}
+		elif field == "journal_entry":
+			envelope["world_state"]["journal_entries"] = {"1":{"day":1,"text":"test","empty":false,"cited":"broken"}}
+		elif field == "timeline_effect":
 			envelope["world_state"]["timeline_events"] = [{"message":"broken","effect_kind":"relationship","actors":["alice"],"effect":{"changes":[]}}]
 		elif field == "quest_record":
 			envelope["world_state"]["active_quests"] = {"forest_echo":"broken"}

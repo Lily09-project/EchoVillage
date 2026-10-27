@@ -832,6 +832,11 @@ func deserialize(data: Dictionary, validate_only: bool = false) -> bool:
 	var candidate_timeline = data.get("timeline_events",[])
 	var candidate_timeline_sequence = data.get("timeline_sequence",candidate_timeline.size() if candidate_timeline is Array else 0)
 	if not _valid_numeric_map(candidate_economy) or not (candidate_event is Dictionary): return false
+	if not candidate_event.is_empty():
+		if not _valid_integer(candidate_event.get("duration"),1,1000000000): return false
+		if not _valid_integer(candidate_event.get("remaining_minutes",candidate_event["duration"]),0,1000000000): return false
+		if not (candidate_event.get("effects",{}) is Dictionary): return false
+		if not _valid_string_array(candidate_event.get("notifications",[]),512): return false
 	if not (candidate_event_log is Array) or candidate_event_log.size() > 512: return false
 	if not _valid_integer(candidate_memory_sequence,0,1000000000): return false
 	if not (candidate_community is Dictionary) or not (candidate_location is String): return false
