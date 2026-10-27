@@ -1767,6 +1767,26 @@ func living_save_compatibility_test() -> bool:
 	if JSON.stringify(GameManager.rumor_network_snapshot()) != rumors_before: return false
 	if not GameManager.quest_defs.has(quest_id) or not GameManager.active_quests.has(quest_id): return false
 	if not GameManager.journal_entries.has(GameTime.day): return false
+	var bad_records := 0
+	for field in ["rumor_subject","rumor_holder","rumor_transmission","journal_cited","quest_rewards","quest_amount"]:
+		var broken: Dictionary = saved.duplicate(true)
+		match field:
+			"rumor_subject": broken["rumors"]["rumors"][0].erase("subject_id")
+			"rumor_holder":
+				var holder_id: String = broken["rumors"]["rumors"][0]["holders"].keys()[0]
+				broken["rumors"]["rumors"][0]["holders"][holder_id]["credibility"] = "broken"
+			"rumor_transmission": broken["rumors"]["rumors"][0]["transmissions"] = ["broken"]
+			"journal_cited":
+				var journal_day: String = broken["journal_entries"].keys()[0]
+				broken["journal_entries"][journal_day]["cited"] = "broken"
+			"quest_rewards": broken["emergent_definitions"][quest_id]["rewards"] = "broken"
+			"quest_amount": broken["emergent_definitions"][quest_id]["objectives"][0]["amount"] = "broken"
+		var before: Dictionary = GameManager.serialize()
+		if GameManager.validate_serialized_state(broken):
+			print("Accepted malformed living save field: " + field)
+			bad_records += 1
+		if GameManager.serialize() != before: return false
+	if bad_records > 0: return false
 	var legacy: Dictionary = saved.duplicate(true)
 	for key in ["rumors","rumor_log","emergent_definitions","emergent_offers","journal_entries","gossip_round"]: legacy.erase(key)
 	legacy["save_version"] = 3
@@ -1937,14 +1957,16 @@ func required_save_fields_test() -> bool:
 	if root.is_empty(): root = ProjectSettings.globalize_path("res://.test-data")
 	var primary := root.path_join("echo_village_save.json")
 	var backup := primary + ".bak"
-	for field in ["coin","position","inventory","time","npc_position","npc_target","npc_needs","npc_id","npc_last_decision","npc_display_name","npc_action","npc_work_location","npc_home_location","npc_action_cooldowns","quest_record","progression_stats","community_entries"]:
+	for field in ["coin","position","inventory","time","npc_position","npc_target","npc_needs","npc_id","npc_last_decision","npc_display_name","npc_action","npc_work_location","npc_home_location","npc_action_cooldowns","timeline_effect","quest_record","progression_stats","community_entries"]:
 		GameManager.new_game()
 		GameManager.player["coin"] = 91
 		if not SaveManager.save_game(): return false
 		GameManager.player["coin"] = 123
 		if not SaveManager.save_game(): return false
 		var envelope = JSON.parse_string(SaveManager.read_limited_text(primary,SaveManager.MAX_SAVE_BYTES))
-		if field == "quest_record":
+		if field == "timeline_effect":
+			envelope["world_state"]["timeline_events"] = [{"message":"broken","effect_kind":"relationship","actors":["alice"],"effect":{"changes":[]}}]
+		elif field == "quest_record":
 			envelope["world_state"]["active_quests"] = {"forest_echo":"broken"}
 		elif field == "progression_stats":
 			envelope["world_state"]["progression"]["stats"] = "broken"
