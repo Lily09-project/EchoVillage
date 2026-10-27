@@ -17,7 +17,7 @@ func normalize_details(raw: Variant) -> Dictionary:
 	if kind not in VALID_EFFECT_KINDS: return {}
 	var actors := _normalize_actors(raw.get("actors",[]))
 	var effect = raw.get("effect",{})
-	if not _effect_is_safe(effect): return {}
+	if not _effect_contract(kind,effect): return {}
 	return {"effect_kind":kind,"actors":actors,"effect":effect.duplicate(true)}
 
 func validate_event(value: Variant) -> bool:
@@ -37,7 +37,7 @@ func validate_event(value: Variant) -> bool:
 	if not (actors is Array) or actors.size() > MAX_ACTORS: return false
 	for actor in actors:
 		if not (actor is String) or str(actor).is_empty() or str(actor).length() > MAX_ACTOR_ID_LENGTH: return false
-	return _effect_is_safe(event.get("effect",{}))
+	return _effect_contract(kind,event.get("effect",{}))
 
 func query(events: Array, actor_id: String = "", effect_kind: String = "all", limit: int = 20) -> Array:
 	var safe_actor := actor_id.strip_edges().left(MAX_ACTOR_ID_LENGTH)
@@ -104,6 +104,20 @@ func _normalize_actors(value: Variant) -> Array:
 		result.append(actor_id)
 		if result.size() >= MAX_ACTORS: break
 	return result
+
+func _effect_contract(kind: String, value: Variant) -> bool:
+	# All consumers treat an effect as a dictionary. Generic bounded JSON
+	# safety alone does not validate the shape used by the history UI.
+	if not (value is Dictionary) or not _effect_is_safe(value): return false
+	if kind == "relationship":
+		var changes = value.get("changes",{})
+		if not (changes is Dictionary): return false
+		for key in RELATIONSHIP_ORDER:
+			if not changes.has(key): continue
+			var change = changes[key]
+			if not (change is int or change is float): return false
+			if not is_finite(float(change)) or absf(float(change)) > 1000000.0: return false
+	return true
 
 func _effect_is_safe(value: Variant, depth: int = 0) -> bool:
 	if depth > MAX_EFFECT_DEPTH: return false
