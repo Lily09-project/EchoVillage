@@ -586,6 +586,17 @@ func causality_story_save_compatibility_test() -> bool:
 	malicious["timeline_events"][-1]["actors"] = ["x".repeat(65)]
 	GameManager.new_game()
 	if GameManager.deserialize(malicious): return false
+	var rejected_all := true
+	for bad_effect in [[],null,{"changes":[]},{"changes":{"trust":"broken"}},{"changes":{"trust":true}},{"changes":{"trust":1e20}}]:
+		var broken: Dictionary = saved.duplicate(true)
+		var event := {"id":"bad_effect","day":1,"minute":10,"message":"test","effect_kind":"relationship","actors":["bob","player"],"effect":bad_effect}
+		broken["timeline_events"] = [event]
+		var before: Dictionary = GameManager.serialize()
+		if GameManager.validate_serialized_state(broken):
+			print("Accepted malformed timeline effect: " + JSON.stringify(bad_effect))
+			rejected_all = false
+		if GameManager.serialize() != before: return false
+	if not rejected_all: return false
 	var legacy: Dictionary = saved.duplicate(true)
 	for value in legacy.get("timeline_events",[]):
 		value.erase("effect_kind")
