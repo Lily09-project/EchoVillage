@@ -682,7 +682,7 @@ func npc_decision_explanation_ui_test() -> bool:
 	GameManager.decide(GameManager.npcs["alice"])
 	instance.selected_id = "alice"
 	instance.refresh_npc_ui()
-	var label := instance.get_node_or_null("CanvasLayer/NpcDossier/DecisionLabel") as Label
+	var label := instance.get_node_or_null("CanvasLayer/NpcDossier/ReadingScroll/Rows/DecisionLabel") as Label
 	var result := label != null and label.text.contains("決策") and label.text.contains(instance.action_text(str(GameManager.npcs["alice"]["action"])))
 	instance.queue_free()
 	return result
@@ -2085,7 +2085,7 @@ func readable_region_fits(label: Label, panel: Control, boundary: float) -> bool
 	if region is ScrollContainer:
 		var bar: VScrollBar = (region as ScrollContainer).get_v_scroll_bar()
 		var fits: bool = bottom <= boundary and region.size.y > 0.0 and region.focus_mode == Control.FOCUS_ALL
-		if label.get_minimum_size().y > region.size.y:
+		if region.get_child_count() > 0 and (region.get_child(0) as Control).get_minimum_size().y > region.size.y:
 			fits = fits and bar.max_value > bar.page
 		if not fits: print("Reading scroll region overflow: " + str(panel.name) + " bottom=" + str(bottom))
 		return fits
@@ -2155,11 +2155,17 @@ func long_panel_text_test() -> bool:
 		instance.info_panel.visible = true
 		await get_tree().process_frame
 		await get_tree().process_frame
-		result = readable_region_fits(instance.info_label,instance.info_panel,instance.relationship_label.position.y) and result
-		result = readable_region_fits(instance.needs_label,instance.info_panel,instance.decision_label.position.y) and result
-		result = readable_region_fits(instance.decision_label,instance.info_panel,instance.memory_label.position.y) and result
-		result = readable_region_fits(instance.memory_label,instance.info_panel,instance.dialogue_label.position.y) and result
 		result = readable_region_fits(instance.dialogue_label,instance.info_panel,instance.info_panel.size.y - 6.0) and result
+		var labels: Array = [instance.info_label,instance.relationship_label,instance.needs_label,instance.decision_label,instance.memory_label,instance.dialogue_label]
+		for index in range(labels.size() - 1):
+			var current: Label = labels[index]
+			var following: Label = labels[index + 1]
+			result = current.global_position.y + current.get_minimum_size().y <= following.global_position.y and result
+		var reading_scroll := instance.info_panel.get_node("ReadingScroll") as ScrollContainer
+		reading_scroll.scroll_vertical = int(reading_scroll.get_v_scroll_bar().max_value)
+		await get_tree().process_frame
+		var dialogue_end: float = instance.dialogue_label.global_position.y + instance.dialogue_label.size.y
+		result = dialogue_end <= reading_scroll.global_position.y + reading_scroll.size.y + 1.0 and result
 	instance.set_text_scale(original_scale)
 	instance.set_motion_enabled(original_motion)
 	instance.queue_free()

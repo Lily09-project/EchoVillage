@@ -519,6 +519,26 @@ func create_ui() -> void:
 	memory_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	dialogue_label = make_panel_label(info_panel,Vector2(12,116),Vector2(385,54),13,VillageTheme.INK_SOFT)
 	dialogue_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var dossier_scroll := ScrollContainer.new()
+	dossier_scroll.name = "ReadingScroll"
+	dossier_scroll.position = Vector2(12,6)
+	dossier_scroll.size = Vector2(389,168)
+	dossier_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	dossier_scroll.focus_mode = Control.FOCUS_ALL
+	dossier_scroll.follow_focus = true
+	dossier_scroll.draw_focus_border = true
+	info_panel.add_child(dossier_scroll)
+	var dossier_rows := VBoxContainer.new()
+	dossier_rows.name = "Rows"
+	dossier_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	dossier_rows.add_theme_constant_override("separation",3)
+	dossier_scroll.add_child(dossier_rows)
+	for label in [info_label,relationship_label,needs_label,decision_label,memory_label,dialogue_label]:
+		label.reparent(dossier_rows,false)
+		label.position = Vector2.ZERO
+		label.size = Vector2(369,0)
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	info_panel.visible = false
 	debug_panel = Panel.new()
 	debug_panel.name = "DebugOverlay"

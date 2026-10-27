@@ -43,6 +43,7 @@ func validate_state(raw: Variant) -> bool:
 		if not (record is Dictionary): return false
 		if str(record.get("status","")) not in ["active","completed"]: return false
 		var stage_id := str(record.get("stage_id",""))
+		if record.get("status") == "active" and stage_id.is_empty(): return false
 		if not stage_id.is_empty() and _stage_definition(str(arc_id),stage_id).is_empty(): return false
 		var choices = record.get("choices_made",[])
 		if not (choices is Array) or choices.size() > MAX_CHOICES_PER_STAGE: return false
