@@ -269,7 +269,19 @@ func serialized_save_validation_test() -> bool:
 	malformed_state["npcs"] = malformed_npcs
 	var before: Dictionary = GameManager.serialize()
 	if GameManager.validate_serialized_state(malformed_state): return false
-	return GameManager.serialize() == before
+	if GameManager.serialize() != before: return false
+	GameManager.trigger_world_event("rain")
+	var event_state: Dictionary = GameManager.serialize()
+	var accepted := 0
+	for field in ["remaining_minutes","duration","effects","notifications"]:
+		var malformed: Dictionary = event_state.duplicate(true)
+		malformed["active_event"][field] = "broken"
+		if GameManager.validate_serialized_state(malformed):
+			print("Accepted malformed active event field: " + field)
+			accepted += 1
+		if GameManager.serialize() != event_state: return false
+	GameManager.new_game()
+	return accepted == 0
 
 func save_backup_preservation_test() -> bool:
 	GameManager.new_game()
