@@ -8,7 +8,7 @@ GitHub Actions workflow `.github/workflows/ci.yml` 在乾淨 Windows runner 上�
 
 統一驗收入口為 `powershell -NoProfile -ExecutionPolicy Bypass -File quality\run_acceptance.ps1 release`；長時間驗證使用相同 runner 的 `nightly` profile。Manifest 明確定義 timeout、required gate、網路／寫入政策與 evidence，報告依共同 JSON Schema 寫入 `reports/acceptance/`。
 
-## 目前覆蓋：99 項
+## 目前開發候選覆蓋：136 項
 
 - 資料與 runtime：五位 NPC、必要欄位、獨立住宅、NPC 對 NPC 關係。
 - 長時間模擬：七日與三十日回歸，以及獨立九十日 soak；需求保持 0–100，狀態與 Action 有效，並檢查記憶體、存檔大小與末段效能漂移上限。
@@ -19,25 +19,25 @@ GitHub Actions workflow `.github/workflows/ci.yml` 在乾淨 Windows runner 上�
 - 事件：跨午夜生命週期、受傷後果與可追溯記憶。
 - 回音時間軸：事件分類、每日摘要、歷史日期回看、分類篩選、序列化還原與「今日回音」快捷鍵入口。
 - 因果歷程：關係 before／after、實際 delta、記憶 metadata、故事 arc／choice、居民／類型篩選、深拷貝、舊事件相容與超長 actor 拒絕。
-- 存檔：手動、自動、偏好、舊版遷移、v3 世界狀態、村落進展與 `.bak` recovery 還原。
+- 存檔：手動、自動、偏好、舊版遷移、v4 世界狀態與 v3 相容遷移、村落進展與 `.bak` recovery 還原。
 - Living Stories：三條 JSON arc 的 trigger、snapshot、分支後果、完成冪等性、未知／重複 choice 拒絕與 serialization round-trip。
 - 進展：五級聲望邊界、六項成就條件、未知條件、冪等解鎖、遊戲觸發與舊存檔預設。
 - UI／輸入：主選單、設定、HUD、交易、背包、任務、地圖、故事線、Debug；模態互斥、Esc 關閉、暫停與 44px 操作尺寸。
-- 首次旅程：新遊戲三步驟導覽、下一步／略過／Esc、`onboarding_seen` 偏好與暫停選單 `F1` 重開；同時驗證指南按鈕不與動態開關重疊。
+- 首次旅程：新遊戲五步驟導覽、下一步／略過／Esc、`onboarding_seen` 偏好與暫停選單 `F1` 重開；同時驗證指南按鈕不與動態開關重疊。
 - 可及性：設定選取狀態文字對比、清楚焦點與完整鍵盤路徑。
 - Navigation：五個實際 Agent、路徑偵錯與停滯復原。
 - 安全邊界：JSON 解析前的 4 MiB 存檔／64 KiB 偏好檔 byte 上限、損壞／竄改／超大集合拒絕、偏好型別白名單、malformed `Vector2`、非法時間欄位、深層巢狀資料與混合型別 Optional AI context fuzz，以及 tracked-file secrets／私鑰／release artifact 稽核；直接 `GameManager.deserialize()` 必須以原子方式拒絕不可信狀態。
-- 測試隔離：Debug 測試透過 `ECHO_VILLAGE_TEST_STORAGE_ROOT` 或 `.test-data/` 儲存存檔／偏好暫存，禁止回歸測試覆寫開發者的真實 `user://` 資料。
+- 測試隔離：Debug 測試透過 `ECHO_VILLAGE_TEST_STORAGE_ROOT` 或 `.test-data/` 儲存存檔／偏好暫存，禁止回歸測試覆寫開發者的真實 `user://` 資料。90 日 soak 在新遊戲前獨立設定 `.test-data/nightly-soak`（或指定測試目錄），隔離失敗即退出；報告另檢查隔離狀態與實際自動存檔。
 
 ## 視覺 QA
 
-設定 `ECHO_VILLAGE_VISUAL_QA=1` 並啟動 GUI runtime，使用實際 GPU 產生十五張 1280×720 PNG：主選單、設定、交易、村落手札、active 故事線、關係歷程、NPC 決策說明、首次旅程導覽、開場、黎明、正午、夜晚、危險事件、任務進行與森林完成。人工檢查遮擋、對比、層級、文字截斷與畫面一致性；CI 逐檔驗證名稱與尺寸。
+設定 `ECHO_VILLAGE_VISUAL_QA=1` 並啟動 GUI runtime，使用實際 GPU 產生十九張 1280×720 PNG：主選單、設定、交易、村落手札、active 故事線、關係歷程、NPC 決策說明、首次旅程導覽、開場、黎明、正午、夜晚、危險事件、任務進行、森林完成、傳聞網路、湧現式委託、村落日誌與可及性設定。人工檢查遮擋、對比、層級、文字截斷與畫面一致性；CI 逐檔驗證名稱與尺寸。
 
-補充的解析度矩陣可用 `powershell -NoProfile -ExecutionPolicy Bypass -File tools\run_visual_qa_matrix.ps1` 執行。它以同一批十五個情境檢查 1280×720、1024×576、800×450 與 1600×900，將截圖與尺寸報告寫入被 Git 忽略的 `reports/visual_qa/matrix/`，不污染正式 1280×720 證據。
+補充的解析度矩陣可用 `powershell -NoProfile -ExecutionPolicy Bypass -File tools\run_visual_qa_matrix.ps1` 執行。它以同一批十九個情境檢查 1280×720、1024×576、800×450 與 1600×900，將截圖與尺寸報告寫入被 Git 忽略的 `reports/visual_qa/matrix/`，不污染正式 1280×720 證據。自動產圖與尺寸檢查不能代替人工目視或 Windows 原生操作驗收。
 
 ## 發行驗證
 
-`build_release.bat` 依序執行：99 項測試 → PCK 匯出 → portable runtime 組裝 → 120 幀成品煙霧測試。最後另檢查成品檔案、大小與殘留程序。
+`build_release.bat` 依序執行：136 項測試 → PCK 匯出 → portable runtime 組裝 → 120 幀成品煙霧測試。最後另檢查成品檔案、大小與殘留程序。
 
 ## 安全稽核
 
@@ -47,7 +47,7 @@ GitHub Actions workflow `.github/workflows/ci.yml` 在乾淨 Windows runner 上�
 
 - 自動測試 0 失敗。
 - Console 不含 `SCRIPT ERROR` 或腳本載入失敗。
-- 十五張視覺證據齊全且尺寸正確，包含首次旅程導覽、故事線 active choice、關係歷程、NPC 決策說明與按鈕層級。
+- 十九張視覺證據齊全且尺寸正確，包含首次旅程導覽、故事線 active choice、關係歷程、NPC 決策說明、傳聞網路、湧現式委託、村落日誌、可及性設定與按鈕層級。
 - Nightly soak 必須模擬完整 90 日，且 needs、NPC state/action、事件、save schema、2 MiB save、64 MiB 記憶體成長與 1.5 倍末段耗時比門檻全部通過。
 - `EchoVillage.exe` 可從 release 資料夾載入同名 PCK。
 - 一鍵啟動可透過 bundled runtime 或 `GODOT_EXECUTABLE` 執行；一鍵建置在明確設定 `GODOT_RUNTIME`（或提供 bundled GUI runtime）後不依賴系統 PATH，且不會把 console bootstrap 誤包成玩家執行檔。

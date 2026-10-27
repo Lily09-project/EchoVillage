@@ -22,7 +22,7 @@ Implemented systems include:
 - autosave, versioned serialization, migration, and duplicate-reward protection;
 - village reputation, data-driven achievements, onboarding, and a persistent journal;
 - causal history with relationship deltas, before/after values, memory importance, and story choices;
-- 99 automated tests, 15 GPU visual-QA captures, CI, a daily 90-day simulation soak, tracked-file security scanning, and a portable Windows build.
+- 136 automated checks, 19 GPU visual-QA scenarios, CI, a daily 90-day simulation soak, tracked-file security scanning, and a portable Windows build.
 
 ## Engineering decisions
 
@@ -44,4 +44,4 @@ Implemented systems include:
 
 ## Current result
 
-Version 1.4.0 provides a playable village-and-forest slice with persistent progression and branching stories. Automated tests cover domain rules, malformed saves, migrations, UI contracts, long-running simulation, and packaging. The architecture leaves explicit boundaries for additional content, controllers, localization, and an optional text-generation provider.
+The published 1.4.x version provides a playable village-and-forest slice with persistent progression and branching stories. Automated tests cover domain rules, malformed saves, migrations, UI contracts, long-running simulation, and packaging. The 2.0 development candidate adds rumor networks, emergent commissions, a village journal, and a Web export; it remains subject to native Windows GUI acceptance before formal release. Automated capture generation does not constitute manual visual acceptance. The architecture leaves explicit boundaries for additional content, controllers, localization, and an optional text-generation provider.

@@ -1,11 +1,11 @@
 # Contributing to Echo Village
 
-感謝你想改善 Echo Village。這個專案是 Godot 4.2+、GDScript、JSON data contracts 的 offline-first side project；核心目標是讓 NPC simulation 可解釋、內容可擴充、失敗可復原。
+感謝你想改善 Echo Village。這個專案是 Godot 4.5.2、GDScript、JSON data contracts 的 offline-first side project；核心目標是讓 NPC simulation 可解釋、內容可擴充、失敗可復原。
 
 ## 開發環境
 
 - Windows 10/11 64-bit
-- Godot 4.5.2 stable（最低支援 4.2+）
+- Godot 4.5.2 stable（CI 與匯出採用的固定版本）
 - Git
 - 將 console runtime 放在 `tools/godot/`，或設定 `GODOT_EXECUTABLE`。
 
@@ -32,12 +32,12 @@ $env:ECHO_VILLAGE_TEST_STORAGE_ROOT = "C:\temp\EchoVillage_tests"
 .\run_echo_village.bat --test
 ```
 
-目前 release contract 要求：
+目前開發候選的自動驗收要求（不代表已正式發布）：
 
-- `99 passed / 0 failed`
+- `136 passed / 0 failed`
 - security audit `finding_count=0`
 - console 不含 `SCRIPT ERROR` 或 script load failure
-- 15 張 Visual QA 圖片皆為 `1280×720`
+- 19 個 Visual QA 情境皆產生 `1280×720` 圖片；解析度矩陣另檢查四種尺寸，產圖成功仍須人工檢查
 
 若更新測試數量，請同步更新 `.github/workflows/ci.yml`、README、`docs/test_plan.md`、CHANGELOG 與 PR 說明。
 
