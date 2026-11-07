@@ -810,11 +810,12 @@ func _journal_entries_for_save() -> Dictionary:
 	for day in journal_entries: result[str(day)] = journal_entries[day].duplicate(true)
 	return result
 func deserialize(data: Dictionary, validate_only: bool = false) -> bool:
-	if not (data is Dictionary): return false
+	if not data.has_all(["player","npcs"]): return false
+	if data.has("npc_timer_clock") and data["npc_timer_clock"] != "absolute": return false
 	var candidate_player = decode_value(data.get("player",player))
 	var candidate_npcs = decode_value(data.get("npcs",npcs))
 	if not _valid_player_state(candidate_player): return false
-	if not _valid_npc_state(candidate_npcs): return false
+	if not _valid_npc_state(candidate_npcs,data.has("npc_timer_clock")): return false
 	var candidate_economy = data.get("economy",economy)
 	var candidate_event = data.get("active_event",{})
 	var candidate_event_log = data.get("event_log",[])
@@ -920,17 +921,29 @@ func _valid_emergent_definition(value: Variant) -> bool:
 func _valid_player_state(value: Variant) -> bool:
 	if not (value is Dictionary): return false
 	var state: Dictionary = value
-	if not state.has("inventory") or not _valid_numeric_map(state.get("inventory")): return false
+	if not state.has_all(["inventory","position","coin"]): return false
+	if not _valid_numeric_map(state["inventory"]): return false
 	for key in ["position","target"]:
 		if state.has(key) and not (state[key] is Vector2): return false
 	if state.has("coin") and not _valid_number(state.get("coin"),0.0,1000000000.0): return false
 	return true
 
-func _valid_npc_state(value: Variant) -> bool:
-	if not (value is Dictionary) or value.size() > 64: return false
+func _valid_npc_state(value: Variant, absolute_timers: bool = false) -> bool:
+	if not (value is Dictionary) or value.is_empty() or value.size() > 64: return false
 	for npc_value in value.values():
 		if not (npc_value is Dictionary): return false
 		var npc: Dictionary = npc_value
+		if not npc.has_all(["position","target","needs","action"]): return false
+		if not (npc["action"] is String) or not (npc["needs"] is Dictionary): return false
+		for key in ["hunger","energy","social","safety"]:
+			if not _valid_number(npc["needs"].get(key),0.0,100.0): return false
+		if absolute_timers:
+			for key in ["last_decision","action_started_minute","state_entered_minute"]:
+				if not _valid_integer(npc.get(key),-100.0,1440001440.0): return false
+			var cooldowns = npc.get("action_cooldowns")
+			if not (cooldowns is Dictionary) or cooldowns.size() > 64: return false
+			for deadline in cooldowns.values():
+				if not _valid_integer(deadline,0.0,1440001440.0): return false
 		if npc.has("inventory") and not _valid_numeric_map(npc.get("inventory")): return false
 		if npc.has("relationships") and not (npc.get("relationships") is Dictionary): return false
 		if npc.has("memories") and (not (npc.get("memories") is Array) or npc.get("memories").size() > MAX_MEMORIES_PER_NPC): return false
