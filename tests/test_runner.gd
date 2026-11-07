@@ -764,7 +764,7 @@ func save_envelope_validation_test() -> bool:
 		var invalid: Dictionary = valid_world.duplicate(true)
 		invalid["player"].erase(key)
 		invalid_states.append(invalid)
-	for key in ["position", "target", "needs", "action"]:
+	for key in ["position", "target", "needs", "action", "inventory", "relationships", "memories", "id", "display_name"]:
 		var invalid: Dictionary = valid_world.duplicate(true)
 		invalid["npcs"]["alice"].erase(key)
 		invalid_states.append(invalid)
@@ -774,6 +774,27 @@ func save_envelope_validation_test() -> bool:
 	var invalid_cooldown: Dictionary = valid_world.duplicate(true)
 	invalid_cooldown["npcs"]["alice"]["action_cooldowns"] = []
 	invalid_states.append(invalid_cooldown)
+	var malformed_fields := {
+		"personality": [],
+		"base_schedule": ["tampered"],
+		"relationships": {"player": "tampered"},
+		"memories": [{"importance": 70}],
+		"temporary_modifiers": ["tampered"],
+		"decision": [],
+		"coin": "tampered"
+	}
+	for key in malformed_fields:
+		var invalid: Dictionary = valid_world.duplicate(true)
+		invalid["npcs"]["alice"][key] = malformed_fields[key]
+		invalid_states.append(invalid)
+	for state in [{"stats": []}, {"stats": {"interactions": "tampered"}}, {"unlocked_ids": "tampered"}]:
+		var invalid: Dictionary = valid_world.duplicate(true)
+		invalid["progression"] = state
+		invalid_states.append(invalid)
+	for runtime in ["tampered", {"objective_index": -1, "progress": 0}, {"objective_index": 0, "progress": []}]:
+		var invalid: Dictionary = valid_world.duplicate(true)
+		invalid["active_quests"] = {"forest_echo": runtime}
+		invalid_states.append(invalid)
 	for invalid in invalid_states:
 		if GameManager.deserialize(invalid,true): return false
 		if GameManager.serialize() != valid_world: return false
