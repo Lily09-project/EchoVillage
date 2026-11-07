@@ -227,10 +227,36 @@ func save_failure_test(failure: String, root: String) -> bool:
 
 func save_load_test() -> bool:
 	var original := int(GameManager.player["coin"])
+	var original_time := GameTime.serialize()
+	GameTime.day = 5
+	GameTime.minute = 3
+	var now := GameTime.absolute_minute()
+	GameManager.npcs["alice"]["last_decision"] = now - 3
+	GameManager.npcs["alice"]["action_cooldowns"] = {"Work":now + 7}
 	if not SaveManager.save_game(): return false
 	GameManager.player["coin"] = 1
+	GameTime.day = 8
 	if not SaveManager.load_game(): return false
-	return int(GameManager.player["coin"]) == original
+	var npc: Dictionary = GameManager.npcs["alice"]
+	var restored := GameTime.absolute_minute() == now and int(npc["last_decision"]) == now - 3
+	restored = restored and int(npc["action_cooldowns"].get("Work",-1)) == now + 7
+	var coin_restored := int(GameManager.player["coin"]) == original
+	var legacy_world := GameManager.serialize()
+	legacy_world.erase("npc_timer_clock")
+	legacy_world["npcs"]["alice"]["last_decision"] = 1438
+	legacy_world["npcs"]["alice"]["action_cooldowns"] = {"Work":1450}
+	var path := SaveManager._storage_path("echo_village_save.json","user://echo_village_save.json")
+	var file := FileAccess.open(path,FileAccess.WRITE)
+	if file == null: return false
+	file.store_string(JSON.stringify({"save_version":2,"time":GameTime.serialize(),"world_state":legacy_world}))
+	file.close()
+	GameTime.day = 8
+	if not SaveManager.load_game(): return false
+	npc = GameManager.npcs["alice"]
+	var legacy_restored := GameTime.absolute_minute() == now and npc["action_cooldowns"].is_empty()
+	legacy_restored = legacy_restored and int(npc["last_decision"]) == now - GameManager.DECISION_INTERVAL
+	GameTime.deserialize(original_time)
+	return coin_restored and restored and legacy_restored
 
 func save_recovery_test() -> bool:
 	GameManager.new_game()
@@ -245,7 +271,9 @@ func save_recovery_test() -> bool:
 	if not FileAccess.file_exists(backup): return false
 	var corrupted := FileAccess.open(primary,FileAccess.WRITE)
 	if corrupted == null: return false
-	corrupted.store_string(JSON.stringify({"save_version":2,"world_state":{"player":"tampered","npcs":{}}}))
+	var invalid_world := GameManager.serialize()
+	invalid_world["player"]["coin"] = "tampered"
+	corrupted.store_string(JSON.stringify({"save_version":2,"time":GameTime.serialize(),"world_state":invalid_world}))
 	corrupted.close()
 	GameManager.player["coin"] = 777
 	if not SaveManager.load_game(): return false
@@ -264,7 +292,9 @@ func save_backup_preservation_test() -> bool:
 	if not FileAccess.file_exists(backup): return false
 	var first_corruption := FileAccess.open(primary,FileAccess.WRITE)
 	if first_corruption == null: return false
-	first_corruption.store_string("{ malformed primary")
+	var invalid_world := GameManager.serialize()
+	invalid_world["player"]["coin"] = "tampered"
+	first_corruption.store_string(JSON.stringify({"save_version":2,"time":GameTime.serialize(),"world_state":invalid_world}))
 	first_corruption.close()
 	GameManager.player["coin"] = 777
 	if not SaveManager.save_game("manual"): return false
@@ -288,7 +318,9 @@ func simulation_test() -> bool:
 	GameManager.trigger_world_event("minor_danger")
 	for _minute in 10080:
 		GameTime.advance_minute()
+	var now := GameTime.absolute_minute()
 	for npc in GameManager.npcs.values():
+		if now - int(npc["last_decision"]) > GameManager.DECISION_INTERVAL: return false
 		for value in npc["needs"].values():
 			if float(value) < 0.0 or float(value) > 100.0: return false
 		if npc["state"] == "" or npc["action"] == "": return false
@@ -301,7 +333,9 @@ func long_simulation_stability_test() -> bool:
 		GameTime.advance_minute()
 	var elapsed_ms := int((Time.get_ticks_usec() - started_at) / 1000)
 	var snapshot: Dictionary = GameManager.serialize()
+	var now := GameTime.absolute_minute()
 	for npc in GameManager.npcs.values():
+		if now - int(npc["last_decision"]) > GameManager.DECISION_INTERVAL: return false
 		for value in npc["needs"].values():
 			if float(value) < 0.0 or float(value) > 100.0: return false
 		if str(npc.get("state","")) == "" or str(npc.get("action","")) == "": return false
@@ -1160,21 +1194,28 @@ func npc_action_registry_test() -> bool:
 	return baseline.size() == expected.size() and float(hungry["Eat"]) > float(baseline["Eat"])
 
 func npc_state_machine_test() -> bool:
-	var machine_script = load("res://scripts/npc/npc_state_machine.gd")
-	if machine_script == null: return false
-	var machine = machine_script.new()
+	var machine = load("res://scripts/npc/npc_state_machine.gd").new()
 	GameManager.new_game()
+	var previous_time := GameTime.serialize()
+	GameTime.day = 2
+	GameTime.minute = 1439
+	var before_midnight := GameTime.absolute_minute()
 	var npc: Dictionary = GameManager.npcs["bob"]
-	machine.transition_for_action(npc,"Work",Vector2(1000,500),0)
+	machine.transition_for_action(npc,"Work",Vector2(1000,500),before_midnight)
 	var moving_ok: bool = npc["state"] == "Moving" and npc["current_action"] == "Work"
 	npc["position"] = npc["current_target"]
-	machine.update(npc,1)
+	GameTime.day = 3
+	GameTime.minute = 0
+	var after_midnight := GameTime.absolute_minute()
+	machine.update(npc,after_midnight)
 	var working_ok: bool = npc["state"] == "Working"
-	machine.transition_for_action(npc,"Sleep",npc["position"],2)
+	machine.transition_for_action(npc,"Sleep",npc["position"],after_midnight)
+	machine.update(npc,after_midnight + 89)
 	var sleeping_ok: bool = npc["state"] == "Sleeping"
-	npc["state_entered_minute"] = -100
-	machine.update(npc,100)
-	return moving_ok and working_ok and sleeping_ok and npc["state"] == "Idle"
+	machine.update(npc,after_midnight + 90)
+	GameTime.deserialize(previous_time)
+	return after_midnight == before_midnight + 1 and moving_ok and working_ok and sleeping_ok and npc["state"] == "Idle"
+
 
 func concrete_npc_actions_test() -> bool:
 	var expected := {
@@ -1192,7 +1233,7 @@ func utility_stability_rules_test() -> bool:
 	if GameManager.get("minimum_action_score") == null: return false
 	var npc: Dictionary = GameManager.npcs["bob"]
 	var context: Dictionary = GameManager.action_context(npc)
-	context["action_cooldowns"] = {"Work":GameTime.minute + 30}
+	context["action_cooldowns"] = {"Work":GameTime.absolute_minute() + 30}
 	var scores: Dictionary = GameManager.action_registry.calculate_scores(npc,context)
 	var cooldown_ok: bool = float(scores["Work"]) <= -999.0
 	npc["mood"] = "Afraid"

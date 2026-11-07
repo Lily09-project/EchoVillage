@@ -108,6 +108,7 @@ func has_expansion_data() -> bool:
 	return location_defs.has_all(["village_square","forest_edge"]) and quest_defs.has("forest_echo") and recipe_defs.has("forest_remedy")
 
 func new_game() -> void:
+	var now := GameTime.absolute_minute()
 	npcs.clear()
 	memory_sequence = 0
 	player = {"id":"player","position":Vector2(625,405),"inventory":{"bread":3,"medicine":1},"coin":24}
@@ -152,9 +153,9 @@ func new_game() -> void:
 		npc["current_goal"] = npc["goal"]
 		npc["scores"] = {}
 		npc["decision"] = {}
-		npc["last_decision"] = -100
-		npc["action_started_minute"] = 0
-		npc["state_entered_minute"] = 0
+		npc["last_decision"] = now - DECISION_INTERVAL
+		npc["action_started_minute"] = now
+		npc["state_entered_minute"] = now
 		npc["action_cooldowns"] = {}
 		npcs[str(npc["id"])] = npc
 	for npc_id in npcs:
@@ -175,7 +176,7 @@ func _on_minute(_minute: int, _hour: int) -> void:
 		var npc: Dictionary = value
 		update_needs(npc)
 		update_mood(npc)
-		if GameTime.minute - int(npc["last_decision"]) >= DECISION_INTERVAL:
+		if GameTime.absolute_minute() - int(npc["last_decision"]) >= DECISION_INTERVAL:
 			decide(npc)
 		move_npc(npc)
 	if active_event.get("id","") == "minor_danger" and not bool(active_event.get("consequence_resolved",false)):
@@ -223,7 +224,7 @@ func decide(npc: Dictionary) -> void:
 	var previous = action_registry.get_action(previous_action)
 	if previous != null and previous_action != choice:
 		previous.cancel(npc,action_context(npc))
-		npc["action_cooldowns"][previous_action] = GameTime.minute + ACTION_SWITCH_COOLDOWN
+		npc["action_cooldowns"][previous_action] = GameTime.absolute_minute() + ACTION_SWITCH_COOLDOWN
 	npc["action"] = choice
 	npc["goal"] = choice + " based on needs and schedule"
 	npc["target"] = target_for(npc,choice)
@@ -232,8 +233,8 @@ func decide(npc: Dictionary) -> void:
 	var selected = action_registry.get_action(choice)
 	if selected != null: selected.start(npc,context)
 	npc["current_goal"] = npc["goal"]
-	npc_state_machine.transition_for_action(npc,choice,npc["target"],GameTime.minute)
-	npc["last_decision"] = GameTime.minute
+	npc_state_machine.transition_for_action(npc,choice,npc["target"],GameTime.absolute_minute())
+	npc["last_decision"] = GameTime.absolute_minute()
 	EventBus.npc_action_changed.emit(str(npc["id"]), choice)
 	add_log("%s 選擇 Action %s，分數 %.1f。" % [str(npc["display_name"]),choice,best])
 	if choice == "Eat" and remove_item(npc["inventory"], "bread", 1):
@@ -247,7 +248,7 @@ func utility_scores(npc: Dictionary) -> Dictionary:
 func action_context(npc: Dictionary) -> Dictionary:
 	var hour := GameTime.minute / 60
 	return {
-		"minute":GameTime.minute,
+		"minute":GameTime.absolute_minute(),
 		"hour":hour,
 		"scheduled_action":schedule_action(npc,hour),
 		"event_id":str(active_event.get("id","")),
@@ -275,7 +276,7 @@ func move_npc(npc: Dictionary) -> void:
 		npc["position"] = npc["position"].move_toward(npc["target"], 1.35)
 		npc["state"] = "Moving"
 	if npc["position"].distance_to(npc["target"]) <= 8.0: npc["current_location"] = location_label_for_action(str(npc["action"]),npc)
-	npc_state_machine.update(npc,GameTime.minute)
+	npc_state_machine.update(npc,GameTime.absolute_minute())
 
 func location_label_for_action(action: String, npc: Dictionary) -> String:
 	if action in ["GoHome","Sleep"]: return str(npc.get("home_location","village_square"))
@@ -354,7 +355,7 @@ func interact(npc_id: String, intent: String) -> String:
 	var npc: Dictionary = npcs[npc_id]
 	if intent == "talk":
 		npc["state"] = "Talking"
-		npc["state_entered_minute"] = GameTime.minute
+		npc["state_entered_minute"] = GameTime.absolute_minute()
 		create_memory(npc_id,"small_talk","玩家停下腳步與我交談。",2,12,"player",npc_id,{"intent":"talk"})
 		change_relationship(npc,"player",{"affinity":0.5})
 		add_log("玩家與 %s 交談。" % str(npc["display_name"]))
@@ -795,6 +796,7 @@ func serialize() -> Dictionary:
 	state["timeline_events"] = timeline_events.duplicate(true)
 	state["timeline_sequence"] = timeline_sequence
 	state["save_version"] = 4
+	state["npc_timer_clock"] = "absolute"
 	state["rumors"] = rumor_service.serialize()
 	state["rumor_log"] = rumor_log.duplicate(true)
 	state["emergent_definitions"] = emergent_definitions.duplicate(true)
@@ -807,7 +809,7 @@ func _journal_entries_for_save() -> Dictionary:
 	var result := {}
 	for day in journal_entries: result[str(day)] = journal_entries[day].duplicate(true)
 	return result
-func deserialize(data: Dictionary) -> bool:
+func deserialize(data: Dictionary, validate_only: bool = false) -> bool:
 	if not (data is Dictionary): return false
 	var candidate_player = decode_value(data.get("player",player))
 	var candidate_npcs = decode_value(data.get("npcs",npcs))
@@ -853,6 +855,7 @@ func deserialize(data: Dictionary) -> bool:
 		if not _valid_emergent_definition(offer): return false
 	if not (candidate_journal is Dictionary) or candidate_journal.size() > MAX_JOURNAL_DAYS: return false
 	if not _valid_integer(candidate_gossip,0,1000000000): return false
+	if validate_only: return true
 	player = candidate_player
 	npcs = candidate_npcs
 	economy = candidate_economy.duplicate(true)
@@ -884,6 +887,17 @@ func deserialize(data: Dictionary) -> bool:
 		if str(key).is_valid_int() and candidate_journal[key] is Dictionary: journal_entries[int(str(key))] = candidate_journal[key].duplicate(true)
 	gossip_round = int(candidate_gossip)
 	return true
+
+# Older saves used minutes of the day. Let villagers make a fresh decision
+# using the restored clock instead of carrying ambiguous deadlines forward.
+func reset_legacy_npc_timers() -> void:
+	var now := GameTime.absolute_minute()
+	for value in npcs.values():
+		var npc: Dictionary = value
+		npc["last_decision"] = now - DECISION_INTERVAL
+		npc["action_started_minute"] = now
+		npc["state_entered_minute"] = now
+		npc["action_cooldowns"] = {}
 
 func _valid_emergent_definitions(value: Variant) -> bool:
 	if not (value is Dictionary) or value.size() > 64: return false
