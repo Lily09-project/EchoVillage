@@ -830,12 +830,12 @@ func deserialize(data: Dictionary, validate_only: bool = false) -> bool:
 	var candidate_story = data.get("story_progression",story_service.default_state())
 	var candidate_timeline = data.get("timeline_events",[])
 	var candidate_timeline_sequence = data.get("timeline_sequence",candidate_timeline.size() if candidate_timeline is Array else 0)
-	if not _valid_numeric_map(candidate_economy) or not (candidate_event is Dictionary): return false
+	if not _valid_numeric_map(candidate_economy) or not _valid_event_state(candidate_event): return false
 	if not (candidate_event_log is Array) or candidate_event_log.size() > 512: return false
 	if not _valid_integer(candidate_memory_sequence,0,1000000000): return false
-	if not (candidate_community is Dictionary) or not (candidate_location is String): return false
-	if not (candidate_discovered is Array) or candidate_discovered.size() > 512: return false
-	if not (candidate_active_quests is Dictionary) or not (candidate_completed is Array) or candidate_completed.size() > 512: return false
+	if not _valid_community_state(candidate_community) or not (candidate_location is String): return false
+	if not _valid_string_array(candidate_discovered,512): return false
+	if not (candidate_active_quests is Dictionary) or not _valid_string_array(candidate_completed,512): return false
 	if not (candidate_flags is Dictionary) or not _valid_progression_state(candidate_progression): return false
 	if not story_service.validate_state(candidate_story): return false
 	if not (candidate_timeline is Array) or candidate_timeline.size() > 512: return false
@@ -959,6 +959,24 @@ func _valid_npc_state(value: Variant, absolute_timers: bool = false) -> bool:
 
 
 # Validate nested data at the save boundary, before any live state is changed.
+
+func _valid_community_state(value: Variant) -> bool:
+	if not (value is Dictionary) or not _valid_number(value.get("renown",0),0,1000000000): return false
+	var entries = value.get("entries")
+	if not (entries is Array) or entries.size() > 512: return false
+	for entry in entries:
+		if not (entry is Dictionary): return false
+	return true
+
+func _valid_event_state(value: Variant) -> bool:
+	if not (value is Dictionary): return false
+	if value.is_empty(): return true
+	if not (value.get("id") is String): return false
+	if not _valid_integer(value.get("duration"),1,1000000000): return false
+	if value.has("remaining_minutes") and not _valid_integer(value["remaining_minutes"],0,1000000000): return false
+	if not (value.get("effects",{}) is Dictionary): return false
+	return true
+
 func _valid_progression_state(value: Variant) -> bool:
 	if not (value is Dictionary) or not _valid_numeric_map(value.get("stats")): return false
 	if not _valid_string_array(value.get("unlocked_ids",[]),512): return false
@@ -987,6 +1005,10 @@ func _valid_quest_state(value: Dictionary) -> bool:
 
 func _valid_npc_details(npc: Dictionary) -> bool:
 	if npc.has("coin") and not _valid_number(npc["coin"],0,1000000000): return false
+	var profile = npc.get("dialogue_profile",{})
+	if not (profile is Dictionary): return false
+	if profile.has("tone") and not (profile["tone"] is String): return false
+	if not _valid_string_array(profile.get("topics",[]),64): return false
 	var personality = npc.get("personality",{})
 	if not (personality is Dictionary): return false
 	for trait_value in personality.values():
