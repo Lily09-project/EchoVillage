@@ -253,7 +253,7 @@ func save_load_test() -> bool:
 	GameTime.day = 8
 	if not SaveManager.load_game(): return false
 	npc = GameManager.npcs["alice"]
-	var legacy_restored := GameTime.absolute_minute() == now and npc["action_cooldowns"].is_empty()
+	var legacy_restored : bool = GameTime.absolute_minute() == now and npc["action_cooldowns"].is_empty()
 	legacy_restored = legacy_restored and int(npc["last_decision"]) == now - GameManager.DECISION_INTERVAL
 	GameTime.deserialize(original_time)
 	return coin_restored and restored and legacy_restored
