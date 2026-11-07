@@ -758,6 +758,25 @@ func save_envelope_validation_test() -> bool:
 	var direct_time_safe := GameTime.minute == 360 and GameTime.day == 1 and GameTime.day_of_week == 1 and is_equal_approx(GameTime.time_scale,1.0)
 	GameTime.reset_clock()
 	if not direct_time_safe: return false
+	var valid_world := GameManager.serialize()
+	var invalid_states: Array = []
+	for key in ["position", "coin", "inventory"]:
+		var invalid: Dictionary = valid_world.duplicate(true)
+		invalid["player"].erase(key)
+		invalid_states.append(invalid)
+	for key in ["position", "target", "needs", "action"]:
+		var invalid: Dictionary = valid_world.duplicate(true)
+		invalid["npcs"]["alice"].erase(key)
+		invalid_states.append(invalid)
+	var invalid_timer: Dictionary = valid_world.duplicate(true)
+	invalid_timer["npcs"]["alice"]["last_decision"] = "tampered"
+	invalid_states.append(invalid_timer)
+	var invalid_cooldown: Dictionary = valid_world.duplicate(true)
+	invalid_cooldown["npcs"]["alice"]["action_cooldowns"] = []
+	invalid_states.append(invalid_cooldown)
+	for invalid in invalid_states:
+		if GameManager.deserialize(invalid,true): return false
+		if GameManager.serialize() != valid_world: return false
 	var malformed_state_accepted := GameManager.deserialize({"player":"tampered","npcs":{}})
 	GameManager.new_game()
 	if malformed_state_accepted: return false
