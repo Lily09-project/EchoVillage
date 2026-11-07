@@ -776,6 +776,7 @@ func save_envelope_validation_test() -> bool:
 	invalid_states.append(invalid_cooldown)
 	var malformed_fields := {
 		"personality": [],
+		"dialogue_profile": [],
 		"base_schedule": ["tampered"],
 		"relationships": {"player": "tampered"},
 		"memories": [{"importance": 70}],
@@ -794,6 +795,16 @@ func save_envelope_validation_test() -> bool:
 	for runtime in ["tampered", {"objective_index": -1, "progress": 0}, {"objective_index": 0, "progress": []}]:
 		var invalid: Dictionary = valid_world.duplicate(true)
 		invalid["active_quests"] = {"forest_echo": runtime}
+		invalid_states.append(invalid)
+	for patch in [
+		{"community": {"entries": "tampered"}},
+		{"community": {"renown": [], "entries": []}},
+		{"active_event": {"id": "rain", "remaining_minutes": []}},
+		{"discovered_locations": ["village_square", []]},
+		{"completed_quests": [{}]}
+	]:
+		var invalid: Dictionary = valid_world.duplicate(true)
+		invalid.merge(patch,true)
 		invalid_states.append(invalid)
 	for invalid in invalid_states:
 		if GameManager.deserialize(invalid,true): return false
