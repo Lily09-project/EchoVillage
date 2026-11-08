@@ -596,6 +596,9 @@ func refresh_main_menu() -> void:
 	else:
 		style_menu_secondary_button(continue_button)
 		style_action_button(new_game_button,VillageTheme.MOSS_LIGHT)
+	# Focus the recommended button so Enter / Space start the game without a mouse.
+	if main_menu_panel.visible:
+		focus_when_visible.call_deferred(continue_button if has_save else new_game_button)
 	continue_button.tooltip_text = "載入最近一次存檔" if not continue_button.disabled else "尚未建立存檔"
 	menu_status_label.text = "已偵測到存檔，可繼續上次旅程。" if has_save else "第一次來訪？選擇「開始新旅程」。"
 
@@ -761,7 +764,13 @@ func show_onboarding(force: bool = false) -> void:
 	onboarding_backdrop.visible = true
 	onboarding_panel.visible = true
 	onboarding_panel.move_to_front()
+	# Enter / Space advance the guide; Esc still skips it.
+	focus_when_visible.call_deferred(onboarding_next_button)
 	sync_simulation_pause()
+
+## Deferred so the control is laid out first; skipped if it was hidden meanwhile.
+func focus_when_visible(control: Control) -> void:
+	if is_instance_valid(control) and control.is_visible_in_tree(): control.grab_focus()
 
 func refresh_onboarding() -> void:
 	if onboarding_panel == null: return

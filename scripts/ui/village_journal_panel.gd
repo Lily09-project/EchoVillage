@@ -36,14 +36,20 @@ func open_today(current_day: int) -> void:
 	show_day(latest_day)
 
 func show_day(target_day: int) -> void:
-	day = clampi(target_day,1,latest_day)
+	day = clampi(target_day,earliest_day(),latest_day)
 	var entry: Dictionary = GameManager.journal_for_day(day)
 	day_label.text = "第 %d 天%s" % [day,"（今天，仍在書寫中）" if day == latest_day else ""]
 	story_label.text = str(entry.get("text",""))
 	var cited: Array = entry.get("cited",[])
 	source_label.text = "這一天沒有可引用的事件。" if bool(entry.get("empty",false)) else "根據當天 %d 件事件與傳聞寫成；完整紀錄見「今日回音」（L）。" % cited.size()
-	previous_button.disabled = day <= 1
+	previous_button.disabled = day <= earliest_day()
 	next_button.disabled = day >= latest_day
+
+## Only the last MAX_JOURNAL_DAYS finished days are archived; older days can no
+## longer be written from events, so paging stops there instead of showing an
+## empty day.
+func earliest_day() -> int:
+	return maxi(1,latest_day - int(GameManager.MAX_JOURNAL_DAYS))
 
 func _label(node_name: String, at: Vector2, label_size: Vector2, font_size: int, color: Color, text_value: String = "") -> Label:
 	var label := Label.new()

@@ -1,6 +1,12 @@
 class_name QuestService
 extends RefCounted
 
+## Generated commissions carry their day in the id, so every completion adds a
+## new id. Keep only the most recent ones; story quests are kept forever because
+## achievements and prerequisites refer to them. The save validator rejects more
+## than 512 completed ids, so this cap must stay well below that.
+const MAX_EMERGENT_COMPLETED := 128
+
 var definitions: Dictionary
 
 func _init(quest_definitions: Dictionary) -> void:
@@ -37,10 +43,25 @@ func notify(active: Dictionary, completed: Array, event_kind: String, target_id:
 			runtime["progress"] = 0
 			if int(runtime["objective_index"]) >= int(definitions[quest_id].get("objectives",[]).size()):
 				active.erase(quest_id)
-				if quest_id not in completed: completed.append(quest_id)
+				if quest_id not in completed:
+					completed.append(quest_id)
+					prune_completed(completed)
 				completed_now.append(quest_id)
 		changed.append(quest_id)
 	return {"changed":changed,"completed":completed_now}
+
+## Drops the oldest generated-commission ids beyond MAX_EMERGENT_COMPLETED.
+static func prune_completed(completed: Array) -> void:
+	var emergent := 0
+	for quest_id in completed:
+		if str(quest_id).begins_with("emergent_"): emergent += 1
+	var index := 0
+	while emergent > MAX_EMERGENT_COMPLETED and index < completed.size():
+		if str(completed[index]).begins_with("emergent_"):
+			completed.remove_at(index)
+			emergent -= 1
+		else:
+			index += 1
 
 func snapshot(active: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
