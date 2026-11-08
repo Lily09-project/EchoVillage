@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Echo Village：會記得你的村落｜瀏覽器試玩</title>
+<meta name="description" content="由本地規則驅動的村落生活模擬：居民會記住你做過的事、把傳聞越傳越走樣、改變彼此的關係，並自發提出委託。免安裝、免 API 金鑰，直接在瀏覽器遊玩。">
+<meta name="theme-color" content="#102332">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:site_name" content="Echo Village">
+<meta property="og:title" content="Echo Village：會記得你的村落">
+<meta property="og:description" content="居民會記住事件、轉述傳聞、改變關係並自發產生委託。免安裝，直接在瀏覽器遊玩。">
+<meta property="og:url" content="https://lily09-project.github.io/EchoVillage/">
+<meta property="og:image" content="https://lily09-project.github.io/EchoVillage/og-image.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="720">
+<meta property="og:image:alt" content="傳聞網路面板：一則傳聞從目擊者艾莉絲傳給其他村民，虛線標示走樣的轉述">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Echo Village：會記得你的村落">
+<meta name="twitter:description" content="居民會記住事件、轉述傳聞、改變關係並自發產生委託。免安裝，直接在瀏覽器遊玩。">
+<meta name="twitter:image" content="https://lily09-project.github.io/EchoVillage/og-image.png">
+<style>
+:root {
+	--bg: #102332;
+	--card: #17324a;
+	--line: #2c4c63;
+	--text: #f4ead7;
+	--muted: #b8c6cf;
+	--sun: #e9a94b;
+	--moss: #7bb88a;
+	--danger: #e08a8a;
+}
+html, body, #canvas { margin: 0; padding: 0; border: 0; }
+body {
+	color: var(--text);
+	background-color: var(--bg);
+	overflow: hidden;
+	touch-action: none;
+	font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Heiti TC", system-ui, sans-serif;
+}
+#canvas { display: block; }
+#canvas:focus { outline: none; }
+#status {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 16px;
+	box-sizing: border-box;
+	background: radial-gradient(circle at 50% 30%, #1d4157 0%, var(--bg) 70%);
+	overflow-y: auto;
+	z-index: 1;
+}
+.panel { width: 100%; max-width: 560px; text-align: center; }
+.eyebrow { margin: 0; color: var(--moss); font-size: 13px; letter-spacing: 0.12em; }
+h1 { margin: 6px 0 4px; color: var(--sun); font-size: clamp(32px, 7vw, 48px); font-weight: 600; letter-spacing: 0.04em; }
+.tagline { margin: 0 0 20px; color: var(--text); font-size: 16px; line-height: 1.6; }
+#progress-wrap { margin: 0 auto 6px; max-width: 420px; }
+#progress-track { height: 10px; border-radius: 5px; background: var(--line); overflow: hidden; }
+#progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, var(--moss), var(--sun)); transition: width 0.2s ease-out; }
+#progress-bar.indeterminate { width: 30%; animation: slide 1.2s ease-in-out infinite; }
+@keyframes slide { from { margin-left: -30%; } to { margin-left: 100%; } }
+@media (prefers-reduced-motion: reduce) { #progress-bar { transition: none; } #progress-bar.indeterminate { animation: none; width: 100%; opacity: 0.5; } }
+#progress-text { margin: 8px 0 20px; color: var(--muted); font-size: 14px; min-height: 1.4em; }
+.controls {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+	gap: 6px 14px;
+	margin: 0 auto;
+	padding: 14px 16px;
+	max-width: 460px;
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	background: var(--card);
+	text-align: left;
+	font-size: 14px;
+	color: var(--muted);
+}
+.controls h2 { grid-column: 1 / -1; margin: 0 0 4px; font-size: 14px; font-weight: 600; color: var(--text); }
+kbd {
+	display: inline-block;
+	min-width: 1.4em;
+	margin-right: 6px;
+	padding: 1px 6px;
+	border: 1px solid #4f6f86;
+	border-bottom-width: 2px;
+	border-radius: 4px;
+	background: #0d1d2a;
+	color: var(--text);
+	font: 600 12px/1.5 ui-monospace, Consolas, monospace;
+	text-align: center;
+}
+.hint { margin: 14px 0 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.hint a { color: var(--sun); }
+#device-notice, #status-notice { display: none; margin: 0 auto 18px; max-width: 460px; padding: 14px 16px; border-radius: 10px; font-size: 14px; line-height: 1.7; text-align: left; }
+#device-notice { border: 1px solid var(--sun); background: #2a3a3f; }
+#status-notice { border: 1px solid var(--danger); background: #4a2c33; color: #f6dede; }
+#device-notice button {
+	display: block;
+	width: 100%;
+	min-height: 44px;
+	margin-top: 10px;
+	border: 0;
+	border-radius: 8px;
+	background: var(--moss);
+	color: #102332;
+	font-family: inherit;
+	font-size: 15px;
+	font-weight: 600;
+	line-height: 1.2;
+	cursor: pointer;
+}
+</style>
+$GODOT_HEAD_INCLUDE
+</head>
+<body>
+<canvas id="canvas">你的瀏覽器不支援 canvas，無法執行這款遊戲。</canvas>
+<noscript>這款遊戲需要啟用 JavaScript 才能在瀏覽器中執行。</noscript>
+
+<div id="status" role="status" aria-live="polite">
+	<div class="panel">
+		<p class="eyebrow">村落生活模擬・瀏覽器試玩</p>
+		<h1>ECHO VILLAGE</h1>
+		<p class="tagline">居民會記住你做過的事，<br>把傳聞越傳越走樣，並自發提出委託。</p>
+
+		<div id="device-notice">
+			這款遊戲以鍵盤操作為主（移動與快捷鍵），建議用電腦瀏覽器開啟。<br>
+			手機或平板可以橫向點選畫面上的按鈕試玩，但無法移動角色。
+			<button id="load-anyway" type="button">仍要在這台裝置載入（約 10 MB）</button>
+		</div>
+		<div id="status-notice"></div>
+
+		<div id="progress-wrap">
+			<div id="progress-track"><div id="progress-bar" class="indeterminate"></div></div>
+		</div>
+		<p id="progress-text">準備載入遊戲…</p>
+
+		<div class="controls" aria-label="操作方式">
+			<h2>操作方式</h2>
+			<span><kbd>WASD</kbd>／方向鍵 移動</span>
+			<span><kbd>E</kbd>選取附近居民</span>
+			<span><kbd>C</kbd>交談　<kbd>Q</kbd>詢問</span>
+			<span><kbd>G</kbd>送麵包　<kbd>T</kbd>交易</span>
+			<span><kbd>U</kbd>傳聞網路</span>
+			<span><kbd>K</kbd>任務與委託</span>
+			<span><kbd>V</kbd>村落日誌</span>
+			<span><kbd>F1</kbd>指南　<kbd>Esc</kbd>暫停</span>
+		</div>
+		<p class="hint">滑鼠也能點選畫面上的按鈕。存檔保存在這個瀏覽器中。<br><a href="https://github.com/Lily09-project/EchoVillage" target="_blank" rel="noopener">原始碼與 Windows 版下載</a></p>
+	</div>
+</div>
+
+<script src="$GODOT_URL"></script>
+<script>
+const GODOT_CONFIG = $GODOT_CONFIG;
+const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
+const engine = new Engine(GODOT_CONFIG);
+
+(function () {
+	const statusOverlay = document.getElementById('status');
+	const progressBar = document.getElementById('progress-bar');
+	const progressText = document.getElementById('progress-text');
+	const statusNotice = document.getElementById('status-notice');
+	const deviceNotice = document.getElementById('device-notice');
+	const progressWrap = document.getElementById('progress-wrap');
+	const pageTitle = document.title;
+	let initializing = true;
+
+	function showFailure(err) {
+		console.error(err);
+		const detail = err instanceof Error ? err.message : (typeof err === 'string' ? err : '發生未知錯誤。');
+		statusNotice.textContent = '';
+		statusNotice.append('遊戲無法在這個瀏覽器啟動。請改用最新版 Chrome、Edge 或 Firefox 的桌面版，或下載 Windows 版。');
+		statusNotice.append(document.createElement('br'));
+		statusNotice.append('技術細節：' + detail);
+		statusNotice.style.display = 'block';
+		progressText.textContent = '';
+		progressWrap.style.display = 'none';
+		initializing = false;
+	}
+
+	function onProgress(current, total) {
+		if (current > 0 && total > 0) {
+			const ratio = Math.min(1, current / total);
+			progressBar.classList.remove('indeterminate');
+			progressBar.style.width = (ratio * 100).toFixed(1) + '%';
+			progressText.textContent = ratio < 1 ? '下載遊戲資料… ' + Math.floor(ratio * 100) + '%' : '啟動遊戲引擎…';
+		} else {
+			progressBar.classList.add('indeterminate');
+			progressText.textContent = '載入中…';
+		}
+	}
+
+	function start() {
+		deviceNotice.style.display = 'none';
+		progressWrap.style.display = '';
+		progressText.textContent = '下載遊戲資料…';
+		engine.startGame({ onProgress: onProgress }).then(() => {
+			if (!initializing) return;
+			initializing = false;
+			statusOverlay.remove();
+			// The engine renames the tab to the bare project name; keep the descriptive title.
+			document.title = pageTitle;
+		}, showFailure);
+	}
+
+	const missing = Engine.getMissingFeatures({ threads: GODOT_THREADS_ENABLED });
+	if (missing.length !== 0) {
+		showFailure('缺少必要的瀏覽器功能：' + missing.join('、'));
+		return;
+	}
+	// Touch-only devices: say up front that the game is keyboard-first and let
+	// the player choose before downloading about 10 MB.
+	const touchOnly = window.matchMedia('(pointer: coarse)').matches && !window.matchMedia('(any-pointer: fine)').matches;
+	if (touchOnly) {
+		deviceNotice.style.display = 'block';
+		progressWrap.style.display = 'none';
+		progressText.textContent = '';
+		document.getElementById('load-anyway').addEventListener('click', start, { once: true });
+	} else {
+		start();
+	}
+}());
+</script>
+</body>
+</html>

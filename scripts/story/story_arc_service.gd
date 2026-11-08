@@ -44,6 +44,8 @@ func validate_state(raw: Variant) -> bool:
 		if str(record.get("status","")) not in ["active","completed"]: return false
 		var stage_id := str(record.get("stage_id",""))
 		if not stage_id.is_empty() and _stage_definition(str(arc_id),stage_id).is_empty(): return false
+		# apply_choice() appends to choices_made, so an active record must carry it.
+		if str(record.get("status","")) == "active" and not record.has("choices_made"): return false
 		var choices = record.get("choices_made",[])
 		if not (choices is Array) or choices.size() > MAX_CHOICES_PER_STAGE: return false
 		for choice_id in choices:
@@ -115,8 +117,10 @@ func apply_choice(arc_id: String, choice_id: String) -> Dictionary:
 	if choice.is_empty(): return {"ok":false,"reason":"找不到這個故事選擇。"}
 	if choice_id in record.get("choices_made",[]): return {"ok":false,"reason":"這個選擇已經處理過。"}
 	if not _can_apply_consequences(choice.get("consequences",[])): return {"ok":false,"reason":"這個選擇的後果資料無法安全套用。"}
+	var choices_made: Array = record.get("choices_made",[])
 	_apply_consequences(arc_id,choice.get("consequences",[]))
-	record["choices_made"].append(choice_id)
+	choices_made.append(choice_id)
+	record["choices_made"] = choices_made
 	var next_stage := str(choice.get("next_stage",""))
 	var completed := next_stage.is_empty()
 	if completed:

@@ -1006,7 +1006,20 @@ func record_timeline_event(message: String, details: Dictionary = {}) -> void:
 	}
 	event.merge(causality_history_service.normalize_details(details),true)
 	timeline_events.append(event)
-	if timeline_events.size() > 160: timeline_events.pop_front()
+	if timeline_events.size() > 160: _evict_timeline_event()
+
+## Each NPC decision is logged as a plain "simulation" event (about 720 a day),
+## which used to push the day's memories, relationships and quests out of the
+## 160-event window before the journal was written at midnight. Drop the oldest
+## plain simulation event first; drop the oldest event of any kind only when
+## nothing else is left.
+func _evict_timeline_event() -> void:
+	for index in timeline_events.size() - 1:
+		var candidate: Dictionary = timeline_events[index]
+		if str(candidate.get("category","")) == "simulation" and not candidate.has("effect_kind"):
+			timeline_events.remove_at(index)
+			return
+	timeline_events.pop_front()
 
 func timeline_snapshot(category: String = "all", target_day: int = -1, limit: int = 12) -> Array:
 	var result: Array = []

@@ -8,7 +8,7 @@ GitHub Actions workflow `.github/workflows/ci.yml` 在乾淨 Windows runner 上�
 
 統一驗收入口為 `powershell -NoProfile -ExecutionPolicy Bypass -File quality\run_acceptance.ps1 release`；長時間驗證使用相同 runner 的 `nightly` profile。Manifest 明確定義 timeout、required gate、網路／寫入政策與 evidence，報告依共同 JSON Schema 寫入 `reports/acceptance/`。
 
-## 目前覆蓋：99 項
+## 目前覆蓋：137 項
 
 - 資料與 runtime：五位 NPC、必要欄位、獨立住宅、NPC 對 NPC 關係。
 - 長時間模擬：七日與三十日回歸，以及獨立九十日 soak；需求保持 0–100，狀態與 Action 有效，並檢查記憶體、存檔大小與末段效能漂移上限。
@@ -37,7 +37,7 @@ GitHub Actions workflow `.github/workflows/ci.yml` 在乾淨 Windows runner 上�
 
 ## 發行驗證
 
-`build_release.bat` 依序執行：99 項測試 → PCK 匯出 → portable runtime 組裝 → 120 幀成品煙霧測試。最後另檢查成品檔案、大小與殘留程序。
+`build_release.bat` 依序執行：137 項測試 → PCK 匯出 → portable runtime 組裝 → 120 幀成品煙霧測試。最後另檢查成品檔案、大小與殘留程序。
 
 ## 安全稽核
 

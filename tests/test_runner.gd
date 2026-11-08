@@ -3,6 +3,7 @@ extends Node
 const SaveFailureTest = preload("res://tests/suites/save_failure_test.gd")
 const UiRefreshSchedulerTest = preload("res://tests/suites/ui_refresh_scheduler_test.gd")
 const LivingVillageTest = preload("res://tests/suites/living_village_test.gd")
+const RobustnessTest = preload("res://tests/suites/robustness_test.gd")
 const VillageTheme = preload("res://scripts/ui/ui_theme.gd")
 
 var passed := 0
@@ -141,6 +142,11 @@ func run() -> void:
 	check("文法對話在同種子下可重現", LivingVillageTest.dialogue_is_deterministic())
 	check("村落日誌只引用當天發生的事件", LivingVillageTest.journal_cites_only_that_day())
 	check("沒有事件的日子顯示明確的空狀態", LivingVillageTest.journal_has_an_empty_state())
+	check("傳聞存檔缺少必要欄位時會被拒絕", RobustnessTest.rumor_state_rejects_missing_fields())
+	check("已澄清的傳聞不會再被轉述", RobustnessTest.debunked_rumor_is_not_retold())
+	check("已完成委託清單維持上限且存檔仍可讀取", RobustnessTest.completed_quests_stay_bounded())
+	check("進行中的故事線存檔必須保留已做選擇", RobustnessTest.story_state_requires_choices_for_active_arcs())
+	check("整天的 NPC 決策紀錄不會擠掉當天的因果事件", RobustnessTest.timeline_keeps_causal_events_through_a_day())
 	check("傳聞會在村民之間傳播並改變關係與記憶", living_gossip_integration_test())
 	check("湧現式委託完成後實際改變需求、聲望與關係", living_commission_integration_test())
 	check("遊戲內對話引用居民自己的記憶", living_dialogue_integration_test())
@@ -148,6 +154,7 @@ func run() -> void:
 	check("傳聞網路與委託可存檔，舊版存檔仍可讀取", living_save_compatibility_test())
 	check("四十日模擬中傳聞、記憶與日誌都維持上限", living_soak_caps_test())
 	check("傳聞網路面板有 U 快捷鍵、文字傳播鏈且開啟時暫停模擬", await rumor_network_panel_test())
+	check("主選單與首次導覽預先聚焦主要按鈕，可只用鍵盤開始", await keyboard_first_focus_test())
 	check("任務日誌列出村民委託並可直接接受", await commission_offer_ui_test())
 	check("村落日誌有 V 快捷鍵且只能翻閱已發生的日子", await village_journal_panel_test())
 	check("色盲與字級偏好只接受合法值並可持久保存", accessibility_preference_test())
@@ -1624,6 +1631,29 @@ func _main_instance() -> Node:
 	await get_tree().process_frame
 	instance.complete_onboarding()
 	return instance
+
+## Web players often never touch the mouse: Enter / Space must start a new game
+## and advance the guide, and focus must not linger once the guide closes.
+func keyboard_first_focus_test() -> bool:
+	var scene := load("res://scenes/main/Main.tscn") as PackedScene
+	if scene == null: return false
+	var previous_seen := SaveManager.get_preference("onboarding_seen",false)
+	SaveManager.preferences["onboarding_seen"] = false
+	var instance := scene.instantiate()
+	add_child(instance)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var menu_focus: bool = instance.main_menu_panel.visible and (instance.new_game_button.has_focus() or instance.continue_button.has_focus())
+	instance.start_new_game()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var guide_focus: bool = instance.onboarding_panel.visible and instance.onboarding_next_button.has_focus()
+	instance.complete_onboarding()
+	await get_tree().process_frame
+	var released: bool = not instance.onboarding_next_button.has_focus() and not instance.new_game_button.has_focus()
+	instance.queue_free()
+	SaveManager.set_preference("onboarding_seen",previous_seen)
+	return menu_focus and guide_focus and released
 
 func rumor_network_panel_test() -> bool:
 	var instance: Node = await _main_instance()

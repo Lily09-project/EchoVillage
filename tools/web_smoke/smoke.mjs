@@ -64,6 +64,34 @@ try {
   }, shot.toString("base64"));
   console.log(`canvas ${stats.width}x${stats.height}: ${stats.bright}/${stats.samples} non-dark samples, ${stats.colours} colours`);
   if (stats.bright < stats.samples * 0.2 || stats.colours < 16) failures.push("canvas looks blank");
+
+  // The custom shell (web/shell.html) must keep its language, title and link-preview tags.
+  const shell = await page.evaluate(() => ({
+    lang: document.documentElement.lang,
+    title: document.title,
+    ogImage: document.querySelector('meta[property="og:image"]')?.content ?? "",
+    description: document.querySelector('meta[name="description"]')?.content ?? "",
+  }));
+  console.log(`shell: lang=${shell.lang} title=${shell.title}`);
+  if (shell.lang !== "zh-Hant-TW") failures.push(`shell: unexpected lang "${shell.lang}"`);
+  if (!shell.title.includes("Echo Village") || shell.title === "Echo Village") failures.push(`shell: title lost its description "${shell.title}"`);
+  if (!shell.description) failures.push("shell: missing meta description");
+  const ogFile = shell.ogImage.split("/").pop();
+  try { await stat(join(root, ogFile)); } catch { failures.push(`shell: og:image file ${ogFile} is not in the build`); }
+
+  // Touch-only devices get a keyboard-first notice and download nothing until they opt in.
+  const phone = await browser.newPage({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true });
+  let wasmBeforeTap = false;
+  phone.on("request", (request) => { if (request.url().endsWith(".wasm")) wasmBeforeTap = true; });
+  phone.on("pageerror", (error) => failures.push(`phone page: ${error.message}`));
+  await phone.goto(url);
+  await phone.waitForSelector("#device-notice", { state: "visible", timeout: 30_000 });
+  await phone.waitForTimeout(1_000);
+  if (wasmBeforeTap) failures.push("phone: engine download started before the player opted in");
+  await phone.tap("#load-anyway");
+  await phone.waitForFunction(() => !document.getElementById("status"), null, { timeout: 120_000 });
+  console.log("phone: notice shown, engine started after opt-in");
+  await phone.close();
 } finally {
   await browser.close();
   server.close();

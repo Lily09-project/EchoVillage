@@ -5,6 +5,7 @@ signal accept_requested(quest_id: String)
 var body_label: Label
 var offers_box: VBoxContainer
 var offers_title: Label
+var _offers_fingerprint := ""
 
 func _ready() -> void:
 	position = Vector2(330,92)
@@ -37,6 +38,10 @@ func refresh(entries: Array, completed: Array, offers: Array = []) -> void:
 ## Commissions generated from the simulation, each with an accept button.
 func _refresh_offers(offers: Array) -> void:
 	if offers_box == null: return
+	# refresh() runs on every game minute; only rebuild the rows when the offers change.
+	var fingerprint := JSON.stringify(offers)
+	if fingerprint == _offers_fingerprint and offers_box.get_child_count() > 0: return
+	_offers_fingerprint = fingerprint
 	for child in offers_box.get_children(): child.queue_free()
 	if offers.is_empty():
 		var empty := Label.new(); empty.name = "NoOffers"; empty.custom_minimum_size = Vector2(572,40)

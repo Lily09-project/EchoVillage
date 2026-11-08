@@ -120,6 +120,8 @@ func transmission_chance(source: Dictionary, target_id: String, strength: float)
 ## story may be distorted into the next, more dramatic version.
 func transmit(rumor: Dictionary, from_id: String, to_id: String, day: int, rng: RandomNumberGenerator) -> Dictionary:
 	if not rumor.get("holders",{}).has(from_id) or rumor["holders"].has(to_id): return {}
+	# A debunked rumour stops travelling, and nobody retells a rumour to its own subject.
+	if bool(rumor.get("debunked",false)) or to_id == str(rumor.get("subject_id","")): return {}
 	if rumor.get("transmissions",[]).size() >= MAX_TRANSMISSIONS: return {}
 	var source: Dictionary = rumor["holders"][from_id]
 	var strength := float(source.get("strength",0.0)) * STRENGTH_DECAY
@@ -179,13 +181,24 @@ func validate_state(value: Variant) -> bool:
 	for rumor in state.get("rumors",[]):
 		if not (rumor is Dictionary): return false
 		if not (rumor.get("id","") is String) or not (rumor.get("kind","") is String) or not VERSIONS.has(str(rumor.get("kind",""))): return false
-		if not (rumor.get("holders",{}) is Dictionary) or rumor.get("holders",{}).size() > 64: return false
-		if not (rumor.get("transmissions",[]) is Array) or rumor.get("transmissions",[]).size() > MAX_TRANSMISSIONS: return false
-		for holder in rumor.get("holders",{}).values():
+		# snapshot(), propagate_round() and transmit() read these keys directly.
+		if not rumor.has_all(["holders","transmissions","origin_npc","origin_day","emotion","debunked"]): return false
+		if not (rumor["holders"] is Dictionary) or rumor["holders"].size() > 64: return false
+		if not (rumor["transmissions"] is Array) or rumor["transmissions"].size() > MAX_TRANSMISSIONS: return false
+		if not (rumor["origin_npc"] is String) or not (rumor["debunked"] is bool): return false
+		if not _is_number(rumor["origin_day"]) or not _is_number(rumor["emotion"]): return false
+		for transmission in rumor["transmissions"]:
+			if not (transmission is Dictionary): return false
+		for holder in rumor["holders"].values():
 			if not (holder is Dictionary): return false
-			var strength = holder.get("strength",0.0)
-			if not (strength is float or strength is int) or float(strength) < 0.0 or float(strength) > 100.0: return false
+			if not holder.has_all(["strength","credibility","version","heard_from"]): return false
+			var strength = holder["strength"]
+			if not _is_number(strength) or float(strength) < 0.0 or float(strength) > 100.0: return false
+			if not _is_number(holder["credibility"]) or not _is_number(holder["version"]) or not (holder["heard_from"] is String): return false
 	return true
+
+static func _is_number(value: Variant) -> bool:
+	return value is int or value is float
 
 func load_state(value: Variant) -> bool:
 	if not validate_state(value): return false
