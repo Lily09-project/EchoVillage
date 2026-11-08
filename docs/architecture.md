@@ -80,7 +80,7 @@
 
 ### 網頁版
 
-`export_presets.cfg` 的 `Web` 預設使用單執行緒模板，不需要 COOP／COEP 標頭，可以直接放在 GitHub Pages。瀏覽器拿不到系統字型，所以 `assets/fonts/NotoSansTC-EchoVillage.ttf` 內嵌了 Noto Sans TC 的子集（只含專案用到的字，約 300 KB，OFL 授權）；`tools/build_font_subset.py` 重新產生，`tests/test_runner.gd` 會檢查專案中每個字都在字型裡。`.github/workflows/web.yml` 下載固定雜湊的 Godot 與模板、匯出、用 Playwright 在 Chromium 啟動並確認畫面不是全黑，合併到 `master` 後部署到 Pages。
+`export_presets.cfg` 的 `Web` 預設使用單執行緒模板，不需要 COOP／COEP 標頭，可以直接放在 GitHub Pages。瀏覽器拿不到系統字型，所以 `assets/fonts/NotoSansTC-EchoVillage.ttf` 內嵌了 Noto Sans TC 的子集（只含專案用到的字，約 300 KB，OFL 授權）；`tools/build_font_subset.py` 重新產生，`tests/test_runner.gd` 會檢查專案中每個字都在字型裡。`.github/workflows/web.yml` 下載固定雜湊的 Godot 與模板、匯出、用 Playwright 在 Chromium 啟動並確認畫面不是全黑，合併到 `master` 後部署到 Pages。網頁外殼是 `web/shell.html`（匯出預設的 `html/custom_html_shell`）：繁中載入畫面、操作說明、描述與 Open Graph 標籤，以及只有觸控裝置時先詢問再下載的提示；預覽圖由 workflow 從 `docs/screenshots/rumor-network.png` 複製成 `og-image.png`。GitHub Pages 會自動以 gzip 傳送 `.wasm`／`.pck`（約 38 MB 的 wasm 傳輸約 9.4 MB），但不提供 Brotli，也不會使用預先壓縮的 `.br`／`.gz` 檔，快取時間固定為 10 分鐘。
 
 ## 資料契約
 

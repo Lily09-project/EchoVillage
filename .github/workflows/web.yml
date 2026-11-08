@@ -48,6 +48,8 @@ jobs:
           mkdir -p release/web
           "$GODOT" --headless --path . --export-release "Web" release/web/index.html
           for file in index.html index.js index.wasm index.pck; do test -s "release/web/$file"; done
+          # Link-preview image referenced by the og:image / twitter:image tags in web/shell.html.
+          cp docs/screenshots/rumor-network.png release/web/og-image.png
 
       - name: Record export size
         run: |
