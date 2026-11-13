@@ -1,15 +1,24 @@
-# Echo Village
+<h1 align="center">Echo Village</h1>
 
-[![CI](https://github.com/Lily09-project/EchoVillage/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/Lily09-project/EchoVillage/actions/workflows/ci.yml)
-[![Web](https://github.com/Lily09-project/EchoVillage/actions/workflows/web.yml/badge.svg?branch=master)](https://github.com/Lily09-project/EchoVillage/actions/workflows/web.yml)
+<p align="center"><strong>會記得你的村落。</strong></p>
 
-**會記得你的村落。** 你做的每件事都會被某位居民記住，再被轉述成越傳越走樣的傳聞，改變村民之間的關係，最後變成他們主動找你幫忙的委託。全部由本地規則驅動，可離線遊玩，不需要 API 金鑰。
+<p align="center">
+  <a href="https://lily09-project.github.io/EchoVillage/"><img alt="在瀏覽器試玩" src="https://img.shields.io/badge/%E5%9C%A8%E7%80%8F%E8%A6%BD%E5%99%A8%E8%A9%A6%E7%8E%A9-GitHub%20Pages-e7aa4c?style=flat-square&labelColor=102332"></a>
+  <a href="https://github.com/Lily09-project/EchoVillage/releases/tag/v1.4.0"><img alt="Windows 版 v1.4.0" src="https://img.shields.io/badge/Windows-v1.4.0-79b786?style=flat-square&labelColor=102332"></a>
+  <img alt="Godot 4.5.2" src="https://img.shields.io/badge/Godot-4.5.2-5c9fb2?style=flat-square&labelColor=102332">
+  <a href="https://github.com/Lily09-project/EchoVillage/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Lily09-project/EchoVillage/actions/workflows/ci.yml/badge.svg?branch=master"></a>
+  <a href="https://github.com/Lily09-project/EchoVillage/actions/workflows/web.yml"><img alt="Web" src="https://github.com/Lily09-project/EchoVillage/actions/workflows/web.yml/badge.svg?branch=master"></a>
+</p>
 
-### ▶ [在瀏覽器直接試玩](https://lily09-project.github.io/EchoVillage/)　｜　[下載 Windows 版 v1.4.0](https://github.com/Lily09-project/EchoVillage/releases/tag/v1.4.0)
+你做的每件事都會被某位居民記住，再被轉述成越傳越走樣的傳聞，改變村民之間的關係，最後變成他們主動找你幫忙的委託。全部由本地規則驅動，可離線遊玩，不需要 API 金鑰。
 
+<h3 align="center">▶ <a href="https://lily09-project.github.io/EchoVillage/">在瀏覽器直接試玩</a>　｜　<a href="https://github.com/Lily09-project/EchoVillage/releases/tag/v1.4.0">下載 Windows 版 v1.4.0</a></h3>
+
+> [!NOTE]
 > 網頁版首次載入約 10 MB（壓縮後），請使用桌機的 Chrome、Edge 或 Firefox，並以鍵盤遊玩；手機可以開啟，但無法移動角色。
 
 ![傳聞網路：艾莉絲目擊的事件被轉述給其他村民，虛線代表走樣的版本](docs/screenshots/rumor-network.png)
+<p align="center"><sub>傳聞網路（<code>U</code>）：艾莉絲目擊的事件被轉述給其他村民，虛線代表走樣的版本。</sub></p>
 
 ## 有什麼特別
 
@@ -35,11 +44,24 @@
 
 ## 畫面
 
-| 村民委託 | 村落日誌 |
-| --- | --- |
-| ![村民委託](docs/screenshots/commissions.png) | ![村落日誌](docs/screenshots/village-journal.png) |
-| **居民的決策依據** | **關係歷程** |
-| ![居民決策](docs/screenshots/npc-decision.png) | ![關係歷程](docs/screenshots/relationship-history.png) |
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/commissions.png" alt="村民委託"></td>
+    <td width="50%"><img src="docs/screenshots/village-journal.png" alt="村落日誌"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>村民委託</b>（<code>K</code>）</sub></td>
+    <td align="center"><sub><b>村落日誌</b>（<code>V</code>）</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/npc-decision.png" alt="居民決策"></td>
+    <td width="50%"><img src="docs/screenshots/relationship-history.png" alt="關係歷程"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>居民的決策依據</b></sub></td>
+    <td align="center"><sub><b>關係歷程</b>（<code>Y</code>）</sub></td>
+  </tr>
+</table>
 
 ## 主要系統
 
