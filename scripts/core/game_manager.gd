@@ -1223,6 +1223,7 @@ func apply_rumor_transmission(transmission: Dictionary) -> void:
 func _log_rumor_transmission(transmission: Dictionary) -> void:
 	var entry: Dictionary = transmission.duplicate(true)
 	entry["day"] = GameTime.day
+	entry["time"] = GameTime.formatted_time()
 	rumor_log.append(entry)
 	while rumor_log.size() > MAX_RUMOR_LOG: rumor_log.pop_front()
 	var names := actor_names()

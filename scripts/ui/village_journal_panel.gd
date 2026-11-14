@@ -1,5 +1,7 @@
 extends Panel
 
+signal source_requested(actor: String, rumor_id: String)
+
 ## The village journal: a short story of each day, written from that day's
 ## causal events and rumour retellings. Older days can be revisited.
 
@@ -12,6 +14,9 @@ var story_label: Label
 var source_label: Label
 var previous_button: Button
 var next_button: Button
+var source_picker: OptionButton
+var source_button: Button
+var sources: Array = []
 
 func _ready() -> void:
 	position = Vector2(300,112)
@@ -20,9 +25,18 @@ func _ready() -> void:
 	_label("EyebrowLabel",Vector2(26,16),Vector2(620,18),12,VillageTheme.BRICK,"每天結束時，村子會把發生的事寫成故事")
 	_label("TitleLabel",Vector2(26,38),Vector2(620,32),23,VillageTheme.INK,"村落日誌  /  VILLAGE JOURNAL")
 	day_label = _label("DayLabel",Vector2(26,80),Vector2(620,26),17,VillageTheme.MOSS,"")
-	story_label = _label("StoryLabel",Vector2(26,114),Vector2(628,250),15,VillageTheme.INK)
+	story_label = _label("StoryLabel",Vector2(26,114),Vector2(628,154),15,VillageTheme.INK)
 	story_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	source_label = _label("SourceLabel",Vector2(26,372),Vector2(628,22),12,VillageTheme.INK_SOFT,"")
+	source_label = _label("SourceLabel",Vector2(26,327),Vector2(628,66),12,VillageTheme.INK_SOFT,"")
+	source_picker = OptionButton.new()
+	source_picker.name = "SourcePicker"
+	source_picker.position = Vector2(26,273)
+	source_picker.size = Vector2(450,44)
+	source_picker.clip_text = true
+	source_picker.item_selected.connect(func(_index: int): _show_source())
+	add_child(source_picker)
+	source_button = _button("SourceButton",Vector2(490,273),Vector2(164,44),"查看來源",VillageTheme.TEAL)
+	source_button.pressed.connect(_open_source)
 	previous_button = _button("PreviousDayButton",Vector2(26,410),Vector2(120,46),"‹ 前一天",VillageTheme.TEAL)
 	previous_button.pressed.connect(func(): show_day(day - 1))
 	next_button = _button("NextDayButton",Vector2(154,410),Vector2(120,46),"後一天 ›",VillageTheme.TEAL)
@@ -40,10 +54,48 @@ func show_day(target_day: int) -> void:
 	var entry: Dictionary = GameManager.journal_for_day(day)
 	day_label.text = "第 %d 天%s" % [day,"（今天，仍在書寫中）" if day == latest_day else ""]
 	story_label.text = str(entry.get("text",""))
-	var cited: Array = entry.get("cited",[])
-	source_label.text = "這一天沒有可引用的事件。" if bool(entry.get("empty",false)) else "根據當天 %d 件事件與傳聞寫成；完整紀錄見「今日回音」（L）。" % cited.size()
+	var raw_sources = entry.get("sources",[])
+	sources = raw_sources.filter(func(item): return item is Dictionary) if raw_sources is Array else []
+	source_picker.clear()
+	for source in sources:
+		var line := str(source.get("text",""))
+		source_picker.add_item(line.left(26) + ("…" if line.length() > 26 else ""))
+	source_picker.visible = not sources.is_empty()
+	source_button.visible = source_picker.visible
+	if source_picker.visible: source_picker.select(0)
+	source_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_show_source()
+	if sources.is_empty():
+		source_label.text = "這一天沒有可引用的事件。" if bool(entry.get("empty",false)) else "此日誌只有摘要，可查看今日回音。"
 	previous_button.disabled = day <= earliest_day()
 	next_button.disabled = day >= latest_day
+
+func _source() -> Dictionary:
+	var index := source_picker.selected
+	return sources[index] if index >= 0 and index < sources.size() else {}
+
+func _actor(source: Dictionary) -> String:
+	var actors = source.get("actors",[])
+	if actors is Array:
+		for actor in actors:
+			if GameManager.npcs.has(str(actor)): return str(actor)
+	return ""
+
+func _show_source() -> void:
+	var source := _source()
+	var names: Dictionary = GameManager.actor_names()
+	var participants := PackedStringArray()
+	var actors = source.get("actors",[])
+	if actors is Array:
+		for actor in actors:
+			if names.has(str(actor)): participants.append(str(names[str(actor)]))
+	source_label.text = str(source.get("time",""))
+	if not participants.is_empty(): source_label.text += "  " + "、".join(participants)
+	source_button.disabled = _actor(source).is_empty() and str(source.get("rumor_id","")).is_empty()
+
+func _open_source() -> void:
+	var source := _source()
+	source_requested.emit(_actor(source),str(source.get("rumor_id","")))
 
 ## Only the last MAX_JOURNAL_DAYS finished days are archived; older days can no
 ## longer be written from events, so paging stops there instead of showing an

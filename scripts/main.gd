@@ -51,6 +51,7 @@ var daily_echo_category := "all"
 const DAILY_ECHO_CATEGORIES := ["all","social","world","quest","economy","location","progression"]
 const DAILY_ECHO_CATEGORY_LABELS := {"all":"全部","social":"居民","world":"世界","quest":"任務","economy":"經濟","location":"地點","progression":"進展"}
 var causality_actor := ""
+var return_to_village_journal := false
 var causality_kind := "all"
 const CAUSALITY_ACTORS := ["","alice","bob","charlie","diana","eric"]
 const CAUSALITY_ACTOR_LABELS := {"":"全部居民","alice":"艾莉絲","bob":"鮑伯","charlie":"查理","diana":"黛安娜","eric":"艾瑞克"}
@@ -820,6 +821,7 @@ func create_expansion_ui() -> void:
 	canvas.add_child(story_arc_panel)
 	canvas.add_child(rumor_network_panel)
 	canvas.add_child(village_journal_panel)
+	village_journal_panel.source_requested.connect(open_journal_source)
 	quest_log_panel.accept_requested.connect(handle_commission_accept)
 	world_map_panel.travel_requested.connect(handle_travel_request)
 	trade_panel.buy_requested.connect(handle_buy_request)
@@ -835,8 +837,26 @@ func refresh_rumor_network() -> void:
 	rumor_network_panel.refresh(GameManager.rumor_network_snapshot(),GameManager.actor_names(),SaveManager.get_preference("colorblind",false))
 
 func open_village_journal() -> void:
-	if not village_journal_panel.visible: village_journal_panel.open_today(GameTime.day)
+	if not village_journal_panel.visible and not return_to_village_journal:
+		village_journal_panel.open_today(GameTime.day)
+	return_to_village_journal = false
 	toggle_modal_panel(village_journal_panel)
+	if village_journal_panel.visible and village_journal_panel.source_picker.visible:
+		village_journal_panel.source_picker.grab_focus()
+
+func open_journal_source(actor: String, rumor_id: String) -> void:
+	if not rumor_id.is_empty():
+		refresh_rumor_network()
+		rumor_network_panel.select(rumor_id)
+		if str(rumor_network_panel.selected().get("id","")) == rumor_id:
+			return_to_village_journal = true
+			toggle_modal_panel(rumor_network_panel)
+			return
+	if not actor.is_empty():
+		return_to_village_journal = true
+		set_journal_mode("causality")
+		set_causality_actor(actor)
+		toggle_modal_panel(journal_panel)
 
 func handle_commission_accept(quest_id: String) -> void:
 	var result: Dictionary = GameManager.accept_emergent_quest(quest_id)

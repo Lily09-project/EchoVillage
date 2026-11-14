@@ -1806,12 +1806,22 @@ func village_journal_panel_test() -> bool:
 	var clamped_past: bool = panel.day == 1
 	var story := panel.get_node_or_null("StoryLabel") as Label
 	var has_text: bool = story != null and not story.text.is_empty()
+	GameManager.record_timeline_event("test",{"effect_kind":"memory","actors":["alice"],"effect":{"npc_id":"alice","importance":70,"memory_type":"player_gave_item"}})
+	panel.show_day(GameTime.day)
+	var source := panel.get_node_or_null("SourceButton") as Button
+	var picker := panel.get_node_or_null("SourcePicker") as OptionButton
+	var trace_ok: bool = source != null and picker != null and picker.item_count > 0 and not source.disabled
+	if trace_ok:
+		source.pressed.emit()
+		trace_ok = instance.journal_panel.visible and instance.causality_actor == "alice"
+		instance.open_village_journal()
+		trace_ok = trace_ok and panel.visible and panel.day == GameTime.day and picker.has_focus()
 	var buttons_ok := true
 	for button_name in ["PreviousDayButton","NextDayButton","CloseButton"]:
 		var button := panel.get_node_or_null(button_name) as Button
 		buttons_ok = buttons_ok and button != null and button.size.y >= 44.0
 	instance.queue_free()
-	return opened and clamped_future and clamped_past and has_text and buttons_ok
+	return opened and clamped_future and clamped_past and has_text and buttons_ok and trace_ok
 
 func accessibility_preference_test() -> bool:
 	var original: Dictionary = SaveManager.preferences.duplicate(true)
