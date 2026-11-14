@@ -77,6 +77,24 @@ jobs:
           $exitCode = $LASTEXITCODE
           if ($exitCode -ne 0) { throw "Echo Village quality gate failed with exit code $exitCode." }
 
+      - name: Exercise native Windows game scenes with isolated saves
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = Join-Path $env:RUNNER_TEMP 'echo-native-window'
+          New-Item -ItemType Directory -Path $root -Force | Out-Null
+          $env:APPDATA = $root
+          $env:ECHO_VILLAGE_TEST_STORAGE_ROOT = Join-Path $root 'saves'
+          $stdout = Join-Path $root 'stdout.log'
+          $stderr = Join-Path $root 'stderr.log'
+          & ./tools/run_godot_bounded.ps1 -Godot "$env:GODOT_EXECUTABLE" -ProjectRoot "$PWD" -StandardOutput "$stdout" -StandardError "$stderr" -TimeoutSeconds 150 --audio-driver Dummy --path "$PWD" --scene res://tests/TestRunner.tscn
+          $exitCode = $LASTEXITCODE
+          Get-Content -LiteralPath $stdout
+          Get-Content -LiteralPath $stderr
+          if ($exitCode -ne 0) { throw "Native Windows game test failed with exit code $exitCode." }
+          if (-not (Select-String -Quiet -LiteralPath $stdout -Pattern '^TEST_RESULT passed=137 failed=0$')) { throw 'Native Windows game test did not finish.' }
+          if (Select-String -Quiet -LiteralPath $stderr -Pattern 'SCRIPT ERROR|Failed to load script') { throw 'Native Windows game logged a script error.' }
+
       - name: Validate visual matrix CI contract
         shell: pwsh
         run: ./tools/test_ci_visual_matrix_contract.ps1

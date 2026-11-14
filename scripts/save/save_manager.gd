@@ -89,7 +89,10 @@ func _read_save_candidate(path: String) -> Dictionary:
 	if not (data is Dictionary): return {"ok":false,"reason":"存檔內容不是有效 JSON。"}
 	var migration: Dictionary = SaveMigrationService.migrate(data)
 	if not bool(migration.get("ok",false)): return migration
-	return {"ok":true,"data":migration["data"]}
+	var migrated: Dictionary = migration["data"]
+	if not GameManager.deserialize(migrated.get("world_state",{}),true):
+		return {"ok":false,"reason":"存檔世界資料無法安全套用。"}
+	return {"ok":true,"data":migrated}
 
 func _promote_backup(path: String) -> bool:
 	var absolute_path := _absolute_path(path)
@@ -103,8 +106,9 @@ func _promote_backup(path: String) -> bool:
 	if file == null: return false
 	file.store_string(raw)
 	file.flush()
+	var write_error := file.get_error()
 	file.close()
-	if _rename_save_file(recovery_path,absolute_path) != OK:
+	if write_error != OK or _rename_save_file(recovery_path,absolute_path) != OK:
 		if FileAccess.file_exists(recovery_path): DirAccess.remove_absolute(recovery_path)
 		return false
 	return FileAccess.file_exists(absolute_path) and FileAccess.file_exists(backup_path)
@@ -145,12 +149,16 @@ func load_game() -> bool:
 		candidate = backup_candidate
 		last_load_recovered = true
 		last_recovery_reason = "主要存檔損壞，已使用上一份備份復原。"
-		_promote_backup(save_path)
 	var migrated: Dictionary = candidate["data"]
-	if not GameManager.deserialize(migrated.get("world_state",{})):
+	var world: Dictionary = migrated["world_state"]
+	if not GameManager.deserialize(world):
+		last_load_recovered = false
 		last_recovery_reason = "存檔世界資料無法安全套用。"
 		return false
 	GameTime.deserialize(migrated.get("time",{}))
+	if world.get("npc_timer_clock") != "absolute": GameManager.reset_legacy_npc_timers()
+	if last_load_recovered and not _promote_backup(save_path):
+		last_recovery_reason = "已從備份載入；主要存檔尚未更新，備份仍保留。"
 	GameManager.add_log("已讀取存檔並還原模擬狀態。")
 	if last_load_recovered: GameManager.add_log(last_recovery_reason)
 	return true

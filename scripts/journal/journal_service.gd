@@ -19,25 +19,33 @@ func compose(day: int, events: Array, transmissions: Array, names: Dictionary, r
 		if not PRIORITY.has(kind): continue
 		var sentence := _sentence(event,kind,names)
 		if sentence.is_empty(): continue
-		candidates.append({"priority":int(PRIORITY[kind]),"order":candidates.size(),"text":sentence,"cite":str(event.get("id",""))})
+		candidates.append({"priority":int(PRIORITY[kind]),"order":candidates.size(),"text":sentence,"cite":str(event.get("id","")),"source":{"time":str(event.get("time","")),"actors":event.get("actors",[]),"rumor_id":_rumor_id(event)}})
 	for value in transmissions:
 		if not (value is Dictionary) or int(value.get("day",-1)) != day: continue
 		var text := str(rumor_texts.get(str(value.get("rumor_id","")),"一則傳聞"))
 		var sentence := "%s把「%s」告訴了%s%s。" % [_name(str(value.get("from","")),names),text,_name(str(value.get("to","")),names),"，還添油加醋了一番" if bool(value.get("distorted",false)) else ""]
-		candidates.append({"priority":3,"order":candidates.size(),"text":sentence,"cite":"%s:%s>%s" % [str(value.get("rumor_id","")),str(value.get("from","")),str(value.get("to",""))]})
+		candidates.append({"priority":3,"order":candidates.size(),"text":sentence,"cite":"%s:%s>%s" % [str(value.get("rumor_id","")),str(value.get("from","")),str(value.get("to",""))],"source":{"time":str(value.get("time","")),"actors":[str(value.get("from","")),str(value.get("to",""))],"rumor_id":str(value.get("rumor_id",""))}})
 	candidates.sort_custom(func(a, b): return a["priority"] < b["priority"] or (a["priority"] == b["priority"] and a["order"] < b["order"]))
 	var chosen := candidates.slice(0,MAX_SENTENCES)
 	if chosen.is_empty():
 		return {"day":day,"empty":true,"text":"第 %d 天，村裡風平浪靜，沒有值得記下的事。" % day,"cited":[]}
 	var sentences: Array = []
 	var cited: Array = []
+	var sources: Array = []
 	for item in chosen:
 		sentences.append(str(item["text"]))
 		cited.append(str(item["cite"]))
+		var source: Dictionary = item["source"].duplicate(true)
+		source["text"] = item["text"]
+		sources.append(source)
 	var extra := candidates.size() - chosen.size()
 	var text := "第 %d 天。%s" % [day,"".join(sentences)]
 	if extra > 0: text += "此外還有 %d 件小事。" % extra
-	return {"day":day,"empty":false,"text":text,"cited":cited}
+	return {"day":day,"empty":false,"text":text,"cited":cited,"sources":sources}
+
+func _rumor_id(event: Dictionary) -> String:
+	var effect = event.get("effect")
+	return str(effect.get("rumor_id","")) if effect is Dictionary else ""
 
 func _sentence(event: Dictionary, kind: String, names: Dictionary) -> String:
 	var effect: Dictionary = event.get("effect",{}) if event.get("effect",{}) is Dictionary else {}
