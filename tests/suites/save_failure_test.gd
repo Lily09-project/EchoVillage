@@ -34,6 +34,7 @@ func run_failure_case(root: String, failure: String) -> bool:
 		corrupt.close()
 		primary_before = read_limited_text(primary,MAX_SAVE_BYTES)
 		result = load_game() and last_load_recovered and int(GameManager.player["coin"]) == 91
+		result = result and last_recovery_reason.contains("主要存檔尚未修復")
 	else:
 		var saved := save_game()
 		if failure == "backup":

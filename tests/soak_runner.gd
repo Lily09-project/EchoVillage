@@ -38,6 +38,7 @@ func run() -> void:
 	var initial_memory := int(Performance.get_monitor(Performance.MEMORY_STATIC))
 	var segment_started_us := started_us
 	var checkpoints: Array[Dictionary] = []
+	var decisions_current := true
 	for day_index in DAYS:
 		var day := day_index + 1
 		_record_progress(progress_file, day, "day-start", 0, started_us)
@@ -49,6 +50,12 @@ func run() -> void:
 			GameTime.advance_minute()
 			if (minute_index + 1) % 360 == 0:
 				_record_progress(progress_file, day, "simulation", minute_index + 1, started_us)
+		var current_minute := GameTime.absolute_minute()
+		for npc in GameManager.npcs.values():
+			var decision_age := current_minute - int(npc.get("last_decision", -1))
+			if decision_age < 0 or decision_age > GameManager.DECISION_INTERVAL:
+				decisions_current = false
+				print("SOAK_STALE_DECISION day=%d npc=%s age=%d" % [day, npc.get("id", "unknown"), decision_age])
 		_record_progress(progress_file, day, "day-complete", MINUTES_PER_DAY, started_us)
 		if (day_index + 1) % 30 == 0:
 			var now_us := Time.get_ticks_usec()
@@ -80,7 +87,7 @@ func run() -> void:
 	var save_bytes := JSON.stringify(final_snapshot).to_utf8_buffer().size()
 	var checks := {
 		"needs_in_range": needs_valid,
-		"agents_responsive": agents_valid,
+		"agents_responsive": agents_valid and decisions_current,
 		"event_completed": GameManager.active_event.is_empty(),
 		"save_schema_valid": int(final_snapshot.get("save_version", 0)) >= 4 and final_snapshot.has("npcs") and final_snapshot.has("progression") and final_snapshot.has("rumors"),
 		"rumors_spread": GameManager.rumor_log.size() > 0 and not GameManager.journal_entries.is_empty(),

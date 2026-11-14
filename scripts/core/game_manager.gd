@@ -108,6 +108,7 @@ func has_expansion_data() -> bool:
 	return location_defs.has_all(["village_square","forest_edge"]) and quest_defs.has("forest_echo") and recipe_defs.has("forest_remedy")
 
 func new_game() -> void:
+	var now := GameTime.absolute_minute()
 	npcs.clear()
 	memory_sequence = 0
 	player = {"id":"player","position":Vector2(625,405),"inventory":{"bread":3,"medicine":1},"coin":24}
@@ -152,9 +153,9 @@ func new_game() -> void:
 		npc["current_goal"] = npc["goal"]
 		npc["scores"] = {}
 		npc["decision"] = {}
-		npc["last_decision"] = -100
-		npc["action_started_minute"] = 0
-		npc["state_entered_minute"] = 0
+		npc["last_decision"] = now - DECISION_INTERVAL
+		npc["action_started_minute"] = now
+		npc["state_entered_minute"] = now
 		npc["action_cooldowns"] = {}
 		npcs[str(npc["id"])] = npc
 	for npc_id in npcs:
@@ -175,7 +176,7 @@ func _on_minute(_minute: int, _hour: int) -> void:
 		var npc: Dictionary = value
 		update_needs(npc)
 		update_mood(npc)
-		if GameTime.minute - int(npc["last_decision"]) >= DECISION_INTERVAL:
+		if GameTime.absolute_minute() - int(npc["last_decision"]) >= DECISION_INTERVAL:
 			decide(npc)
 		move_npc(npc)
 	if active_event.get("id","") == "minor_danger" and not bool(active_event.get("consequence_resolved",false)):
@@ -223,7 +224,7 @@ func decide(npc: Dictionary) -> void:
 	var previous = action_registry.get_action(previous_action)
 	if previous != null and previous_action != choice:
 		previous.cancel(npc,action_context(npc))
-		npc["action_cooldowns"][previous_action] = GameTime.minute + ACTION_SWITCH_COOLDOWN
+		npc["action_cooldowns"][previous_action] = GameTime.absolute_minute() + ACTION_SWITCH_COOLDOWN
 	npc["action"] = choice
 	npc["goal"] = choice + " based on needs and schedule"
 	npc["target"] = target_for(npc,choice)
@@ -232,8 +233,8 @@ func decide(npc: Dictionary) -> void:
 	var selected = action_registry.get_action(choice)
 	if selected != null: selected.start(npc,context)
 	npc["current_goal"] = npc["goal"]
-	npc_state_machine.transition_for_action(npc,choice,npc["target"],GameTime.minute)
-	npc["last_decision"] = GameTime.minute
+	npc_state_machine.transition_for_action(npc,choice,npc["target"],GameTime.absolute_minute())
+	npc["last_decision"] = GameTime.absolute_minute()
 	EventBus.npc_action_changed.emit(str(npc["id"]), choice)
 	add_log("%s 選擇 Action %s，分數 %.1f。" % [str(npc["display_name"]),choice,best])
 	if choice == "Eat" and remove_item(npc["inventory"], "bread", 1):
@@ -247,7 +248,7 @@ func utility_scores(npc: Dictionary) -> Dictionary:
 func action_context(npc: Dictionary) -> Dictionary:
 	var hour := GameTime.minute / 60
 	return {
-		"minute":GameTime.minute,
+		"minute":GameTime.absolute_minute(),
 		"hour":hour,
 		"scheduled_action":schedule_action(npc,hour),
 		"event_id":str(active_event.get("id","")),
@@ -275,7 +276,7 @@ func move_npc(npc: Dictionary) -> void:
 		npc["position"] = npc["position"].move_toward(npc["target"], 1.35)
 		npc["state"] = "Moving"
 	if npc["position"].distance_to(npc["target"]) <= 8.0: npc["current_location"] = location_label_for_action(str(npc["action"]),npc)
-	npc_state_machine.update(npc,GameTime.minute)
+	npc_state_machine.update(npc,GameTime.absolute_minute())
 
 func location_label_for_action(action: String, npc: Dictionary) -> String:
 	if action in ["GoHome","Sleep"]: return str(npc.get("home_location","village_square"))
@@ -354,7 +355,7 @@ func interact(npc_id: String, intent: String) -> String:
 	var npc: Dictionary = npcs[npc_id]
 	if intent == "talk":
 		npc["state"] = "Talking"
-		npc["state_entered_minute"] = GameTime.minute
+		npc["state_entered_minute"] = GameTime.absolute_minute()
 		create_memory(npc_id,"small_talk","玩家停下腳步與我交談。",2,12,"player",npc_id,{"intent":"talk"})
 		change_relationship(npc,"player",{"affinity":0.5})
 		add_log("玩家與 %s 交談。" % str(npc["display_name"]))
@@ -795,6 +796,7 @@ func serialize() -> Dictionary:
 	state["timeline_events"] = timeline_events.duplicate(true)
 	state["timeline_sequence"] = timeline_sequence
 	state["save_version"] = 4
+	state["npc_timer_clock"] = "absolute"
 	state["rumors"] = rumor_service.serialize()
 	state["rumor_log"] = rumor_log.duplicate(true)
 	state["emergent_definitions"] = emergent_definitions.duplicate(true)
@@ -807,12 +809,13 @@ func _journal_entries_for_save() -> Dictionary:
 	var result := {}
 	for day in journal_entries: result[str(day)] = journal_entries[day].duplicate(true)
 	return result
-func deserialize(data: Dictionary) -> bool:
-	if not (data is Dictionary): return false
+func deserialize(data: Dictionary, validate_only: bool = false) -> bool:
+	if not data.has_all(["player","npcs"]): return false
+	if data.has("npc_timer_clock") and data["npc_timer_clock"] != "absolute": return false
 	var candidate_player = decode_value(data.get("player",player))
 	var candidate_npcs = decode_value(data.get("npcs",npcs))
 	if not _valid_player_state(candidate_player): return false
-	if not _valid_npc_state(candidate_npcs): return false
+	if not _valid_npc_state(candidate_npcs,data.has("npc_timer_clock")): return false
 	var candidate_economy = data.get("economy",economy)
 	var candidate_event = data.get("active_event",{})
 	var candidate_event_log = data.get("event_log",[])
@@ -827,13 +830,13 @@ func deserialize(data: Dictionary) -> bool:
 	var candidate_story = data.get("story_progression",story_service.default_state())
 	var candidate_timeline = data.get("timeline_events",[])
 	var candidate_timeline_sequence = data.get("timeline_sequence",candidate_timeline.size() if candidate_timeline is Array else 0)
-	if not _valid_numeric_map(candidate_economy) or not (candidate_event is Dictionary): return false
+	if not _valid_numeric_map(candidate_economy) or not _valid_event_state(candidate_event): return false
 	if not (candidate_event_log is Array) or candidate_event_log.size() > 512: return false
 	if not _valid_integer(candidate_memory_sequence,0,1000000000): return false
-	if not (candidate_community is Dictionary) or not (candidate_location is String): return false
-	if not (candidate_discovered is Array) or candidate_discovered.size() > 512: return false
-	if not (candidate_active_quests is Dictionary) or not (candidate_completed is Array) or candidate_completed.size() > 512: return false
-	if not (candidate_flags is Dictionary) or not (candidate_progression is Dictionary): return false
+	if not _valid_community_state(candidate_community) or not (candidate_location is String): return false
+	if not _valid_string_array(candidate_discovered,512): return false
+	if not (candidate_active_quests is Dictionary) or not _valid_string_array(candidate_completed,512): return false
+	if not (candidate_flags is Dictionary) or not _valid_progression_state(candidate_progression): return false
 	if not story_service.validate_state(candidate_story): return false
 	if not (candidate_timeline is Array) or candidate_timeline.size() > 512: return false
 	for value in candidate_timeline:
@@ -849,10 +852,12 @@ func deserialize(data: Dictionary) -> bool:
 	if not rumor_service.validate_state(candidate_rumors): return false
 	if not (candidate_rumor_log is Array) or candidate_rumor_log.size() > MAX_RUMOR_LOG: return false
 	if not _valid_emergent_definitions(candidate_emergent) or not (candidate_offers is Array) or candidate_offers.size() > 8: return false
+	if not _valid_quest_state(candidate_active_quests): return false
 	for offer in candidate_offers:
 		if not _valid_emergent_definition(offer): return false
 	if not (candidate_journal is Dictionary) or candidate_journal.size() > MAX_JOURNAL_DAYS: return false
 	if not _valid_integer(candidate_gossip,0,1000000000): return false
+	if validate_only: return true
 	player = candidate_player
 	npcs = candidate_npcs
 	economy = candidate_economy.duplicate(true)
@@ -885,6 +890,17 @@ func deserialize(data: Dictionary) -> bool:
 	gossip_round = int(candidate_gossip)
 	return true
 
+# Older saves used minutes of the day. Let villagers make a fresh decision
+# using the restored clock instead of carrying ambiguous deadlines forward.
+func reset_legacy_npc_timers() -> void:
+	var now := GameTime.absolute_minute()
+	for value in npcs.values():
+		var npc: Dictionary = value
+		npc["last_decision"] = now - DECISION_INTERVAL
+		npc["action_started_minute"] = now
+		npc["state_entered_minute"] = now
+		npc["action_cooldowns"] = {}
+
 func _valid_emergent_definitions(value: Variant) -> bool:
 	if not (value is Dictionary) or value.size() > 64: return false
 	for quest_id in value:
@@ -906,22 +922,124 @@ func _valid_emergent_definition(value: Variant) -> bool:
 func _valid_player_state(value: Variant) -> bool:
 	if not (value is Dictionary): return false
 	var state: Dictionary = value
-	if not state.has("inventory") or not _valid_numeric_map(state.get("inventory")): return false
+	if not state.has_all(["inventory","position","coin"]): return false
+	if not _valid_numeric_map(state["inventory"]): return false
 	for key in ["position","target"]:
 		if state.has(key) and not (state[key] is Vector2): return false
 	if state.has("coin") and not _valid_number(state.get("coin"),0.0,1000000000.0): return false
 	return true
 
-func _valid_npc_state(value: Variant) -> bool:
-	if not (value is Dictionary) or value.size() > 64: return false
-	for npc_value in value.values():
+func _valid_npc_state(value: Variant, absolute_timers: bool = false) -> bool:
+	if not (value is Dictionary) or value.is_empty() or value.size() > 64: return false
+	for npc_id in value:
+		var npc_value = value[npc_id]
 		if not (npc_value is Dictionary): return false
 		var npc: Dictionary = npc_value
+		if not npc.has_all(["position","target","needs","action","inventory","relationships","memories"]): return false
+		for key in ["id","display_name","occupation","home_location","work_location","mood","goal","action"]:
+			if not (npc.get(key) is String): return false
+		if npc["id"] != str(npc_id) or str(npc_id).is_empty(): return false
+		if not _valid_npc_details(npc): return false
+		if not (npc["action"] is String) or not (npc["needs"] is Dictionary): return false
+		for key in ["hunger","energy","social","safety"]:
+			if not _valid_number(npc["needs"].get(key),0.0,100.0): return false
+		if absolute_timers:
+			for key in ["last_decision","action_started_minute","state_entered_minute"]:
+				if not _valid_integer(npc.get(key),-100.0,1440001440.0): return false
+			var cooldowns = npc.get("action_cooldowns")
+			if not (cooldowns is Dictionary) or cooldowns.size() > 64: return false
+			for deadline in cooldowns.values():
+				if not _valid_integer(deadline,0.0,1440001440.0): return false
 		if npc.has("inventory") and not _valid_numeric_map(npc.get("inventory")): return false
 		if npc.has("relationships") and not (npc.get("relationships") is Dictionary): return false
 		if npc.has("memories") and (not (npc.get("memories") is Array) or npc.get("memories").size() > MAX_MEMORIES_PER_NPC): return false
 		for key in ["position","target","current_target"]:
 			if npc.has(key) and not (npc[key] is Vector2): return false
+	return true
+
+
+# Validate nested data at the save boundary, before any live state is changed.
+
+func _valid_community_state(value: Variant) -> bool:
+	if not (value is Dictionary) or not _valid_number(value.get("renown",0),0,1000000000): return false
+	var entries = value.get("entries")
+	if not (entries is Array) or entries.size() > 512: return false
+	for entry in entries:
+		if not (entry is Dictionary): return false
+	return true
+
+func _valid_event_state(value: Variant) -> bool:
+	if not (value is Dictionary): return false
+	if value.is_empty(): return true
+	if not (value.get("id") is String): return false
+	if not _valid_integer(value.get("duration"),1,1000000000): return false
+	if value.has("remaining_minutes") and not _valid_integer(value["remaining_minutes"],0,1000000000): return false
+	if not (value.get("effects",{}) is Dictionary): return false
+	return true
+
+func _valid_progression_state(value: Variant) -> bool:
+	if not (value is Dictionary) or not _valid_numeric_map(value.get("stats")): return false
+	if not _valid_string_array(value.get("unlocked_ids",[]),512): return false
+	var unlocked_at = value.get("unlocked_at",{})
+	if not (unlocked_at is Dictionary): return false
+	for stamp in unlocked_at.values():
+		if not (stamp is String): return false
+	return true
+
+func _valid_string_array(value: Variant, maximum: int) -> bool:
+	if not (value is Array) or value.size() > maximum: return false
+	for entry in value:
+		if not (entry is String): return false
+	return true
+
+func _valid_quest_state(value: Dictionary) -> bool:
+	if value.size() > 64: return false
+	for quest_id in value:
+		var runtime = value[quest_id]
+		if not (runtime is Dictionary): return false
+		if not _valid_integer(runtime.get("objective_index"),0,64): return false
+		if not _valid_integer(runtime.get("progress"),0,1000000000): return false
+		if runtime.has("quest_id") and runtime["quest_id"] != str(quest_id): return false
+		if runtime.has("status") and runtime["status"] != "active": return false
+	return true
+
+func _valid_npc_details(npc: Dictionary) -> bool:
+	if npc.has("coin") and not _valid_number(npc["coin"],0,1000000000): return false
+	var profile = npc.get("dialogue_profile",{})
+	if not (profile is Dictionary): return false
+	if profile.has("tone") and not (profile["tone"] is String): return false
+	if not _valid_string_array(profile.get("topics",[]),64): return false
+	var personality = npc.get("personality",{})
+	if not (personality is Dictionary): return false
+	for trait_value in personality.values():
+		if not _valid_number(trait_value,0,1): return false
+	var schedule = npc.get("base_schedule",[])
+	if not (schedule is Array) or schedule.size() > 64: return false
+	for entry in schedule:
+		if not (entry is Dictionary): return false
+		if not _valid_integer(entry.get("hour"),0,23) or not (entry.get("action") is String): return false
+	var relations = npc.get("relationships",{})
+	if not (relations is Dictionary): return false
+	for relation in relations.values():
+		if not (relation is Dictionary): return false
+		for amount in relation.values():
+			if not _valid_number(amount,-100,100): return false
+	var memories = npc.get("memories",[])
+	if not (memories is Array) or memories.size() > MAX_MEMORIES_PER_NPC: return false
+	for memory in memories:
+		if not (memory is Dictionary): return false
+		for key in ["id","event_type","subject_id","description"]:
+			if not (memory.get(key) is String): return false
+		if not _valid_integer(memory.get("importance"),0,100): return false
+		if not _valid_number(memory.get("emotional_value"),-100,100): return false
+		if memory.has("metadata") and not (memory["metadata"] is Dictionary): return false
+	var modifiers = npc.get("temporary_modifiers",[])
+	if not (modifiers is Array) or modifiers.size() > 64: return false
+	for modifier in modifiers:
+		if not (modifier is Dictionary): return false
+		if not (modifier.get("id") is String) or not _valid_integer(modifier.get("remaining_minutes"),0,1000000000): return false
+	for key in ["decision","scores"]:
+		if npc.has(key) and not (npc[key] is Dictionary): return false
 	return true
 
 func _valid_numeric_map(value: Variant) -> bool:
