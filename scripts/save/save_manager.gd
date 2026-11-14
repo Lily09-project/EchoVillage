@@ -158,7 +158,7 @@ func load_game() -> bool:
 	GameTime.deserialize(migrated.get("time",{}))
 	if world.get("npc_timer_clock") != "absolute": GameManager.reset_legacy_npc_timers()
 	if last_load_recovered and not _promote_backup(save_path):
-		last_recovery_reason = "已從備份載入；主要存檔尚未修復，備份仍保留。"
+		last_recovery_reason = "已從備份載入；主要存檔尚未更新，備份仍保留。"
 	GameManager.add_log("已讀取存檔並還原模擬狀態。")
 	if last_load_recovered: GameManager.add_log(last_recovery_reason)
 	return true
