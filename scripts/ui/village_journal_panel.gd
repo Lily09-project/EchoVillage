@@ -66,7 +66,7 @@ func show_day(target_day: int) -> void:
 	source_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_show_source()
 	if sources.is_empty():
-		source_label.text = "這一天沒有可引用的事件。" if bool(entry.get("empty",false)) else "此日誌只有摘要，可查看今日回音。"
+		source_label.text = "這一天沒有可引用的事件。" if bool(entry.get("empty",false)) else "可在今日回音查看當天的紀錄。"
 	previous_button.disabled = day <= earliest_day()
 	next_button.disabled = day >= latest_day
 
