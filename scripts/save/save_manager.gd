@@ -209,7 +209,7 @@ func _write_preferences() -> bool:
 	var write_error := file.get_error()
 	file.close()
 	if write_error != OK:
-		push_warning("偏好設定無法寫入（錯誤碼 %d）；本次變更只在這次遊玩有效。" % write_error)
+		push_warning("Preferences could not be written (error %d); changes last only for this session." % write_error)
 		return false
 	return true
 
