@@ -80,7 +80,7 @@
 
 ### 網頁版
 
-`export_presets.cfg` 的 `Web` 預設使用單執行緒模板，不需要 COOP／COEP 標頭，可以直接放在 GitHub Pages。瀏覽器拿不到系統字型，所以 `assets/fonts/NotoSansTC-EchoVillage.ttf` 內嵌了 Noto Sans TC 的子集（只含專案用到的字，約 300 KB，OFL 授權）；`tools/build_font_subset.py` 重新產生，`tests/test_runner.gd` 會檢查專案中每個字都在字型裡。`.github/workflows/web.yml` 下載固定雜湊的 Godot 與模板、匯出、用 Playwright 在 Chromium 啟動並確認畫面不是全黑，合併到 `master` 後部署到 Pages。網頁外殼是 `web/shell.html`（匯出預設的 `html/custom_html_shell`）：繁中載入畫面、操作說明、描述與 Open Graph 標籤，以及只有觸控裝置時先詢問再下載的提示；預覽圖由 workflow 從 `docs/screenshots/rumor-network.png` 複製成 `og-image.png`。GitHub Pages 會自動以 gzip 傳送 `.wasm`／`.pck`（約 38 MB 的 wasm 傳輸約 9.4 MB），但不提供 Brotli，也不會使用預先壓縮的 `.br`／`.gz` 檔，快取時間固定為 10 分鐘。
+`export_presets.cfg` 的 `Web` 預設使用單執行緒模板，不需要 COOP／COEP 標頭，可以直接放在 GitHub Pages。瀏覽器拿不到系統字型，所以 `assets/fonts/NotoSansTC-EchoVillage.ttf` 內嵌了 Noto Sans TC 的子集（只含專案用到的字，約 300 KB，OFL 授權）；`tools/build_font_subset.py` 重新產生，`tests/test_runner.gd` 會檢查專案中每個字都在字型裡。`.github/workflows/web.yml` 下載固定雜湊的 Godot 與模板、匯出、用 Playwright 在 Chromium 啟動並確認畫面不是全黑，合併到 `master` 後部署到 Pages。網頁外殼是 `web/shell.html`（匯出預設的 `html/custom_html_shell`）：繁中載入畫面、操作說明、描述與 Open Graph 標籤，以及只有觸控裝置時先詢問再下載的提示。外殼的版面與字體參考 awesome-design-md（MIT）的 Oura DESIGN.md 版面與字體規則，配色維持遊戲原有色票：標題與標語用系統內建的細襯線字、說明文字用無襯線字，以細線分隔、平面填色、固定圓角級距（4／8／12／24 px 與膠囊形），夜色底上鋪一張紙色的操作說明卡，所有顏色都取自 `scripts/ui/ui_theme.gd` 與 `scripts/main.gd` 既有色票或其透明度變化，不載入外部字型；預覽圖由 workflow 從 `docs/screenshots/rumor-network.png` 複製成 `og-image.png`。GitHub Pages 會自動以 gzip 傳送 `.wasm`／`.pck`（約 38 MB 的 wasm 傳輸約 9.4 MB），但不提供 Brotli，也不會使用預先壓縮的 `.br`／`.gz` 檔，快取時間固定為 10 分鐘。
 
 ## 資料契約
 
