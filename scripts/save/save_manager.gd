@@ -205,6 +205,12 @@ func _write_preferences() -> bool:
 	var file := FileAccess.open(_storage_path("echo_village_preferences.json",PREFERENCES_PATH),FileAccess.WRITE)
 	if file == null: return false
 	file.store_string(JSON.stringify(preferences,"\t"))
+	file.flush()
+	var write_error := file.get_error()
+	file.close()
+	if write_error != OK:
+		push_warning("Preferences could not be written (error %d); changes last only for this session." % write_error)
+		return false
 	return true
 
 func get_preference(key: String, fallback: bool = false) -> bool:
