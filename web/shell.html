@@ -23,27 +23,34 @@
 <meta name="twitter:image" content="https://lily09-project.github.io/EchoVillage/og-image.png">
 <style>
 /* Colours come from the game's own palette (scripts/ui/ui_theme.gd VillageTheme and
-   the HUD night colours in scripts/main.gd); only alpha variants are derived here. */
+   the HUD night colours in scripts/main.gd); only alpha variants are derived here.
+   Layout and type follow a "field journal" restraint: a light serif for statements,
+   a calm sans for reading, hairline rules, flat fills and two surface worlds
+   (the night stage and a paper page laid on it). */
 :root {
-	--night: #102332;          /* main.gd HUD scrim, page background */
-	--night-glow: #1d4157;     /* existing shell glow */
-	--surface: #102b3a;        /* VillageTheme.SURFACE_NIGHT */
+	--night: #102332;          /* main.gd HUD scrim, page background (night world) */
 	--surface-raised: #193c50; /* VillageTheme.SURFACE_NIGHT_RAISED */
-	--key: #193447;            /* main.gd button normal fill */
-	--key-edge: #526778;       /* main.gd button normal border */
-	--border: #4f6b7b;         /* VillageTheme.BORDER_NIGHT */
-	--paper: #f7edcf;          /* VillageTheme.PAPER */
-	--paper-dark: #dfc995;     /* VillageTheme.PAPER_DARK */
+	--paper: #f7edcf;          /* VillageTheme.PAPER (paper world) */
 	--cream: #fff7df;          /* VillageTheme.CREAM */
+	--ink: #241d1a;            /* VillageTheme.INK */
+	--ink-soft: #4d4036;       /* VillageTheme.INK_SOFT */
 	--muted: #b8c6cf;          /* existing shell secondary text */
 	--sun: #e7aa4c;            /* VillageTheme.SUN */
 	--focus: #f7d88a;          /* VillageTheme.FOCUS */
 	--moss: #79b786;           /* VillageTheme.MOSS_LIGHT */
-	--danger: #c64d4c;         /* VillageTheme.DANGER */
-	--danger-soft: #e08a8a;    /* existing shell error border */
 	--danger-surface: #4a2c33; /* existing shell error fill */
 	--danger-text: #f6dede;    /* existing shell error text */
-	--radius: 12px;
+	--hairline-night: rgba(184, 198, 207, 0.22); /* --muted wash on night */
+	--hairline-paper: rgba(36, 29, 26, 0.16);    /* --ink wash on paper */
+	/* Radius scale: utility 4, small 8, field 12, card 24, pill. */
+	--r-xs: 4px;
+	--r-sm: 8px;
+	--r-md: 12px;
+	--r-lg: 24px;
+	--r-full: 9999px;
+	/* System fonts only: a light serif for statements, a calm sans for reading. */
+	--serif: "Noto Serif TC", "Source Han Serif TC", "Songti TC", "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, "PMingLiU", serif;
+	--sans: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Heiti TC", system-ui, sans-serif;
 	--ease: cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 html, body, #canvas { margin: 0; padding: 0; border: 0; }
@@ -52,7 +59,7 @@ body {
 	background-color: var(--night);
 	overflow: hidden;
 	touch-action: none;
-	font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Heiti TC", system-ui, sans-serif;
+	font-family: var(--sans);
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
 	text-rendering: optimizeLegibility;
@@ -60,16 +67,14 @@ body {
 #canvas { display: block; }
 #canvas:focus { outline: none; }
 
-/* Loading overlay */
+/* Loading overlay: the night world, a flat fill. */
 #status {
 	position: absolute;
 	inset: 0;
 	display: flex;
-	padding: 32px 20px;
+	padding: 56px 24px;
 	box-sizing: border-box;
-	background:
-		radial-gradient(ellipse 50% 32% at 50% 30%, rgba(231, 170, 76, 0.05) 0%, rgba(231, 170, 76, 0) 70%),
-		radial-gradient(circle at 50% 30%, var(--night-glow) 0%, var(--night) 72%);
+	background: var(--night);
 	overflow-y: auto;
 	z-index: 1;
 	opacity: 1;
@@ -78,81 +83,90 @@ body {
 #status.is-leaving { opacity: 0; pointer-events: none; }
 .panel {
 	width: 100%;
-	max-width: 560px;
+	max-width: 540px;
 	margin: auto;
 	text-align: center;
 	animation: rise 0.6s var(--ease) both;
 }
 @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
+/* Quiet overline flanked by hairlines. */
 .eyebrow {
 	display: inline-flex;
 	align-items: center;
-	gap: 12px;
+	gap: 16px;
 	margin: 0;
 	color: var(--moss);
-	font-size: 13px;
+	font-size: 12px;
 	font-weight: 500;
-	letter-spacing: 0.16em;
+	line-height: 1.2;
+	letter-spacing: 0.24em;
 }
 .eyebrow::before, .eyebrow::after {
 	content: "";
-	width: 28px;
+	width: 32px;
 	height: 1px;
-	background: linear-gradient(90deg, rgba(121, 183, 134, 0), rgba(121, 183, 134, 0.7));
+	background: rgba(121, 183, 134, 0.5);
 }
-.eyebrow::after { transform: scaleX(-1); }
+/* Statements in a light serif; scale, not weight, makes the hierarchy. */
 h1 {
-	margin: 10px 0 8px;
+	margin: 20px 0 16px;
 	color: var(--sun);
-	font-size: clamp(34px, 7vw, 52px);
-	font-weight: 700;
-	line-height: 1.1;
-	letter-spacing: 0.06em;
-	text-shadow: 0 2px 0 rgba(16, 35, 50, 0.6), 0 0 32px rgba(231, 170, 76, 0.18);
+	font-family: var(--serif);
+	font-size: clamp(30px, 8.5vw, 56px);
+	font-weight: 300;
+	line-height: 1.05;
+	white-space: nowrap;
+	letter-spacing: 0.14em;
+	text-indent: 0.14em; /* balances the trailing tracking so the title stays centred */
 }
-.tagline { margin: 0 0 28px; color: var(--paper); font-size: 16px; line-height: 1.75; letter-spacing: 0.02em; }
+.tagline {
+	margin: 0 0 48px;
+	color: var(--paper);
+	font-family: var(--serif);
+	font-size: 18px;
+	font-weight: 300;
+	line-height: 1.8;
+	letter-spacing: 0.04em;
+}
 
-/* Progress */
-#progress-wrap { margin: 0 auto 28px; max-width: 400px; }
+/* Progress: a flat, thin bar. */
+#progress-wrap { margin: 0 auto 48px; max-width: 360px; }
 #progress-track {
 	position: relative;
-	height: 8px;
-	border-radius: 999px;
-	background: var(--surface);
-	box-shadow: inset 0 0 0 1px rgba(79, 107, 123, 0.7);
+	height: 4px;
+	border-radius: var(--r-full);
+	background: rgba(184, 198, 207, 0.18);
 	overflow: hidden;
 }
 #progress-bar {
 	height: 100%;
 	width: 0%;
 	border-radius: inherit;
-	background: linear-gradient(90deg, var(--moss), var(--sun));
-	box-shadow: 0 0 12px rgba(231, 170, 76, 0.35);
+	background: var(--sun);
 	transition: width 0.45s var(--ease);
 }
 /* Shown only until the first progress callback arrives, then replaced by the real bar. */
 #progress-bar.indeterminate { width: 32%; transition: none; animation: sweep 1.4s var(--ease) infinite; }
 @keyframes sweep { from { transform: translateX(-100%); } to { transform: translateX(320%); } }
 #progress-text {
-	margin: 12px 0 0;
+	margin: 16px 0 0;
 	color: var(--muted);
 	font-size: 14px;
 	line-height: 1.5;
-	letter-spacing: 0.02em;
+	letter-spacing: 0.04em;
 	font-variant-numeric: tabular-nums;
 	min-height: 1.5em;
 }
 
-/* Controls card */
+/* Controls: the paper world, a journal page laid on the night table. */
 .controls {
 	margin: 0 auto;
-	padding: 18px 20px 20px;
-	max-width: 480px;
-	border: 1px solid rgba(79, 107, 123, 0.55);
-	border-radius: var(--radius);
-	background: linear-gradient(180deg, rgba(25, 60, 80, 0.72), rgba(16, 43, 58, 0.72));
-	box-shadow: 0 12px 32px rgba(10, 23, 33, 0.35), inset 0 1px 0 rgba(247, 237, 207, 0.05);
+	padding: 24px 32px 28px;
+	border-radius: var(--r-lg);
+	background: var(--paper);
+	color: var(--ink);
+	box-shadow: 0 8px 24px rgba(10, 23, 33, 0.2); /* the only shadow: one soft resting level */
 	text-align: left;
 }
 .controls-head {
@@ -160,76 +174,99 @@ h1 {
 	align-items: baseline;
 	justify-content: space-between;
 	gap: 12px;
-	margin: 0 0 14px;
-	padding-bottom: 12px;
-	border-bottom: 1px solid rgba(79, 107, 123, 0.45);
+	margin: 0 0 20px;
+	padding-bottom: 16px;
+	border-bottom: 1px solid var(--hairline-paper);
 }
-.controls h2 { margin: 0; color: var(--paper); font-size: 15px; font-weight: 600; letter-spacing: 0.08em; }
-.controls-head span { color: var(--muted); font-size: 12px; letter-spacing: 0.04em; }
+.controls h2 {
+	margin: 0;
+	color: var(--ink);
+	font-family: var(--serif);
+	font-size: 20px;
+	font-weight: 400;
+	line-height: 1.2;
+	letter-spacing: 0.12em;
+}
+.controls-head span { color: var(--ink-soft); font-size: 13px; line-height: 1.4; letter-spacing: 0.02em; }
 .controls ul {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
-	gap: 10px 20px;
+	gap: 12px 24px;
 	margin: 0;
 	padding: 0;
 	list-style: none;
-	color: var(--muted);
+	color: var(--ink-soft);
 	font-size: 14px;
 	line-height: 1.4;
 }
-.controls li { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.controls li { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .controls li.wide { grid-column: 1 / -1; }
-.controls .keys { display: inline-flex; flex: none; gap: 4px; min-width: 44px; }
-.controls .label { color: var(--paper); opacity: 0.88; }
-.controls .or { color: var(--muted); font-size: 12px; align-self: center; }
+.controls .keys { display: inline-flex; flex: none; gap: 4px; min-width: 40px; }
+.controls .label { color: var(--ink); }
+.controls .or { color: var(--ink-soft); font-size: 12px; align-self: center; }
 kbd {
 	display: inline-block;
 	box-sizing: border-box;
 	min-width: 28px;
-	padding: 3px 7px 2px;
-	border: 1px solid var(--key-edge);
-	border-bottom-width: 3px;
-	border-radius: 6px;
-	background: var(--key);
-	color: var(--cream);
+	padding: 3px 7px;
+	border: 1px solid rgba(36, 29, 26, 0.28);
+	border-radius: var(--r-xs);
+	background: var(--cream);
+	color: var(--ink);
 	font: 600 12px/1.4 ui-monospace, "Cascadia Mono", Consolas, monospace;
 	text-align: center;
 	white-space: nowrap;
 }
 
-.hint { margin: 18px 0 0; color: var(--muted); font-size: 13px; line-height: 1.8; letter-spacing: 0.02em; }
-a { color: var(--sun); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.hint {
+	margin: 40px auto 0;
+	padding-top: 20px;
+	max-width: 360px;
+	border-top: 1px solid var(--hairline-night);
+	color: var(--muted);
+	font-size: 13px;
+	line-height: 1.8;
+	letter-spacing: 0.04em;
+}
+a { color: var(--sun); text-decoration-thickness: 1px; text-underline-offset: 4px; }
 a:hover { color: var(--focus); }
-a:focus-visible, button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; border-radius: 6px; }
+a:focus-visible, button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; border-radius: var(--r-sm); }
+button:focus-visible { border-radius: var(--r-full); }
 
-/* Touch-device notice and error notice */
+/* Touch-device notice and error notice: flat cards on the night world. */
 #device-notice, #status-notice {
 	display: none;
 	box-sizing: border-box;
-	margin: 0 auto 28px;
-	max-width: 480px;
-	padding: 18px 20px;
-	border-radius: var(--radius);
+	margin: 0 auto 48px;
+	padding: 24px;
+	border-radius: var(--r-lg);
 	font-size: 14px;
-	line-height: 1.75;
+	line-height: 1.8;
 	text-align: left;
 }
 #device-notice {
-	border: 1px solid rgba(231, 170, 76, 0.55);
-	border-top: 3px solid var(--sun);
+	border: 1px solid var(--hairline-night);
 	background: var(--surface-raised);
 	color: var(--paper);
-	box-shadow: 0 12px 32px rgba(10, 23, 33, 0.35);
 }
-.notice-title { display: block; margin: 0 0 6px; color: var(--sun); font-size: 15px; font-weight: 600; letter-spacing: 0.04em; }
+.notice-title {
+	display: block;
+	margin: 0 0 8px;
+	color: var(--sun);
+	font-family: var(--serif);
+	font-size: 20px;
+	font-weight: 400;
+	line-height: 1.3;
+	letter-spacing: 0.06em;
+}
 #device-notice button {
 	display: block;
 	width: 100%;
 	min-height: 48px;
-	margin-top: 14px;
-	padding: 10px 16px;
+	margin-top: 20px;
+	padding: 12px 20px;
 	border: 0;
-	border-radius: 10px;
+	border-radius: var(--r-full);
 	background: var(--moss);
 	color: var(--night);
 	font-family: inherit;
@@ -237,25 +274,31 @@ a:focus-visible, button:focus-visible { outline: 3px solid var(--focus); outline
 	font-weight: 700;
 	line-height: 1.3;
 	letter-spacing: 0.04em;
-	box-shadow: 0 4px 0 rgba(16, 35, 50, 0.55);
 	cursor: pointer;
-	transition: transform 0.15s var(--ease), box-shadow 0.15s var(--ease), background-color 0.15s var(--ease);
+	transition: background-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
 }
-#device-notice button:hover { box-shadow: 0 4px 0 rgba(16, 35, 50, 0.55), inset 0 0 0 2px var(--cream); }
-#device-notice button:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(16, 35, 50, 0.55); }
+#device-notice button:hover { box-shadow: inset 0 0 0 2px var(--cream); }
+#device-notice button:active { background: var(--paper); }
 #status-notice {
-	border: 1px solid var(--danger-soft);
-	border-left: 4px solid var(--danger);
+	border: 1px solid rgba(224, 138, 138, 0.55);
 	background: var(--danger-surface);
 	color: var(--danger-text);
-	box-shadow: 0 12px 32px rgba(10, 23, 33, 0.35);
 }
-#status-notice strong { display: block; margin: 0 0 4px; color: var(--cream); font-size: 15px; font-weight: 600; }
+#status-notice strong {
+	display: block;
+	margin: 0 0 8px;
+	color: var(--cream);
+	font-family: var(--serif);
+	font-size: 20px;
+	font-weight: 400;
+	line-height: 1.3;
+	letter-spacing: 0.04em;
+}
 #status-notice a { color: var(--focus); white-space: nowrap; }
 #status-notice .detail {
 	display: block;
-	margin-top: 10px;
-	padding-top: 10px;
+	margin-top: 16px;
+	padding-top: 12px;
 	border-top: 1px solid rgba(224, 138, 138, 0.35);
 	color: var(--danger-text);
 	font-size: 12px;
@@ -263,28 +306,32 @@ a:focus-visible, button:focus-visible { outline: 3px solid var(--focus); outline
 	word-break: break-word;
 }
 
-/* Short desktop windows (1280×720 and below): tighten the vertical rhythm. */
+/* Short desktop windows (1280×720 and below): keep the rhythm, scale the gaps down. */
 @media (max-height: 760px) and (min-width: 600px) {
-	#status { padding-top: 20px; padding-bottom: 20px; }
-	h1 { margin: 6px 0 4px; font-size: 44px; }
-	.tagline { margin-bottom: 22px; }
-	#progress-wrap, #device-notice, #status-notice { margin-bottom: 22px; }
-	.controls { padding: 14px 20px 16px; }
-	.controls-head { margin-bottom: 12px; padding-bottom: 10px; }
-	.hint { margin-top: 14px; }
+	#status { padding-top: 28px; padding-bottom: 28px; }
+	h1 { margin: 14px 0 10px; font-size: 48px; }
+	.tagline { margin-bottom: 28px; }
+	#progress-wrap, #device-notice, #status-notice { margin-bottom: 28px; }
+	.controls { padding: 20px 32px 22px; }
+	.controls-head { margin-bottom: 16px; padding-bottom: 12px; }
+	.controls ul { gap: 10px 24px; }
+	.hint { margin-top: 24px; padding-top: 14px; }
 }
 /* Phones */
 @media (max-width: 480px) {
-	#status { padding: 28px 16px; }
-	.eyebrow { font-size: 12px; letter-spacing: 0.12em; gap: 8px; }
-	.eyebrow::before, .eyebrow::after { width: 18px; }
-	.tagline { font-size: 15px; margin-bottom: 24px; }
-	.controls { padding: 16px; }
-	.controls-head { flex-direction: column; gap: 2px; }
-	.controls ul { gap: 10px 12px; font-size: 13px; }
+	#status { padding: 40px 16px; }
+	.eyebrow { letter-spacing: 0.16em; gap: 10px; }
+	.eyebrow::before, .eyebrow::after { width: 20px; }
+	h1 { letter-spacing: 0.1em; text-indent: 0.1em; }
+	.tagline { font-size: 16px; margin-bottom: 40px; }
+	#progress-wrap { margin-bottom: 40px; }
+	.controls { padding: 20px; border-radius: var(--r-md); }
+	.controls-head { flex-direction: column; gap: 4px; }
+	.controls ul { gap: 12px; font-size: 13px; }
 	.controls li { gap: 8px; }
 	.controls .keys { min-width: 36px; }
-	#device-notice, #status-notice { padding: 16px; }
+	#device-notice, #status-notice { padding: 20px; margin-bottom: 40px; border-radius: var(--r-md); }
+	.hint { margin-top: 32px; }
 }
 @media (prefers-reduced-motion: reduce) {
 	.panel { animation: none; }

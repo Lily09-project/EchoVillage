@@ -1,3 +1,5 @@
+<p align="center"><sub>村落生活模擬・瀏覽器試玩</sub></p>
+
 <h1 align="center">Echo Village</h1>
 
 <p align="center"><strong>會記得你的村落。</strong></p>
@@ -12,13 +14,15 @@
 
 你做的每件事都會被某位居民記住，再被轉述成越傳越走樣的傳聞，改變村民之間的關係，最後變成他們主動找你幫忙的委託。全部由本地規則驅動，可離線遊玩，不需要 API 金鑰。
 
-<h3 align="center">▶ <a href="https://lily09-project.github.io/EchoVillage/">在瀏覽器直接試玩</a>　｜　<a href="https://github.com/Lily09-project/EchoVillage/releases/tag/v1.4.0">下載 Windows 版 v1.4.0</a></h3>
+<p align="center"><a href="https://lily09-project.github.io/EchoVillage/"><b>在瀏覽器直接試玩</b></a>　·　<a href="https://github.com/Lily09-project/EchoVillage/releases/tag/v1.4.0"><b>下載 Windows 版 v1.4.0</b></a></p>
 
 > [!NOTE]
 > 網頁版首次載入約 10 MB（壓縮後），請使用桌機的 Chrome、Edge 或 Firefox，並以鍵盤遊玩；手機可以開啟，但無法移動角色。
 
 ![傳聞網路：艾莉絲目擊的事件被轉述給其他村民，虛線代表走樣的版本](docs/screenshots/rumor-network.png)
 <p align="center"><sub>傳聞網路（<code>U</code>）：艾莉絲目擊的事件被轉述給其他村民，虛線代表走樣的版本。</sub></p>
+
+---
 
 ## 有什麼特別
 
@@ -74,6 +78,8 @@
 ## 發行狀態
 
 Windows 最新正式版本為 [Echo Village v1.4.0](https://github.com/Lily09-project/EchoVillage/releases/tag/v1.4.0)。網頁版會隨主分支自動部署，包含 v1.4.0 之後尚未正式發布的 2.0 功能（傳聞、委託、日誌）；未正式發布的建置不代表穩定 Windows 版。
+
+---
 
 ## 本機執行與驗證
 
